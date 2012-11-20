@@ -44,7 +44,7 @@ func dateFrom(data []byte) (string, time.Time) {
 		return "NONE-" + now.Format(timeFormat), now
 	}
 
-	t, err := time.Parse(tg.String(), "2006:01:02 15:04:05")
+	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
 	if err != nil {
 		return "NONE-" + now.Format(timeFormat), now
 	}
@@ -54,9 +54,9 @@ func dateFrom(data []byte) (string, time.Time) {
 
 func New(name string, data []byte) (*Photo, error) {
 	ext := filepath.Ext(name)
-	base := filepath.Base(name)[:len(ext)]
+	base := filepath.Base(name)
 	strDate, date := dateFrom(data)
-	fname := strDate + "-" + base
+	fname := strDate + "-" + base[:len(base)-len(ext)]
 
 	r := bytes.NewReader(data)
 	img, _, err := image.Decode(r)
@@ -108,8 +108,8 @@ func (p *Photo) Thumbnail2() []byte {
 func thumb(w, h int, img image.Image) ([]byte, error) {
 	m := resize.Resize(144, 0, img, resize.Lanczos3)
 
-	var buf *bytes.Buffer
-	err := jpeg.Encode(buf, m, nil)
+	var buf bytes.Buffer
+	err := jpeg.Encode(&buf, m, nil)
 	if err != nil {
 		return nil, err
 	}
