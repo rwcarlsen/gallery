@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 	"github.com/rwcarlsen/goexif/exif"
-	"github.com/rwcarlsen/gallery/resize"
+	"github.com/nfnt/resize"
 	"image"
 	"image/jpeg"
 	_ "image/gif"
@@ -64,14 +64,11 @@ func New(name string, data []byte) (*Photo, error) {
 		return nil, err
 	}
 
-	w, h := 144, 144
-	thumb1, err := thumb(img, w, h)
+	thumb1, err := thumb(144, 0, img)
 	if err != nil {
 		return nil, err
 	}
-
-	w, h = 800, 600
-	thumb2, err := thumb(img, w, h)
+	thumb2, err := thumb(144, 0, img)
 	if err != nil {
 		return nil, err
 	}
@@ -108,29 +105,13 @@ func (p *Photo) Thumbnail2() []byte {
 	return []byte(p.thumb2)
 }
 
-func thumb(img image.Image, w, h int) (Image, error) {
-	bounds := img.Bounds()
+func thumb(w, h int, img image.Image) ([]byte, error) {
+	m := resize.Resize(144, 0, img, resize.Lanczos3)
 
-	iw, ih := bounds.Dx(), bounds.Dy()
-	imgAspect := float32(iw) / float32(ih)
-	thumbAspect := float32(w) / float32(h)
-
-	if thumbAspect > imgAspect {
-		reduc := float32(ih) - float32(ih) / (thumbAspect / imgAspect)
-		bounds.Min.Y += int(reduc / 2)
-		bounds.Max.Y -= int(reduc / 2)
-	} else {
-		reduc := float32(iw) - float32(iw) / (imgAspect / thumbAspect)
-		bounds.Min.X += int(reduc / 2)
-		bounds.Max.X -= int(reduc / 2)
-	}
-
-	thumb := resize.Resize(img, bounds, w, h)
 	var buf *bytes.Buffer
-	err := jpeg.Encode(buf, thumb, nil)
+	err := jpeg.Encode(buf, m, nil)
 	if err != nil {
 		return nil, err
 	}
-	return Image(buf.Bytes()), nil
+	return buf.Bytes(), nil
 }
-
