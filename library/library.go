@@ -2,18 +2,23 @@
 package library
 
 import (
+	"path/filepath"
+	"encoding/json"
+	"errors"
+
 	"github.com/rwcarlsen/gallery/photo"
 )
 
 const (
-	ImageDir = "photos"
-	MetaDir = "meta"
-	ThumbDir = "thumbs"
+	ImageDir = "originals"
+	MetaDir = "metadata"
+	ThumbDir = "thumbnails"
 	IndexDir = "index"
 )
 
 type Backend interface {
 	Put(path, name string, data []byte) error
+	Exists(path, name string) bool
 	Get(path, name string) ([]byte, error)
 }
 
@@ -37,13 +42,19 @@ func New(name string, db Backend) *Library {
 	}
 }
 
-func (l *Library) AddPhoto(p *Photo) error {
+func (l *Library) AddPhoto(p *photo.Photo) error {
+	if l.db.Exists(l.metaDir, p.Meta) {
+		return errors.New("library: photo file " + p.Meta + " already exists")
+	} else if l.db.Exists(l.imgDir, p.Orig) {
+		return errors.New("library: photo file " + p.Orig + " already exists")
+	}
+
 	// add photo meta-data object to db
 	data, err := json.Marshal(p)
 	if err != nil {
 		return err
 	}
-	err = l.db.Put(l.metaDir, , p.Original())
+	err = l.db.Put(l.metaDir, p.Meta, data)
 	if err != nil {
 		return err
 	}
@@ -63,9 +74,11 @@ func (l *Library) AddPhoto(p *Photo) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
 }
 
-func (l *Library) LoadPhoto(p *Photo) error {
+func (l *Library) LoadImages(p *photo.Photo) error {
 	orig, err := l.db.Get(l.imgDir, p.Orig)
 	if err != nil {
 		return err
@@ -81,13 +94,45 @@ func (l *Library) LoadPhoto(p *Photo) error {
 		return err
 	}
 
-	p.LoadImages(orig, thumb1, thumb2)
+	p.SetImages(orig, thumb1, thumb2)
+	return nil
 }
 
 func (l *Library) GetIndex(index string) (*Index, error) {
-	thumb2, err := l.db.Get(l.indDir, index)
+	data, err := l.db.Get(l.indDir, index)
+	if err != nil {
+		return nil, err
+	}
+
+	var ind *Index
+	err = json.Unmarshal(data, ind)
+	if err != nil {
+		return nil, errors.New("library: malformed index - " + err.Error())
+	}
+	for _, name := range ind.MetaFiles {
+		data, err := l.db.Get(l.metaDir, name)
+		if err != nil {
+			return nil, errors.New("corrupted photo index or missing photos: " + err.Error())
+		}
+
+		var photo *photo.Photo
+		err = json.Unmarshal(data, photo)
+		if err != nil {
+			return nil, errors.New("corrupted photo metadata: " + err.Error())
+		}
+		ind.photos = append(ind.photos, photo)
+	}
+
+	return ind, nil
 }
 
 type Index struct {
-	photos []*Photo
+	Name string
+	MetaFiles []string
+	photos []*photo.Photo
 }
+
+func (i *Index) Photos() []*photo.Photo {
+	return i.photos
+}
+
