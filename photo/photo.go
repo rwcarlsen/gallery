@@ -68,7 +68,7 @@ func New(name string, data []byte) (*Photo, error) {
 	if err != nil {
 		return nil, err
 	}
-	thumb2, err := thumb(144, 0, img)
+	thumb2, err := thumb(800, 0, img)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +105,8 @@ func (p *Photo) Thumbnail2() []byte {
 	return []byte(p.thumb2)
 }
 
-func thumb(w, h int, img image.Image) ([]byte, error) {
-	m := resize.Resize(144, 0, img, resize.Lanczos3)
+func thumb(w, h uint, img image.Image) ([]byte, error) {
+	m := resize.Resize(w, h, img, resize.Bilinear)
 
 	var buf bytes.Buffer
 	err := jpeg.Encode(&buf, m, nil)
