@@ -69,11 +69,13 @@ func (l *Library) AddSecondary(db Backend) {
 }
 
 func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
+	// construct photo name
 	ext := filepath.Ext(name)
 	base := filepath.Base(name)
 	strDate, date := dateFrom(data)
 	fname := strDate + "-" + base[:len(base)-len(ext)]
 
+	// decode image bytes and construct thumbnails
 	r := bytes.NewReader(data)
 	img, _, err := image.Decode(r)
 	if err != nil {
@@ -89,8 +91,9 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 		return nil, err
 	}
 
+	// create photo meta object
 	p := &Photo{
-		Meta: fname + ".meta",
+		Meta: fname + ".json",
 		Orig: fname + ext,
 		Thumb1: fname + "_thumb1.jpg",
 		Thumb2: fname + "_thumb2.jpg",
