@@ -24,6 +24,7 @@ type Backend interface {
 
 type Library struct {
 	db Backend
+	seconds []Backend
 	name string
 	imgDir string
 	thumbDir string
@@ -42,6 +43,10 @@ func New(name string, db Backend) *Library {
 	}
 }
 
+func (l *Library) AddSecondary(db Backend) {
+	l.seconds = append(l.seconds, db)
+}
+
 func (l *Library) AddPhoto(p *photo.Photo) error {
 	if l.db.Exists(l.metaDir, p.Meta) {
 		return errors.New("library: photo file " + p.Meta + " already exists")
@@ -54,28 +59,36 @@ func (l *Library) AddPhoto(p *photo.Photo) error {
 	if err != nil {
 		return err
 	}
-	err = l.db.Put(l.metaDir, p.Meta, data)
+	err = l.putAll(l.metaDir, p.Meta, data)
 	if err != nil {
 		return err
 	}
 
 	// add photo image/thumb files to db
-	err = l.db.Put(l.imgDir, p.Orig, p.Original())
+	err = l.putAll(l.imgDir, p.Orig, p.Original())
 	if err != nil {
 		return err
 	}
 
-	err = l.db.Put(l.thumbDir, p.Thumb1, p.Thumbnail1())
+	err = l.putAll(l.thumbDir, p.Thumb1, p.Thumbnail1())
 	if err != nil {
 		return err
 	}
 
-	err = l.db.Put(l.thumbDir, p.Thumb2, p.Thumbnail2())
+	err = l.putAll(l.thumbDir, p.Thumb2, p.Thumbnail2())
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (l *Library) putAll(path, name string, data []byte) (err error) {
+	err = l.db.Put(path, name, data)
+	for _, second := range l.seconds {
+		err = second.Put(path, name, data)
+	}
+	return err
 }
 
 func (l *Library) LoadImages(p *photo.Photo) error {
@@ -135,4 +148,5 @@ type Index struct {
 func (i *Index) Photos() []*photo.Photo {
 	return i.photos
 }
+
 
