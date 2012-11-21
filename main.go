@@ -4,9 +4,9 @@ package main
 import (
 	"log"
 	"io/ioutil"
-	"github.com/rwcarlsen/gallery/library"
-	"github.com/rwcarlsen/gallery/library/local"
-	"github.com/rwcarlsen/gallery/library/amz"
+	"github.com/rwcarlsen/gallery/piclib"
+	"github.com/rwcarlsen/gallery/piclib/local"
+	"github.com/rwcarlsen/gallery/piclib/amz"
 	"launchpad.net/goamz/aws"
 )
 
@@ -24,13 +24,13 @@ func main() {
 func testAmz() {
 
 
-	// setup storage and library
+	// setup storage and piclib
 	auth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatal(err)
 	}
 	db := amz.New(auth, aws.USEast)
-	lib := library.New(libName, db)
+	lib := piclib.New(libName, db)
 
 	data, err := ioutil.ReadFile(sample)
 	if err != nil {
@@ -47,9 +47,9 @@ func testAmz() {
 }
 
 func testLocal() {
-	// setup storage and library
+	// setup storage and piclib
 	db := &local.LocalBack{Root: root}
-	lib := library.New(libName, db)
+	lib := piclib.New(libName, db)
 
 	data, err := ioutil.ReadFile(sample)
 	if err != nil {

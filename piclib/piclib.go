@@ -1,5 +1,5 @@
 
-package library
+package piclib
 
 import (
 	"errors"
