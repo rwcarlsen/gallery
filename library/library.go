@@ -136,8 +136,6 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 		return nil, err
 	}
 
-	l.updateIndex(p)
-
 	return p, nil
 }
 
@@ -171,11 +169,6 @@ func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
 		return nil, err
 	}
 	return thumb2, nil
-}
-
-func (l *Library) updateIndex(index string) (*Index, error) {
-
-
 }
 
 func (l *Library) GetIndex(index string) (*Index, error) {

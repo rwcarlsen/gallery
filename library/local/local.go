@@ -41,7 +41,6 @@ func (lb *LocalBack) Exists(path, name string) bool {
 }
 
 func (lb *LocalBack) List(path string) ([]string, error) {
-	fullPath := filepath.Join(lb.Root, path)
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
