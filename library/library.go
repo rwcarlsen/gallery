@@ -2,11 +2,18 @@
 package library
 
 import (
+	"errors"
+	"bytes"
+	"time"
 	"path/filepath"
 	"encoding/json"
-	"errors"
+	"image"
+	"image/jpeg"
+	_ "image/gif"
+	_ "image/png"
 
-	"github.com/rwcarlsen/gallery/photo"
+	"github.com/nfnt/resize"
+	"github.com/rwcarlsen/goexif/exif"
 )
 
 const (
@@ -16,10 +23,24 @@ const (
 	IndexDir = "index"
 )
 
+const (
+	nameTimeFmt = "2006-01-02-15-04-05"
+)
+
 type Backend interface {
 	Put(path, name string, data []byte) error
 	Exists(path, name string) bool
 	Get(path, name string) ([]byte, error)
+}
+
+type Photo struct {
+	Meta string
+	Orig string
+	Thumb1 string
+	Thumb2 string
+	Uploaded time.Time
+	Taken time.Time
+	Tags map[string]string
 }
 
 type Library struct {
@@ -47,40 +68,71 @@ func (l *Library) AddSecondary(db Backend) {
 	l.seconds = append(l.seconds, db)
 }
 
-func (l *Library) AddPhoto(p *photo.Photo) error {
+func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
+	ext := filepath.Ext(name)
+	base := filepath.Base(name)
+	strDate, date := dateFrom(data)
+	fname := strDate + "-" + base[:len(base)-len(ext)]
+
+	r := bytes.NewReader(data)
+	img, _, err := image.Decode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	thumb1, err := thumb(144, 0, img)
+	if err != nil {
+		return nil, err
+	}
+	thumb2, err := thumb(800, 0, img)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &Photo{
+		Meta: fname + ".meta",
+		Orig: fname + ext,
+		Thumb1: fname + "_thumb1.jpg",
+		Thumb2: fname + "_thumb2.jpg",
+		Uploaded: time.Now(),
+		Taken: date,
+		Tags: make(map[string]string),
+	}
+
+	/////// store all photo related data in backend ////////
 	if l.db.Exists(l.metaDir, p.Meta) {
-		return errors.New("library: photo file " + p.Meta + " already exists")
+		return nil, errors.New("library: photo file " + p.Meta + " already exists")
 	} else if l.db.Exists(l.imgDir, p.Orig) {
-		return errors.New("library: photo file " + p.Orig + " already exists")
+		return nil, errors.New("library: photo file " + p.Orig + " already exists")
 	}
 
 	// add photo meta-data object to db
-	data, err := json.Marshal(p)
+	meta, err := json.Marshal(p)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = l.putAll(l.metaDir, p.Meta, data)
+	err = l.putAll(l.metaDir, p.Meta, meta)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// add photo image/thumb files to db
-	err = l.putAll(l.imgDir, p.Orig, p.Original())
+	err = l.putAll(l.imgDir, p.Orig, data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = l.putAll(l.thumbDir, p.Thumb1, p.Thumbnail1())
+	err = l.putAll(l.thumbDir, p.Thumb1, thumb1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = l.putAll(l.thumbDir, p.Thumb2, p.Thumbnail2())
+	err = l.putAll(l.thumbDir, p.Thumb2, thumb2)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return p, nil
 }
 
 func (l *Library) putAll(path, name string, data []byte) (err error) {
@@ -91,24 +143,28 @@ func (l *Library) putAll(path, name string, data []byte) (err error) {
 	return err
 }
 
-func (l *Library) LoadImages(p *photo.Photo) error {
+func (l *Library) GetOriginal(p *Photo) (data []byte, err error) {
 	orig, err := l.db.Get(l.imgDir, p.Orig)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return orig, nil
+}
 
+func (l *Library) GetThumb1(p *Photo) (data []byte, err error) {
 	thumb1, err := l.db.Get(l.thumbDir, p.Thumb1)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return thumb1, nil
+}
 
+func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
 	thumb2, err := l.db.Get(l.imgDir, p.Thumb2)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	p.SetImages(orig, thumb1, thumb2)
-	return nil
+	return thumb2, nil
 }
 
 func (l *Library) GetIndex(index string) (*Index, error) {
@@ -128,7 +184,7 @@ func (l *Library) GetIndex(index string) (*Index, error) {
 			return nil, errors.New("corrupted photo index or missing photos: " + err.Error())
 		}
 
-		var photo *photo.Photo
+		var photo *Photo
 		err = json.Unmarshal(data, photo)
 		if err != nil {
 			return nil, errors.New("corrupted photo metadata: " + err.Error())
@@ -139,14 +195,44 @@ func (l *Library) GetIndex(index string) (*Index, error) {
 	return ind, nil
 }
 
+func dateFrom(data []byte) (string, time.Time) {
+	now := time.Now()
+	r := bytes.NewReader(data)
+	x, err := exif.Decode(r)
+	if err != nil {
+		return "NONE-" + now.Format(nameTimeFmt), now
+	}
+	tg, err := x.Get("DateTimeOriginal")
+	if err != nil {
+		return "NONE-" + now.Format(nameTimeFmt), now
+	}
+
+	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
+	if err != nil {
+		return "NONE-" + now.Format(nameTimeFmt), now
+	}
+
+	return t.Format(nameTimeFmt), t
+}
+
+func thumb(w, h uint, img image.Image) ([]byte, error) {
+	m := resize.Resize(w, h, img, resize.Bilinear)
+
+	var buf bytes.Buffer
+	err := jpeg.Encode(&buf, m, nil)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 type Index struct {
 	Name string
 	MetaFiles []string
-	photos []*photo.Photo
+	photos []*Photo
 }
 
-func (i *Index) Photos() []*photo.Photo {
+func (i *Index) Photos() []*Photo {
 	return i.photos
 }
-
 

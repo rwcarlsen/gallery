@@ -2,9 +2,8 @@
 package main
 
 import (
-	"io/ioutil"
 	"log"
-	"github.com/rwcarlsen/gallery/photo"
+	"io/ioutil"
 	"github.com/rwcarlsen/gallery/library"
 	"github.com/rwcarlsen/gallery/library/local"
 )
@@ -26,13 +25,10 @@ func main() {
 	}
 
 	// load and dump photo, thumbs, etc.
-	p, err := photo.New(sample, data)
+	p, err := lib.AddPhoto(sample, data)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = lib.AddPhoto(p)
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.Println(p)
 }
