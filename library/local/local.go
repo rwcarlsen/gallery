@@ -40,6 +40,21 @@ func (lb *LocalBack) Exists(path, name string) bool {
 	return err == nil
 }
 
+func (lb *LocalBack) List(path string) ([]string, error) {
+	fullPath := filepath.Join(lb.Root, path)
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	names, err := f.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+
+	return names, nil
+}
+
 func (lb *LocalBack) Get(path, name string) ([]byte, error) {
 	fullPath := filepath.Join(lb.Root, path, name)
 

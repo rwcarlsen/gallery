@@ -4,7 +4,8 @@ package amz
 import (
 	"log"
 	"errors"
-	"path/filepath"
+	pth "path"
+	"strings"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goamz/aws"
 	"net/http"
@@ -20,29 +21,72 @@ func New(auth aws.Auth, region aws.Region) *S3Backend {
 	}
 }
 
-func (lb *S3Backend) Put(path, name string, data []byte) error {
-	items := filepath.SplitList(path)
+func (lb *S3Backend) splitBucket(path string) (bucket *s3.Bucket, bpath string, err error) {
+	items := strings.Split(path, "/")
 	if len(items) == 0 {
-		return errors.New("amz: path is too short")
+		return nil, "", errors.New("amz: path is too short")
 	}
-	bucket := lb.s3link.Bucket(items[0])
-	bpath := filepath.Join(items[1:]...)
+	bucket = lb.s3link.Bucket(items[0])
+	bpath = pth.Join(items[1:]...)
+	return bucket, bpath, nil
+}
+
+func (lb *S3Backend) Put(path, name string, data []byte) error {
+	bucket, bpath, err := lb.splitBucket(path)
+	if err != nil {
+		return err
+	}
+	fullPath := pth.Join(bpath, name)
 
 	// make sure bucket exists - create if needed
-	err := bucket.PutBucket(s3.Private)
+	err = bucket.PutBucket(s3.Private)
 	if err != nil {
 		log.Println(err.Error())
 	}
 
 	contType := http.DetectContentType(data)
-	return bucket.Put(bpath, data, contType, s3.Private)
+	return bucket.Put(fullPath, data, contType, s3.Private)
 }
 
 func (lb *S3Backend) Exists(path, name string) bool {
-	return true
+	names, err := lb.List(path)
+	if err != nil {
+		return false
+	}
+
+	for _, nm := range names {
+		if nm == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (lb *S3Backend) List(path string) ([]string, error) {
+	bucket, bpath, err := lb.splitBucket(path)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := bucket.List(bpath, "/", "", 0)
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0)
+	for _, k := range result.Contents {
+		names = append(names, k.Key)
+	}
+	return names, nil
 }
 
 func (lb *S3Backend) Get(path, name string) ([]byte, error) {
-	return nil, nil
+	bucket, bpath, err := lb.splitBucket(path)
+	if err != nil {
+		return nil, err
+	}
+	fullPath := pth.Join(bpath, name)
+
+	return bucket.Get(fullPath)
 }
 

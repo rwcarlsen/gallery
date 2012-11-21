@@ -5,7 +5,7 @@ import (
 	"errors"
 	"bytes"
 	"time"
-	"path/filepath"
+	"path"
 	"encoding/json"
 	"image"
 	"image/jpeg"
@@ -30,6 +30,7 @@ const (
 type Backend interface {
 	Put(path, name string, data []byte) error
 	Exists(path, name string) bool
+	List(path string) ([]string, error)
 	Get(path, name string) ([]byte, error)
 }
 
@@ -57,10 +58,10 @@ func New(name string, db Backend) *Library {
 	return &Library{
 		db: db,
 		name: name,
-		imgDir: filepath.Join(name, ImageDir),
-		thumbDir: filepath.Join(name, ThumbDir),
-		indDir: filepath.Join(name, IndexDir),
-		metaDir: filepath.Join(name, MetaDir),
+		imgDir: path.Join(name, ImageDir),
+		thumbDir: path.Join(name, ThumbDir),
+		indDir: path.Join(name, IndexDir),
+		metaDir: path.Join(name, MetaDir),
 	}
 }
 
@@ -70,8 +71,8 @@ func (l *Library) AddSecondary(db Backend) {
 
 func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 	// construct photo name
-	ext := filepath.Ext(name)
-	base := filepath.Base(name)
+	ext := path.Ext(name)
+	base := path.Base(name)
 	strDate, date := dateFrom(data)
 	fname := strDate + "-" + base[:len(base)-len(ext)]
 
@@ -135,6 +136,8 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 		return nil, err
 	}
 
+	l.updateIndex(p)
+
 	return p, nil
 }
 
@@ -168,6 +171,11 @@ func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
 		return nil, err
 	}
 	return thumb2, nil
+}
+
+func (l *Library) updateIndex(index string) (*Index, error) {
+
+
 }
 
 func (l *Library) GetIndex(index string) (*Index, error) {
