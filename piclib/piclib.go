@@ -25,6 +25,7 @@ const (
 
 const (
 	nameTimeFmt = "2006-01-02-15-04-05"
+	currVersion = "0.1"
 )
 
 type Backend interface {
@@ -42,6 +43,7 @@ type Photo struct {
 	Uploaded time.Time
 	Taken time.Time
 	Tags map[string]string
+	LibVersion string
 }
 
 type Library struct {
@@ -101,6 +103,7 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 		Uploaded: time.Now(),
 		Taken: date,
 		Tags: make(map[string]string),
+		LibVersion: currVersion,
 	}
 
 	/////// store all photo related data in backend ////////
