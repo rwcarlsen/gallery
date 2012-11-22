@@ -1,0 +1,11 @@
+
+{{define "browsepics"}}
+  <ul class="thumbnails">
+  {{range $path, $path := .}}
+    <li class="span2">
+      <img src="$path" alt="">
+    </li>
+  {{end}}
+  </ul>
+{{end}}
+
