@@ -49,17 +49,18 @@ func (lb *S3Backend) Put(path, name string, data []byte) error {
 }
 
 func (lb *S3Backend) Exists(path, name string) bool {
-	names, err := lb.List(path)
+	bucket, bpath, err := lb.splitBucket(path)
+	if err != nil {
+		return false
+	}
+	fullPath := pth.Join(bpath, name)
+
+	_, err = bucket.Get(fullPath)
 	if err != nil {
 		return false
 	}
 
-	for _, nm := range names {
-		if nm == name {
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 func (lb *S3Backend) List(path string) ([]string, error) {

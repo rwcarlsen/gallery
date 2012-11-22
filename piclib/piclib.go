@@ -67,8 +67,21 @@ func New(name string, db Backend) *Library {
 	}
 }
 
+func (l *Library) Close() {
+}
+
 func (l *Library) AddSecondary(db Backend) {
 	l.seconds = append(l.seconds, db)
+}
+
+func (l *Library) GetPhoto(name string) (*Photo, error) {
+	data, err := l.db.Get(l.metaDir, name)
+	var p *Photo
+	err = json.Unmarshal(data, p)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
@@ -174,32 +187,17 @@ func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
 	return thumb2, nil
 }
 
-func (l *Library) GetIndex(index string) (*Index, error) {
-	data, err := l.db.Get(l.indDir, index)
+func (l *Library) getIndex(name string, v interface{}) error {
+	data, err := l.db.Get(l.indDir, name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var ind *Index
-	err = json.Unmarshal(data, ind)
+	err = json.Unmarshal(data, v)
 	if err != nil {
-		return nil, errors.New("library: malformed index - " + err.Error())
+		return err
 	}
-	for _, name := range ind.MetaFiles {
-		data, err := l.db.Get(l.metaDir, name)
-		if err != nil {
-			return nil, errors.New("corrupted photo index or missing photos: " + err.Error())
-		}
-
-		var photo *Photo
-		err = json.Unmarshal(data, photo)
-		if err != nil {
-			return nil, errors.New("corrupted photo metadata: " + err.Error())
-		}
-		ind.photos = append(ind.photos, photo)
-	}
-
-	return ind, nil
+	return nil
 }
 
 func dateFrom(data []byte) (string, time.Time) {
@@ -231,15 +229,5 @@ func thumb(w, h uint, img image.Image) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-type Index struct {
-	Name string
-	MetaFiles []string
-	photos []*Photo
-}
-
-func (i *Index) Photos() []*Photo {
-	return i.photos
 }
 
