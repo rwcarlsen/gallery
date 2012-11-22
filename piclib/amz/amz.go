@@ -28,7 +28,16 @@ func (lb *S3Backend) splitBucket(path string) (bucket *s3.Bucket, bpath string, 
 	}
 	bucket = lb.s3link.Bucket(items[0])
 	bpath = pth.Join(items[1:]...)
+	lb.initBucket(bucket)
+
 	return bucket, bpath, nil
+}
+
+func (lb *S3Backend) initBucket(b *s3.Bucket) {
+	err := b.PutBucket(s3.Private)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func (lb *S3Backend) Put(path, name string, data []byte) error {
@@ -38,11 +47,6 @@ func (lb *S3Backend) Put(path, name string, data []byte) error {
 	}
 	fullPath := pth.Join(bpath, name)
 
-	// make sure bucket exists - create if needed
-	err = bucket.PutBucket(s3.Private)
-	if err != nil {
-		log.Println(err.Error())
-	}
 
 	contType := http.DetectContentType(data)
 	return bucket.Put(fullPath, data, contType, s3.Private)
@@ -90,4 +94,5 @@ func (lb *S3Backend) Get(path, name string) ([]byte, error) {
 
 	return bucket.Get(fullPath)
 }
+
 

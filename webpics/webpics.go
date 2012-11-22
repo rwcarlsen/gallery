@@ -7,6 +7,7 @@ import (
 	"strings"
 	"html/template"
 	"net/http"
+	pth "path"
 
 	"launchpad.net/goamz/aws"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -58,14 +59,20 @@ type handler struct {
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		photoList, err := h.lib.ListPhotosN(20)
+		list := make([]string, len(photoList))
+		for i, p := range photoList {
+			list[i] = pth.Join("piclib", p.Meta)
+		}
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = h.indexTmpl.Execute(w, photoList)
+		err = h.indexTmpl.Execute(w, list)
 		if err != nil {
 			log.Fatal(err)
 		}
+	} else if strings.HasPrefix(r.URL.Path, "/static") {
+		http.ServeFile(w, r, r.URL.Path)
 	} else if items := strings.Split(r.URL.Path, "/"); items[0] == "piclib" {
 		if _, ok := h.cache[r.URL.Path]; !ok {
 			if err := h.fetchImg(r.URL.Path); err != nil {
