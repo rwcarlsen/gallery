@@ -40,13 +40,18 @@ func (lb *LocalBack) Exists(path, name string) bool {
 	return err == nil
 }
 
-func (lb *LocalBack) List(path string) ([]string, error) {
+func (lb *LocalBack) ListN(path string, n int) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 
-	names, err := f.Readdirnames(-1)
+	N := n
+	if n == 0 {
+		N = -1
+	}
+
+	names, err := f.Readdirnames(N)
 	if err != nil {
 		return nil, err
 	}

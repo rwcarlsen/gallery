@@ -63,13 +63,13 @@ func (lb *S3Backend) Exists(path, name string) bool {
 	return true
 }
 
-func (lb *S3Backend) List(path string) ([]string, error) {
+func (lb *S3Backend) ListN(path string, n int) ([]string, error) {
 	bucket, bpath, err := lb.splitBucket(path)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := bucket.List(bpath, "/", "", 0)
+	result, err := bucket.List(bpath, "/", "", n)
 	if err != nil {
 		return nil, err
 	}

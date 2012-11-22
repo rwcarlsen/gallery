@@ -31,7 +31,7 @@ const (
 type Backend interface {
 	Put(path, name string, data []byte) error
 	Exists(path, name string) bool
-	List(path string) ([]string, error)
+	ListN(path string, n int) ([]string, error)
 	Get(path, name string) ([]byte, error)
 }
 
@@ -72,6 +72,23 @@ func (l *Library) Close() {
 
 func (l *Library) AddSecondary(db Backend) {
 	l.seconds = append(l.seconds, db)
+}
+
+func (l *Library) ListPhotosN(n int) ([]*Photo, error) {
+	names, err := l.db.ListN(l.metaDir, n)
+	if err != nil {
+		return nil, err
+	}
+
+	photos := make([]*Photo, len(names))
+	for i, name := range names {
+		p, err := l.GetPhoto(name)
+		if err != nil {
+			return nil, err
+		}
+		photos[i] = p
+	}
+	return photos, nil
 }
 
 func (l *Library) GetPhoto(name string) (*Photo, error) {
