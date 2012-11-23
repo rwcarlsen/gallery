@@ -47,7 +47,6 @@ func (lb *S3Backend) Put(path, name string, data []byte) error {
 	}
 	fullPath := pth.Join(bpath, name)
 
-
 	contType := http.DetectContentType(data)
 	return bucket.Put(fullPath, data, contType, s3.Private)
 }
@@ -73,14 +72,15 @@ func (lb *S3Backend) ListN(path string, n int) ([]string, error) {
 		return nil, err
 	}
 
-	result, err := bucket.List(bpath, "/", "", n)
+	result, err := bucket.List(bpath, "", "", n)
 	if err != nil {
 		return nil, err
 	}
 
 	names := make([]string, 0)
 	for _, k := range result.Contents {
-		names = append(names, k.Key)
+		name := strings.Split(k.Key, "/")[1]
+		names = append(names, name)
 	}
 	return names, nil
 }

@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>R-cas</title>
-    <link href="static/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
-    <link rel="shortcut icon" href="static/favicon.ico" />
+    <title>RWC Photos</title>
+    <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link rel="shortcut icon" href="/static/favicon.ico" />
   </head>
 
   <body>
-    <div class="row">
-      <div class="span12">
-        <h1>Welcome to RWC Photo Gallery</h1>
+    <div class="container">
+      <div class="row">
+        <div class="span12">
+          <br>
+          <h1>Welcome to RWC Photo Gallery</h1>
+        </div>
       </div>
+
+      {{template "browsepics" .}}
+
+      <script src="http://code.jquery.com/jquery-latest.js"></script>
+      <script src="/static/bootstrap/js/bootstrap.min.js"></script>
     </div>
-
-    {{template "browsepics" .}}
-
-    <script src="http://code.jquery.com/jquery-latest.js"></script>
-    <script src="static/bootstrap/js/bootstrap.min.js"></script>
   </body>
 </html>

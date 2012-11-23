@@ -13,17 +13,17 @@ import (
 const (
 	root = "./"
 	sample = "./sample.jpg"
-	libName = "rwc-testphotolib"
+	libName = "rwc-webpics"
 )
 
 func main() {
-	testAmz()
+	//testAmzPut()
+	//testAmzGet()
+	testAmzListN()
 	//testLocal()
 }
 
-func testAmz() {
-
-
+func testAmzPut() {
 	// setup storage and piclib
 	auth, err := aws.EnvAuth()
 	if err != nil {
@@ -43,6 +43,37 @@ func testAmz() {
 		log.Fatal(err)
 	}
 
+	log.Println(p)
+}
+
+func testAmzListN() {
+	// setup storage and piclib
+	auth, err := aws.EnvAuth()
+	if err != nil {
+		log.Fatal(err)
+	}
+	db := amz.New(auth, aws.USEast)
+	names, err := db.ListN("rwc-webpics/metadata", 5)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println(names)
+}
+
+func testAmzGet() {
+	// setup storage and piclib
+	auth, err := aws.EnvAuth()
+	if err != nil {
+		log.Fatal(err)
+	}
+	db := amz.New(auth, aws.USEast)
+	lib := piclib.New(libName, db)
+
+	// retrieve file
+	p, err := lib.GetPhoto("2012-04-01-22-13-55-sample.json")
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.Println(p)
 }
 

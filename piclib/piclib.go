@@ -91,16 +91,6 @@ func (l *Library) ListPhotosN(n int) ([]*Photo, error) {
 	return photos, nil
 }
 
-func (l *Library) GetPhoto(name string) (*Photo, error) {
-	data, err := l.db.Get(l.metaDir, name)
-	var p *Photo
-	err = json.Unmarshal(data, p)
-	if err != nil {
-		return nil, err
-	}
-	return p, nil
-}
-
 func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 	// construct photo name
 	ext := path.Ext(name)
@@ -178,6 +168,20 @@ func (l *Library) putAll(path, name string, data []byte) (err error) {
 		err = second.Put(path, name, data)
 	}
 	return err
+}
+
+func (l *Library) GetPhoto(name string) (*Photo, error) {
+	data, err := l.db.Get(l.metaDir, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var p Photo
+	err = json.Unmarshal(data, &p)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
 }
 
 func (l *Library) GetOriginal(p *Photo) (data []byte, err error) {

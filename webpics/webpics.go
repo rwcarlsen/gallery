@@ -27,6 +27,7 @@ const (
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	// setup piclib
 	auth, err := aws.EnvAuth()
 	if err != nil {
@@ -59,9 +60,13 @@ type handler struct {
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		photoList, err := h.lib.ListPhotosN(20)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		list := make([]string, len(photoList))
 		for i, p := range photoList {
-			list[i] = pth.Join("piclib", p.Meta)
+			list[i] = pth.Join("piclib/thumb1", p.Meta)
 		}
 		if err != nil {
 			log.Fatal(err)
@@ -72,8 +77,9 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
-		http.ServeFile(w, r, r.URL.Path)
-	} else if items := strings.Split(r.URL.Path, "/"); items[0] == "piclib" {
+		log.Printf("serving static file '%v'", r.URL.Path)
+		http.ServeFile(w, r, r.URL.Path[1:])
+	} else if strings.HasPrefix(r.URL.Path, "/piclib") {
 		if _, ok := h.cache[r.URL.Path]; !ok {
 			if err := h.fetchImg(r.URL.Path); err != nil {
 				log.Fatal(err)
@@ -86,7 +92,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) fetchImg(path string) error {
-	items := strings.Split(path, "/")
+	items := strings.Split(path[1:], "/")
 	if len(items) != 3 {
 		return fmt.Errorf("invalid piclib resource '%v'", path)
 	}
@@ -94,6 +100,7 @@ func (h *handler) fetchImg(path string) error {
 
 	p, err := h.lib.GetPhoto(pName)
 	if err != nil {
+		log.Println("pName: ", pName)
 		return err
 	}
 
