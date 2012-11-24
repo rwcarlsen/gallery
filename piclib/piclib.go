@@ -228,7 +228,7 @@ func dateFrom(data []byte) (string, time.Time) {
 	if err != nil {
 		return "NONE-" + now.Format(nameTimeFmt), now
 	}
-	tg, err := x.Get("DateTimeOriginal")
+	tg, err := x.Get("DateTime")
 	if err != nil {
 		return "NONE-" + now.Format(nameTimeFmt), now
 	}
