@@ -79,7 +79,7 @@ func testAmzGet() {
 
 func testLocal() {
 	// setup storage and piclib
-	db := &local.LocalBack{Root: root}
+	db := &localhd.Backend{Root: root}
 	lib := piclib.New(libName, db)
 
 	data, err := ioutil.ReadFile(sample)
