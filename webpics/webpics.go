@@ -23,7 +23,7 @@ const (
 )
 
 const (
-	libName = "rwc-webpics"
+	libName = "rwc-piclib"
 )
 
 func main() {
@@ -57,16 +57,22 @@ type handler struct {
 	lib *piclib.Library
 }
 
+type thumbData struct {
+	Path string
+	Date string
+}
+
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		photoList, err := h.lib.ListPhotosN(20)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			return
 		}
 
-		list := make([]string, len(photoList))
+		list := make([]*thumbData, len(photoList))
 		for i, p := range photoList {
-			list[i] = pth.Join("piclib/thumb1", p.Meta)
+			list[i] = &thumbData{pth.Join("piclib/thumb1", p.Meta), p.Taken.Format("Jan 2, 2006")}
 		}
 		if err != nil {
 			log.Fatal(err)
@@ -82,7 +88,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if strings.HasPrefix(r.URL.Path, "/piclib") {
 		if _, ok := h.cache[r.URL.Path]; !ok {
 			if err := h.fetchImg(r.URL.Path); err != nil {
-				log.Fatal(err)
+				log.Print(err)
 			}
 		}
 		w.Write(h.cache[r.URL.Path])

@@ -1,9 +1,10 @@
 
 {{define "browsepics"}}
   <ul class="thumbnails">
-  {{range $index, $path := .}}
-    <li class="span2">
-      <img src="{{$path}}" alt="">
+  {{range $index, $photo := .}}
+    <li class="span3">
+        <img class="thumbnail img-rounded" src="{{$photo.Path}}">
+        <p>{{$photo.Date}}</p>
     </li>
   {{end}}
   </ul>
