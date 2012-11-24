@@ -201,7 +201,7 @@ func (l *Library) GetThumb1(p *Photo) (data []byte, err error) {
 }
 
 func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
-	thumb2, err := l.db.Get(l.imgDir, p.Thumb2)
+	thumb2, err := l.db.Get(l.thumbDir, p.Thumb2)
 	if err != nil {
 		return nil, err
 	}

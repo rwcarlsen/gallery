@@ -35,10 +35,12 @@ func (lb *Backend) splitBucket(path string) (bucket *s3.Bucket, bpath string, er
 
 func (lb *Backend) initBucket(b *s3.Bucket) {
 	if _, err := b.List("", "", "", 1); err != nil {
+		log.Println(err)
 		if err = b.PutBucket(s3.Private); err != nil {
 			log.Println(err)
+		} else {
+			log.Printf("Created bucket '%v'", b.Name)
 		}
-		log.Printf("Created bucket '%v'", b.Name)
 	}
 }
 

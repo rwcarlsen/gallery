@@ -6,6 +6,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"strconv"
 	"html/template"
 	"net/http"
 
@@ -15,6 +16,7 @@ import (
 )
 
 var indexFiles = []string{"index.tmpl", "templates/browsepics.tmpl"}
+var zoomFiles = []string{"templates/zoompic.tmpl"}
 
 const (
 	OrigImg = "orig"
@@ -24,6 +26,7 @@ const (
 
 const (
 	libName = "rwc-piclib"
+	addr = "0.0.0.0:7777"
 )
 
 func main() {
@@ -36,17 +39,20 @@ func main() {
 	db := amz.New(auth, aws.USEast)
 	lib := piclib.New(libName, db)
 
-	tmpl := template.Must(template.ParseFiles(indexFiles...))
+	indexTmpl := template.Must(template.ParseFiles(indexFiles...))
+	zoomTmpl := template.Must(template.ParseFiles(zoomFiles...))
 
 	h := &handler{
 		cache: make(map[string][]byte),
-		indexTmpl: tmpl,
+		indexTmpl: indexTmpl,
+		zoomTmpl: zoomTmpl,
 		lib: lib,
 	}
 	h.updateLib()
 
 	http.Handle("/", h)
-	err = http.ListenAndServe("0.0.0.0:7777", nil)
+	log.Printf("listening on %v", addr)
+	err = http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,6 +76,7 @@ func (pl newFirst) Swap(i, j int) {
 type handler struct {
 	cache map[string][]byte
 	indexTmpl *template.Template
+	zoomTmpl *template.Template
 	lib *piclib.Library
 	photos []*piclib.Photo
 }
@@ -77,6 +84,7 @@ type handler struct {
 type thumbData struct {
 	Path string
 	Date string
+	Index int
 }
 
 func (h *handler) updateLib() {
@@ -91,11 +99,32 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		list := make([]*thumbData, len(h.photos))
 		for i, p := range h.photos {
-			list[i] = &thumbData{p.Meta, p.Taken.Format("Jan 2, 2006")}
+			list[i] = &thumbData{
+				Path: p.Meta,
+				Date: p.Taken.Format("Jan 2, 2006"),
+				Index: i,
+			}
 		}
 
 		err := h.indexTmpl.Execute(w, list)
 		if err != nil {
+			log.Fatal(err)
+		}
+	} else if strings.HasPrefix(r.URL.Path, "/zoom") {
+		items := strings.Split(r.URL.Path[1:], "/")
+		if len(items) != 2 {
+			log.Printf("Invalid zoom request path '%v'", r.URL.Path)
+		}
+
+		i, _ := strconv.Atoi(items[1])
+		p := h.photos[i]
+		pData := &thumbData{
+			Path: p.Meta,
+			Date: p.Taken.Format("Jan 2, 2006"),
+			Index: i,
+		}
+
+		if err := h.zoomTmpl.Execute(w, pData); err != nil {
 			log.Fatal(err)
 		}
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
