@@ -31,7 +31,7 @@ const (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	// setup piclib
+
 	auth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatal(err)

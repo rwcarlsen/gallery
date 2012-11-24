@@ -3,16 +3,14 @@
   <ul class="thumbnails">
   {{range $index, $photo := .}}
     <li class="span2">
-      <a href="#zoom{{$photo.Index}}" data-toggle="modal">
+      <a href="/zoom/{{$photo.Index}}" data-target="#zoom{{$photo.Index}}" data-toggle="modal">
         <img class="thumbnail img-rounded" src="/piclib/thumb1/{{$photo.Path}}">
       </a>
       <p class="pagination-centered">{{$photo.Date}}</p>
 
       <div id="zoom{{$photo.Index}}" class="modal large hide fade" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-header"></div>
-        <div class="modal-body pagination-centered">
-          <img class="img-rounded" data-dismiss="modal" src="/piclib/thumb2/{{$photo.Path}}">
-        </div>
+        <div class="modal-body pagination-centered"></div>
         <div class="modal-footer">
           <p class="pagination-centered">{{$photo.Date}}</p>
         </div>
