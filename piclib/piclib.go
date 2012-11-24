@@ -228,9 +228,13 @@ func dateFrom(data []byte) (string, time.Time) {
 	if err != nil {
 		return "NONE-" + now.Format(nameTimeFmt), now
 	}
-	tg, err := x.Get("DateTime")
+
+	tg, err := x.Get("DateTimeOriginal")
 	if err != nil {
-		return "NONE-" + now.Format(nameTimeFmt), now
+    tg, err = x.Get("DateTime")
+    if err != nil {
+      return "NONE-" + now.Format(nameTimeFmt), now
+    }
 	}
 
 	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
