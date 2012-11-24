@@ -8,13 +8,14 @@
       </a>
       <p class="pagination-centered">{{$photo.Date}}</p>
 
-      <div id="zoom{{$photo.Index}}" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true">
+      <div id="zoom{{$photo.Index}}" class="modal large hide fade" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-header"></div>
-        <div class="modal-body">
+        <div class="modal-body pagination-centered">
           <img class="img-rounded" data-dismiss="modal" src="/piclib/thumb2/{{$photo.Path}}">
+        </div>
+        <div class="modal-footer">
           <p class="pagination-centered">{{$photo.Date}}</p>
         </div>
-        <div class="modal-footer"></div>
       </div>
 
     </li>

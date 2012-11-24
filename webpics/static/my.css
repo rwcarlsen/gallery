@@ -1,11 +1,22 @@
 
-/* make modal able to be taller */
+/*
 .modal {
-    width: 'auto',
+    width: 800px,
     height: 'auto',
     overflow-y: 'auto';
     max-height: 100%;
+}
+*/
+
+/* make modal able to be bigger */
+.modal.large{
+    width: 850px;
+    margin-left: -425px; /* - width/2 */
     margin-top: -45%;
+}
+
+.modal-body {
+    max-height: 800px;
 }
 
 /* overwrite bootstrap fade in to not have slide down too */
