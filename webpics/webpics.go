@@ -4,10 +4,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"html/template"
 	"net/http"
-	pth "path"
 
 	"launchpad.net/goamz/aws"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -43,6 +43,7 @@ func main() {
 		indexTmpl: tmpl,
 		lib: lib,
 	}
+	h.updateLib()
 
 	http.Handle("/", h)
 	err = http.ListenAndServe("0.0.0.0:7777", nil)
@@ -51,10 +52,26 @@ func main() {
 	}
 }
 
+
+type newFirst []*piclib.Photo
+
+func (pl newFirst) Less(i, j int) bool {
+	return pl[i].Taken.After(pl[j].Taken)
+}
+
+func (pl newFirst) Len() int {
+	return len(pl)
+}
+
+func (pl newFirst) Swap(i, j int) {
+	pl[i], pl[j] = pl[j], pl[i]
+}
+
 type handler struct {
 	cache map[string][]byte
 	indexTmpl *template.Template
 	lib *piclib.Library
+	photos []*piclib.Photo
 }
 
 type thumbData struct {
@@ -62,23 +79,22 @@ type thumbData struct {
 	Date string
 }
 
+func (h *handler) updateLib() {
+	var err error
+	if h.photos, err = h.lib.ListPhotosN(50000); err != nil {
+		log.Println(err)
+	}
+	sort.Sort(newFirst(h.photos))
+}
+
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		photoList, err := h.lib.ListPhotosN(20)
-		if err != nil {
-			log.Println(err)
-			return
+		list := make([]*thumbData, len(h.photos))
+		for i, p := range h.photos {
+			list[i] = &thumbData{p.Meta, p.Taken.Format("Jan 2, 2006")}
 		}
 
-		list := make([]*thumbData, len(photoList))
-		for i, p := range photoList {
-			list[i] = &thumbData{pth.Join("piclib/thumb1", p.Meta), p.Taken.Format("Jan 2, 2006")}
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		err = h.indexTmpl.Execute(w, list)
+		err := h.indexTmpl.Execute(w, list)
 		if err != nil {
 			log.Fatal(err)
 		}

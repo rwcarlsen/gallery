@@ -34,9 +34,11 @@ func (lb *Backend) splitBucket(path string) (bucket *s3.Bucket, bpath string, er
 }
 
 func (lb *Backend) initBucket(b *s3.Bucket) {
-	err := b.PutBucket(s3.Private)
-	if err != nil {
-		log.Println(err)
+	if _, err := b.List("", "", "", 1); err != nil {
+		if err = b.PutBucket(s3.Private); err != nil {
+			log.Println(err)
+		}
+		log.Printf("Created bucket '%v'", b.Name)
 	}
 }
 
@@ -66,21 +68,33 @@ func (lb *Backend) Exists(path, name string) bool {
 	return true
 }
 
+// ListN returns up to n items contained in the bucket/prefix defined by path.
+// There is no limit to n.  When n=0 up to 1000 results are returned.
 func (lb *Backend) ListN(path string, n int) ([]string, error) {
 	bucket, bpath, err := lb.splitBucket(path)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := bucket.List(bpath, "", "", n)
-	if err != nil {
-		return nil, err
-	}
-
 	names := make([]string, 0)
-	for _, k := range result.Contents {
-		name := strings.Split(k.Key, "/")[1]
-		names = append(names, name)
+	marker := ""
+	for {
+		result, err := bucket.List(bpath, "", marker, n)
+		if err != nil {
+			return nil, err
+		}
+
+		var k s3.Key
+		for _, k = range result.Contents {
+			name := strings.Split(k.Key, "/")[1]
+			names = append(names, name)
+		}
+
+		if !result.IsTruncated {
+			break
+		} else {
+			marker = k.Key
+		}
 	}
 	return names, nil
 }

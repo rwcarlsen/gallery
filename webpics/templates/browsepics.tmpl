@@ -2,9 +2,9 @@
 {{define "browsepics"}}
   <ul class="thumbnails">
   {{range $index, $photo := .}}
-    <li class="span3">
-        <img class="thumbnail img-rounded" src="{{$photo.Path}}">
-        <p>{{$photo.Date}}</p>
+    <li class="span2">
+        <img class="thumbnail img-rounded" src="/piclib/thumb1/{{$photo.Path}}">
+        <p class="pagination-centered">{{$photo.Date}}</p>
     </li>
   {{end}}
   </ul>
