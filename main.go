@@ -5,8 +5,8 @@ import (
 	"log"
 	"io/ioutil"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/gallery/piclib/local"
-	"github.com/rwcarlsen/gallery/piclib/amz"
+	"github.com/rwcarlsen/gallery/backend/localhd"
+	"github.com/rwcarlsen/gallery/backend/amz"
 	"launchpad.net/goamz/aws"
 )
 
@@ -79,7 +79,7 @@ func testAmzGet() {
 
 func testLocal() {
 	// setup storage and piclib
-	db := &local.LocalBack{Root: root}
+	db := &localhd.Backend{Root: root}
 	lib := piclib.New(libName, db)
 
 	data, err := ioutil.ReadFile(sample)

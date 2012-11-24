@@ -1,5 +1,5 @@
 
-package local
+package localhd
 
 import (
 	"os"
@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 )
 
-type LocalBack struct {
+type Backend struct {
 	Root string
 }
 
-func (lb *LocalBack) Put(path, name string, data []byte) error {
+func (lb *Backend) Put(path, name string, data []byte) error {
 	fullPath := filepath.Join(lb.Root, path, name)
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
@@ -34,13 +34,13 @@ func (lb *LocalBack) Put(path, name string, data []byte) error {
 	return nil
 }
 
-func (lb *LocalBack) Exists(path, name string) bool {
+func (lb *Backend) Exists(path, name string) bool {
 	fullPath := filepath.Join(lb.Root, path, name)
 	_, err := os.Stat(fullPath)
 	return err == nil
 }
 
-func (lb *LocalBack) ListN(path string, n int) ([]string, error) {
+func (lb *Backend) ListN(path string, n int) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (lb *LocalBack) ListN(path string, n int) ([]string, error) {
 	return names, nil
 }
 
-func (lb *LocalBack) Get(path, name string) ([]byte, error) {
+func (lb *Backend) Get(path, name string) ([]byte, error) {
 	fullPath := filepath.Join(lb.Root, path, name)
 
 	data, err := ioutil.ReadFile(fullPath)
