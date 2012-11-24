@@ -11,7 +11,7 @@ import (
 
 	"launchpad.net/goamz/aws"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/gallery/piclib/amz"
+	"github.com/rwcarlsen/gallery/backend/amz"
 )
 
 var indexFiles = []string{"index.tmpl", "templates/browsepics.tmpl"}

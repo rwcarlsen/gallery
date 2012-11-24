@@ -3,9 +3,11 @@ package main
 
 import (
 	"flag"
+	"log"
+	"io/ioutil"
 
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/gallery/piclib/amz"
+	"github.com/rwcarlsen/gallery/backend/amz"
 	"launchpad.net/goamz/aws"
 )
 
