@@ -1,32 +1,31 @@
-
 package main
 
 import (
 	"fmt"
-	"log"
-	"sort"
-	"strings"
-	"strconv"
 	"html/template"
+	"log"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
 
-	"launchpad.net/goamz/aws"
-	"github.com/rwcarlsen/gallery/piclib"
 	"github.com/rwcarlsen/gallery/backend/amz"
+	"github.com/rwcarlsen/gallery/piclib"
+	"launchpad.net/goamz/aws"
 )
 
 var indexFiles = []string{"index.tmpl", "templates/browsepics.tmpl"}
 var zoomFiles = []string{"templates/zoompic.tmpl"}
 
 const (
-	OrigImg = "orig"
+	OrigImg   = "orig"
 	Thumb1Img = "thumb1"
 	Thumb2Img = "thumb2"
 )
 
 const (
 	libName = "rwc-piclib"
-	addr = "0.0.0.0:7777"
+	addr    = "0.0.0.0:7777"
 )
 
 func main() {
@@ -43,10 +42,10 @@ func main() {
 	zoomTmpl := template.Must(template.ParseFiles(zoomFiles...))
 
 	h := &handler{
-		cache: make(map[string][]byte),
+		cache:     make(map[string][]byte),
 		indexTmpl: indexTmpl,
-		zoomTmpl: zoomTmpl,
-		lib: lib,
+		zoomTmpl:  zoomTmpl,
+		lib:       lib,
 	}
 	h.updateLib()
 
@@ -57,7 +56,6 @@ func main() {
 		log.Fatal(err)
 	}
 }
-
 
 type newFirst []*piclib.Photo
 
@@ -74,16 +72,16 @@ func (pl newFirst) Swap(i, j int) {
 }
 
 type handler struct {
-	cache map[string][]byte
+	cache     map[string][]byte
 	indexTmpl *template.Template
-	zoomTmpl *template.Template
-	lib *piclib.Library
-	photos []*piclib.Photo
+	zoomTmpl  *template.Template
+	lib       *piclib.Library
+	photos    []*piclib.Photo
 }
 
 type thumbData struct {
-	Path string
-	Date string
+	Path  string
+	Date  string
 	Index int
 }
 
@@ -100,8 +98,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		list := make([]*thumbData, len(h.photos))
 		for i, p := range h.photos {
 			list[i] = &thumbData{
-				Path: p.Meta,
-				Date: p.Taken.Format("Jan 2, 2006"),
+				Path:  p.Meta,
+				Date:  p.Taken.Format("Jan 2, 2006"),
 				Index: i,
 			}
 		}
@@ -119,8 +117,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		i, _ := strconv.Atoi(items[1])
 		p := h.photos[i]
 		pData := &thumbData{
-			Path: p.Meta,
-			Date: p.Taken.Format("Jan 2, 2006"),
+			Path:  p.Meta,
+			Date:  p.Taken.Format("Jan 2, 2006"),
 			Index: i,
 		}
 
@@ -130,6 +128,46 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
 		log.Printf("serving static file '%v'", r.URL.Path)
 		http.ServeFile(w, r, r.URL.Path[1:])
+	} else if strings.HasPrefix(r.URL.Path, "/addphotos") {
+		mr, err := req.MultipartReader()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		resps := []interface{}{}
+		for part, err := mr.NextPart(); err == nil; {
+			if name := part.FormName(); name == "" {
+				continue
+			} else if part.FileName() == "" {
+				continue
+			}
+
+		    data, err := ioutil.ReadAll(part)
+			respMeta := map[string]interface{}{
+				"name": name,
+				"size": len(data),
+			}
+
+			if err != nil {
+				log.Println(err)
+				respMeta["error"] = err
+			} else {
+				p, err := h.lib.AddPhoto(name, data)
+				if err != nil {
+					respMeta["error"] = err
+				} else {
+					h.photos = append(h.photos, p)
+				}
+			}
+
+			resps = append(resps, resp)
+			part, err = mr.NextPart()
+		}
+
+		sort.Sort(newFirst(h.photos))
+		data, _ := json.Marshal(resps)
+		w.Write(data)
 	} else if strings.HasPrefix(r.URL.Path, "/piclib") {
 		if _, ok := h.cache[r.URL.Path]; !ok {
 			if err := h.fetchImg(r.URL.Path); err != nil {
