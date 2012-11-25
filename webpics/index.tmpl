@@ -10,21 +10,18 @@
   <body>
 
     <div class="container">
-      <div class="navbar">
+      <div class="navbar navbar-fixed-top">
         <div class="navbar-inner">
+          <a class="brand" href="#"></a>
+          <a class="brand" href="#">RWC Gallery</a>
           <ul class="nav">
+            <li class="divider-vertical"></li>
             <li><a href="#uploadermodal" data-toggle="modal">Add Photos</a></li>
+            <li class="divider-vertical"></li>
           </ul>
         </div>
       </div>
-
-      <div class="row">
-        <div class="span12">
-          <br>
-          <h1>Welcome to RWC Photo Gallery</h1>
-          <br>
-        </div>
-      </div>
+      <br>
 
       {{template "browsepics" .}}
           
