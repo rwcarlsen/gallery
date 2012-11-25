@@ -140,13 +140,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		resps := []interface{}{}
 		part, err := mr.NextPart()
 		for {
-			log.Println("once")
-			name := ""
-			if name = part.FormName(); name == "" {
+			if part.FormName() == "" {
 				continue
 			} else if part.FileName() == "" {
 				continue
 			}
+			name := part.FileName()
 
 		    data, err := ioutil.ReadAll(part)
 			respMeta := map[string]interface{}{
@@ -160,7 +159,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				p, err := h.lib.AddPhoto(name, data)
 				if err != nil {
-					respMeta["error"] = err
+					respMeta["error"] = err.Error()
 				} else {
 					h.photos = append(h.photos, p)
 				}
