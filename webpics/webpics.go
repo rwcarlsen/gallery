@@ -138,7 +138,9 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resps := []interface{}{}
-		for part, err := mr.NextPart(); err == nil; {
+		part, err := mr.NextPart()
+		for {
+			log.Println("once")
 			name := ""
 			if name = part.FormName(); name == "" {
 				continue
@@ -165,7 +167,9 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 
 			resps = append(resps, respMeta)
-			part, err = mr.NextPart()
+			if part, err = mr.NextPart(); err != nil {
+				break
+			}
 		}
 
 		sort.Sort(newFirst(h.photos))

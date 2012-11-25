@@ -1,13 +1,4 @@
 
-/*
-.modal {
-    width: 800px,
-    height: 'auto',
-    overflow-y: 'auto';
-    max-height: 100%;
-}
-*/
-
 /* make modal able to be bigger */
 .modal.large{
     width: 850px;
