@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"io/ioutil"
+	"encoding/json"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -129,7 +131,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("serving static file '%v'", r.URL.Path)
 		http.ServeFile(w, r, r.URL.Path[1:])
 	} else if strings.HasPrefix(r.URL.Path, "/addphotos") {
-		mr, err := req.MultipartReader()
+		mr, err := r.MultipartReader()
 		if err != nil {
 			log.Println(err)
 			return
@@ -137,7 +139,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		resps := []interface{}{}
 		for part, err := mr.NextPart(); err == nil; {
-			if name := part.FormName(); name == "" {
+			name := ""
+			if name = part.FormName(); name == "" {
 				continue
 			} else if part.FileName() == "" {
 				continue
@@ -161,7 +164,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			resps = append(resps, resp)
+			resps = append(resps, respMeta)
 			part, err = mr.NextPart()
 		}
 
