@@ -9,18 +9,21 @@
 
   <body>
 
-    <div class="container">
-      <div class="navbar navbar-fixed-top">
-        <div class="navbar-inner">
-          <a class="brand" href="#"></a>
-          <a class="brand" href="#">RWC Gallery</a>
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand active" href="#">Gallery</a>
           <ul class="nav">
-            <li class="divider-vertical"></li>
-            <li><a href="#uploadermodal" data-toggle="modal">Add Photos</a></li>
+            <li>
+              <a href="#uploadermodal" data-toggle="modal">Add</a>
+            </li>
             <li class="divider-vertical"></li>
           </ul>
         </div>
       </div>
+    </div>
+
+    <div class="container">
       <br>
 
       {{template "browsepics" .}}
