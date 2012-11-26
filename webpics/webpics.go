@@ -1,15 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
-	"io/ioutil"
-	"encoding/json"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -20,6 +20,7 @@ var indexFiles = []string{"index.tmpl", "templates/browsepics.tmpl"}
 var zoomFiles = []string{"templates/zoompic.tmpl"}
 
 const (
+	MetaFile  = "meta"
 	OrigImg   = "orig"
 	Thumb1Img = "thumb1"
 	Thumb2Img = "thumb2"
@@ -44,7 +45,6 @@ func main() {
 	zoomTmpl := template.Must(template.ParseFiles(zoomFiles...))
 
 	h := &handler{
-		cache:     make(map[string][]byte),
 		indexTmpl: indexTmpl,
 		zoomTmpl:  zoomTmpl,
 		lib:       lib,
@@ -74,7 +74,6 @@ func (pl newFirst) Swap(i, j int) {
 }
 
 type handler struct {
-	cache     map[string][]byte
 	indexTmpl *template.Template
 	zoomTmpl  *template.Template
 	lib       *piclib.Library
@@ -147,7 +146,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			name := part.FileName()
 
-		    data, err := ioutil.ReadAll(part)
+			data, err := ioutil.ReadAll(part)
 			respMeta := map[string]interface{}{
 				"name": name,
 				"size": len(data),
@@ -175,32 +174,34 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		data, _ := json.Marshal(resps)
 		w.Write(data)
 	} else if strings.HasPrefix(r.URL.Path, "/piclib") {
-		if _, ok := h.cache[r.URL.Path]; !ok {
-			if err := h.fetchImg(r.URL.Path); err != nil {
-				log.Print(err)
-			}
+		data, err := h.fetchImg(r.URL.Path)
+		if err != nil {
+			log.Print(err)
+			return
 		}
-		w.Write(h.cache[r.URL.Path])
+		w.Write(data)
 	} else {
 		log.Printf("Invalid request path '%v'", r.URL.Path)
 	}
 }
 
-func (h *handler) fetchImg(path string) error {
+func (h *handler) fetchImg(path string) ([]byte, error) {
 	items := strings.Split(path[1:], "/")
 	if len(items) != 3 {
-		return fmt.Errorf("invalid piclib resource '%v'", path)
+		return nil, fmt.Errorf("invalid piclib resource '%v'", path)
 	}
 	imgType, pName := items[1], items[2]
 
 	p, err := h.lib.GetPhoto(pName)
 	if err != nil {
 		log.Println("pName: ", pName)
-		return err
+		return nil, err
 	}
 
 	var data []byte
 	switch imgType {
+	case MetaFile:
+		data, err = json.Marshal(p)
 	case OrigImg:
 		data, err = h.lib.GetOriginal(p)
 	case Thumb1Img:
@@ -208,12 +209,11 @@ func (h *handler) fetchImg(path string) error {
 	case Thumb2Img:
 		data, err = h.lib.GetThumb2(p)
 	default:
-		return fmt.Errorf("invalid image type '%v'", imgType)
+		return nil, fmt.Errorf("invalid image type '%v'", imgType)
 	}
 
 	if err != nil {
-		return err
+		return nil, err
 	}
-	h.cache[path] = data
-	return nil
+	return data, nil
 }

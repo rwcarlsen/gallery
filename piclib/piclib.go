@@ -54,6 +54,9 @@ type Library struct {
 	thumbDir string
 	indDir string
 	metaDir string
+	photoCache map[string]*Photo
+	thumb1Cache map[string][]byte
+	thumb2Cache map[string][]byte
 }
 
 func New(name string, db Backend) *Library {
@@ -64,6 +67,9 @@ func New(name string, db Backend) *Library {
 		thumbDir: path.Join(name, ThumbDir),
 		indDir: path.Join(name, IndexDir),
 		metaDir: path.Join(name, MetaDir),
+		photoCache: make(map[string]*Photo),
+		thumb1Cache: make(map[string][]byte),
+		thumb2Cache: make(map[string][]byte),
 	}
 }
 
@@ -159,6 +165,9 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 		return nil, err
 	}
 
+	l.thumb1Cache[p.Thumb1] = thumb1
+	l.thumb1Cache[p.Thumb2] = thumb2
+	l.photoCache[p.Meta] = p
 	return p, nil
 }
 
@@ -171,6 +180,10 @@ func (l *Library) putAll(path, name string, data []byte) (err error) {
 }
 
 func (l *Library) GetPhoto(name string) (*Photo, error) {
+	if p, ok := l.photoCache[name]; ok {
+		return p, nil
+	}
+
 	data, err := l.db.Get(l.metaDir, name)
 	if err != nil {
 		return nil, err
@@ -181,6 +194,8 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	l.photoCache[name] = &p
 	return &p, nil
 }
 
@@ -193,18 +208,30 @@ func (l *Library) GetOriginal(p *Photo) (data []byte, err error) {
 }
 
 func (l *Library) GetThumb1(p *Photo) (data []byte, err error) {
+	if data, ok := l.thumb1Cache[p.Thumb1]; ok {
+		return data, nil
+	}
+
 	thumb1, err := l.db.Get(l.thumbDir, p.Thumb1)
 	if err != nil {
 		return nil, err
 	}
+
+	l.thumb1Cache[p.Thumb1] = thumb1
 	return thumb1, nil
 }
 
 func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
+	if data, ok := l.thumb2Cache[p.Thumb2]; ok {
+		return data, nil
+	}
+
 	thumb2, err := l.db.Get(l.thumbDir, p.Thumb2)
 	if err != nil {
 		return nil, err
 	}
+
+	l.thumb2Cache[p.Thumb1] = thumb2
 	return thumb2, nil
 }
 
