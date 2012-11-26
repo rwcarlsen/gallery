@@ -21,31 +21,31 @@ func New(auth aws.Auth, region aws.Region) *Backend {
 	}
 }
 
-func (lb *Backend) splitBucket(path string) (bucket *s3.Bucket, bpath string, err error) {
+func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err error) {
 	items := strings.Split(path, "/")
 	if len(items) == 0 {
 		return nil, "", errors.New("amz: path is too short")
 	}
 	bucket = lb.s3link.Bucket(items[0])
 	bpath = pth.Join(items[1:]...)
-	lb.initBucket(bucket)
 
+	if _, err := b.List("", "", "", 1); err != nil {
+		if s3err, ok := err.s3.Error; ok && s3err.Code == "NoSuchBucket" {
+			if err = b.PutBucket(s3.Private); err != nil {
+				log.Println(err)
+				return err
+			} else {
+				log.Printf("Created bucket '%v'", b.Name)
+			}
+		}
+		log.Println(err)
+		return err
+	}
 	return bucket, bpath, nil
 }
 
-func (lb *Backend) initBucket(b *s3.Bucket) {
-	if _, err := b.List("", "", "", 1); err != nil {
-		log.Println(err)
-		if err = b.PutBucket(s3.Private); err != nil {
-			log.Println(err)
-		} else {
-			log.Printf("Created bucket '%v'", b.Name)
-		}
-	}
-}
-
 func (lb *Backend) Put(path, name string, data []byte) error {
-	bucket, bpath, err := lb.splitBucket(path)
+	bucket, bpath, err := lb.makeBucket(path)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func (lb *Backend) Put(path, name string, data []byte) error {
 }
 
 func (lb *Backend) Exists(path, name string) bool {
-	bucket, bpath, err := lb.splitBucket(path)
+	bucket, bpath, err := lb.makeBucket(path)
 	if err != nil {
 		return false
 	}
@@ -73,7 +73,7 @@ func (lb *Backend) Exists(path, name string) bool {
 // ListN returns up to n items contained in the bucket/prefix defined by path.
 // There is no limit to n.  When n=0 up to 1000 results are returned.
 func (lb *Backend) ListN(path string, n int) ([]string, error) {
-	bucket, bpath, err := lb.splitBucket(path)
+	bucket, bpath, err := lb.makeBucket(path)
 	if err != nil {
 		return nil, err
 	}
@@ -92,17 +92,17 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 			names = append(names, name)
 		}
 
-		if !result.IsTruncated {
-			break
-		} else {
+		if result.IsTruncated {
 			marker = k.Key
+		} else {
+			break
 		}
 	}
 	return names, nil
 }
 
 func (lb *Backend) Get(path, name string) ([]byte, error) {
-	bucket, bpath, err := lb.splitBucket(path)
+	bucket, bpath, err := lb.makeBucket(path)
 	if err != nil {
 		return nil, err
 	}
