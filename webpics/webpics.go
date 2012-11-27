@@ -154,7 +154,7 @@ func (h *handler) servePage(w http.ResponseWriter, r *http.Request) {
 		list[i] = &thumbData{
 			Path:  p.Meta,
 			Date:  p.Taken.Format("Jan 2, 2006"),
-			Index: i,
+			Index: i + start,
 		}
 	}
 
