@@ -16,7 +16,8 @@ import (
 	"launchpad.net/goamz/aws"
 )
 
-var indexFiles = []string{"index.tmpl", "templates/browsepics.tmpl"}
+var indexFiles = []string{"index.tmpl", "templates/pagination.tmpl"}
+var picFiles = []string{"templates/browsepics.tmpl"}
 var zoomFiles = []string{"templates/zoompic.tmpl"}
 
 const (
@@ -31,6 +32,10 @@ const (
 	addr    = "0.0.0.0:7777"
 )
 
+const (
+	picsPerPage = 24
+)
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
@@ -43,10 +48,12 @@ func main() {
 
 	indexTmpl := template.Must(template.ParseFiles(indexFiles...))
 	zoomTmpl := template.Must(template.ParseFiles(zoomFiles...))
+	picsTmpl := template.Must(template.ParseFiles(picFiles...))
 
 	h := &handler{
 		indexTmpl: indexTmpl,
 		zoomTmpl:  zoomTmpl,
+		picsTmpl:  picsTmpl,
 		lib:       lib,
 	}
 	h.updateLib()
@@ -76,6 +83,7 @@ func (pl newFirst) Swap(i, j int) {
 type handler struct {
 	indexTmpl *template.Template
 	zoomTmpl  *template.Template
+	picsTmpl  *template.Template
 	lib       *piclib.Library
 	photos    []*piclib.Photo
 }
@@ -91,12 +99,16 @@ func (h *handler) updateLib() {
 	if h.photos, err = h.lib.ListPhotosN(50000); err != nil {
 		log.Println(err)
 	}
-	sort.Sort(newFirst(h.photos))
+	if len(h.photos) > 0 {
+		sort.Sort(newFirst(h.photos))
+	}
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		h.serveHome(w, r)
+	} else if strings.HasPrefix(r.URL.Path, "/pg") {
+		h.servePage(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/zoom") {
 		h.serveZoom(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
@@ -113,8 +125,32 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) serveHome(w http.ResponseWriter, r *http.Request) {
-	list := make([]*thumbData, len(h.photos))
-	for i, p := range h.photos {
+	pages := make([]int, len(h.photos) / picsPerPage + 1)
+	for i := range pages {
+		pages[i] = i + 1
+	}
+
+	if err := h.indexTmpl.Execute(w, pages); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (h *handler) servePage(w http.ResponseWriter, r *http.Request) {
+	items := strings.Split(r.URL.Path, "pg")
+	if len(items) != 2 {
+		log.Println("invalid gallery page view request")
+		return
+	}
+	pgNum, err := strconv.Atoi(items[1])
+	if err != nil {
+		log.Println("invalid gallery page view request")
+		return
+	}
+
+	start := picsPerPage * (pgNum - 1)
+	end := min(start + picsPerPage, len(h.photos))
+	list := make([]*thumbData, end - start)
+	for i, p := range h.photos[start:end] {
 		list[i] = &thumbData{
 			Path:  p.Meta,
 			Date:  p.Taken.Format("Jan 2, 2006"),
@@ -122,8 +158,7 @@ func (h *handler) serveHome(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err := h.indexTmpl.Execute(w, list)
-	if err != nil {
+	if err = h.picsTmpl.Execute(w, list); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -233,4 +268,11 @@ func (h *handler) fetchImg(path string) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
 }

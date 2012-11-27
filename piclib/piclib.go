@@ -87,14 +87,14 @@ func (l *Library) ListPhotosN(n int) ([]*Photo, error) {
 	}
 
 	var errs []error
-	photos := make([]*Photo, len(names))
-	for i, name := range names {
+	photos := make([]*Photo, 0, len(names))
+	for _, name := range names {
 		p, err := l.GetPhoto(name)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		photos[i] = p
+		photos = append(photos, p)
 	}
 
 	if len(errs) > 0 {
