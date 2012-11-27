@@ -96,93 +96,110 @@ func (h *handler) updateLib() {
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		list := make([]*thumbData, len(h.photos))
-		for i, p := range h.photos {
-			list[i] = &thumbData{
-				Path:  p.Meta,
-				Date:  p.Taken.Format("Jan 2, 2006"),
-				Index: i,
-			}
-		}
-
-		err := h.indexTmpl.Execute(w, list)
-		if err != nil {
-			log.Fatal(err)
-		}
+		h.serveHome(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/zoom") {
-		items := strings.Split(r.URL.Path[1:], "/")
-		if len(items) != 2 {
-			log.Printf("Invalid zoom request path '%v'", r.URL.Path)
-		}
+		h.serveZoom(w, r)
+	} else if strings.HasPrefix(r.URL.Path, "/static") {
+		http.ServeFile(w, r, r.URL.Path[1:])
+	} else if strings.HasPrefix(r.URL.Path, "/addphotos") {
+		h.serveAddPhotos(w, r)
+	} else if strings.HasPrefix(r.URL.Path, "/piclib") {
+		h.servePhoto(w, r)
+	} else {
+		msg := fmt.Sprintf("Invalid request path '%v'", r.URL.Path)
+		log.Print(msg)
+		http.Error(w, msg, http.StatusNotFound)
+	}
+}
 
-		i, _ := strconv.Atoi(items[1])
-		p := h.photos[i]
-		pData := &thumbData{
+func (h *handler) serveHome(w http.ResponseWriter, r *http.Request) {
+	list := make([]*thumbData, len(h.photos))
+	for i, p := range h.photos {
+		list[i] = &thumbData{
 			Path:  p.Meta,
 			Date:  p.Taken.Format("Jan 2, 2006"),
 			Index: i,
 		}
+	}
 
-		if err := h.zoomTmpl.Execute(w, pData); err != nil {
-			log.Fatal(err)
+	err := h.indexTmpl.Execute(w, list)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (h *handler) serveZoom(w http.ResponseWriter, r *http.Request) {
+	items := strings.Split(r.URL.Path[1:], "/")
+	if len(items) != 2 {
+		log.Printf("Invalid zoom request path '%v'", r.URL.Path)
+	}
+
+	i, _ := strconv.Atoi(items[1])
+	p := h.photos[i]
+	pData := &thumbData{
+		Path:  p.Meta,
+		Date:  p.Taken.Format("Jan 2, 2006"),
+		Index: i,
+	}
+
+	if err := h.zoomTmpl.Execute(w, pData); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (h *handler) serveAddPhotos(w http.ResponseWriter, r *http.Request) {
+	mr, err := r.MultipartReader()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	resps := []interface{}{}
+	part, err := mr.NextPart()
+	for {
+		if part.FormName() == "" {
+			continue
+		} else if part.FileName() == "" {
+			continue
 		}
-	} else if strings.HasPrefix(r.URL.Path, "/static") {
-		log.Printf("serving static file '%v'", r.URL.Path)
-		http.ServeFile(w, r, r.URL.Path[1:])
-	} else if strings.HasPrefix(r.URL.Path, "/addphotos") {
-		mr, err := r.MultipartReader()
+		name := part.FileName()
+
+		data, err := ioutil.ReadAll(part)
+		respMeta := map[string]interface{}{
+			"name": name,
+			"size": len(data),
+		}
+
 		if err != nil {
 			log.Println(err)
-			return
-		}
-
-		resps := []interface{}{}
-		part, err := mr.NextPart()
-		for {
-			if part.FormName() == "" {
-				continue
-			} else if part.FileName() == "" {
-				continue
-			}
-			name := part.FileName()
-
-			data, err := ioutil.ReadAll(part)
-			respMeta := map[string]interface{}{
-				"name": name,
-				"size": len(data),
-			}
-
+			respMeta["error"] = err
+		} else {
+			p, err := h.lib.AddPhoto(name, data)
 			if err != nil {
-				log.Println(err)
-				respMeta["error"] = err
+				respMeta["error"] = err.Error()
 			} else {
-				p, err := h.lib.AddPhoto(name, data)
-				if err != nil {
-					respMeta["error"] = err.Error()
-				} else {
-					h.photos = append(h.photos, p)
-				}
-			}
-
-			resps = append(resps, respMeta)
-			if part, err = mr.NextPart(); err != nil {
-				break
+				h.photos = append(h.photos, p)
 			}
 		}
 
-		sort.Sort(newFirst(h.photos))
-		data, _ := json.Marshal(resps)
-		w.Write(data)
-	} else if strings.HasPrefix(r.URL.Path, "/piclib") {
-		data, err := h.fetchImg(r.URL.Path)
-		if err != nil {
-			log.Print(err)
-			return
+		resps = append(resps, respMeta)
+		if part, err = mr.NextPart(); err != nil {
+			break
 		}
-		w.Write(data)
-	} else {
-		log.Printf("Invalid request path '%v'", r.URL.Path)
 	}
+
+	sort.Sort(newFirst(h.photos))
+	data, _ := json.Marshal(resps)
+	w.Write(data)
+}
+
+func (h *handler) servePhoto(w http.ResponseWriter, r *http.Request) {
+	data, err := h.fetchImg(r.URL.Path)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	w.Write(data)
 }
 
 func (h *handler) fetchImg(path string) ([]byte, error) {
