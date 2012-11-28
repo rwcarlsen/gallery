@@ -25,6 +25,7 @@ func New(auth aws.Auth, region aws.Region) *Backend {
 
 const (
 	NoSuchBucket = "NoSuchBucket"
+	maxRetries = 3
 )
 
 func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err error) {
@@ -124,8 +125,19 @@ func (lb *Backend) Get(path, name string) ([]byte, error) {
 	}
 	fullPath := pth.Join(bpath, name)
 
-	log.Printf("GetObject %v/%v", bucket.Name, bpath)
-	return bucket.Get(fullPath)
+	var data []byte
+	for i := 0; i < maxRetries; i++ {
+		log.Printf("GetObject %v/%v/%v", bucket.Name, bpath, name)
+		if data, err = bucket.Get(fullPath); err == nil {
+			break
+		}
+		log.Printf("GetObject failed %v/%v/%v", bucket.Name, bpath, name)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 

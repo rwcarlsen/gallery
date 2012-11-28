@@ -259,20 +259,20 @@ func dateFrom(data []byte) (string, time.Time) {
 	r := bytes.NewReader(data)
 	x, err := exif.Decode(r)
 	if err != nil {
-		return "NONE-" + now.Format(nameTimeFmt), now
+		return now.Format(nameTimeFmt) + "-NoDate", now
 	}
 
 	tg, err := x.Get("DateTimeOriginal")
 	if err != nil {
     tg, err = x.Get("DateTime")
     if err != nil {
-      return "NONE-" + now.Format(nameTimeFmt), now
+      return now.Format(nameTimeFmt) + "-NoDate", now
     }
 	}
 
 	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
 	if err != nil {
-		return "NONE-" + now.Format(nameTimeFmt), now
+		return now.Format(nameTimeFmt) + "-NoDate", now
 	}
 
 	return t.Format(nameTimeFmt), t
