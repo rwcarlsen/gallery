@@ -159,7 +159,8 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 	} else if strings.HasPrefix(kind, "/page-nav") {
-		pages := make([]int, len(h.photos) / picsPerPage + 1)
+		n := len(h.photos) / picsPerPage + 1
+		pages := make([]int, n)
 		for i := range pages {
 			pages[i] = i + 1
 		}

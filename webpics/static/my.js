@@ -16,12 +16,22 @@ function pageTo(page) {
 
 function pagePrev() {
   if (currPage > 1) {
+    if (currPage == startPage) {
+      startPage -= 1
+      endPage -= 1
+      slidePageNav()
+    }
     pageTo(currPage - 1)
   }
 }
 
 function pageNext() {
   if (currPage < numPages) {
+    if (currPage == endPage) {
+      startPage += 1
+      endPage += 1
+      slidePageNav()
+    }
     pageTo(currPage + 1)
   }
 }
@@ -30,17 +40,32 @@ function refreshGallery() {
   pageTo(currPage)
 }
 
+function slidePageNav() {
+  $(".pglink").each(function(i, elem){
+    if (i+1 < startPage || i >= endPage) {
+      $(this).hide()
+    } else {
+      $(this).show()
+    }
+  })
+}
+
 function loadPageNav() {
-  $("#page-nav").load("/dynamic/page-nav")
+  $("#page-nav").load("/dynamic/page-nav", slidePageNav)
 }
 
 function getNumPages() {
   $.get("/dynamic/num-pages", function(data){numPages = parseInt(data)})
 }
 
+maxDisplayPages = 25
+startPage = 1
+
 // order matters
-var numPages
+endPage = maxDisplayPages
 currPage = 0
+var numPages
+
 getNumPages()
 loadPageNav()
 pageTo(1)
