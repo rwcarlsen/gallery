@@ -6,6 +6,10 @@
     margin-top: -45%;
 }
 
+.zoom-img {
+  max-height: 800px;
+}
+
 .modal-body {
     max-height: 800px;
 }
