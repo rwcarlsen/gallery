@@ -16,10 +16,6 @@ import (
 	"launchpad.net/goamz/aws"
 )
 
-var indexFiles = []string{"index.tmpl", "templates/pagination.tmpl"}
-var picFiles = []string{"templates/browsepics.tmpl"}
-var zoomFiles = []string{"templates/zoompic.tmpl"}
-
 const (
 	MetaFile  = "meta"
 	OrigImg   = "orig"
@@ -33,7 +29,7 @@ const (
 )
 
 const (
-	picsPerPage = 24
+	picsPerPage = 28
 )
 
 func main() {
@@ -46,14 +42,16 @@ func main() {
 	db := amz.New(auth, aws.USEast)
 	lib := piclib.New(libName, db)
 
-	indexTmpl := template.Must(template.ParseFiles(indexFiles...))
-	zoomTmpl := template.Must(template.ParseFiles(zoomFiles...))
-	picsTmpl := template.Must(template.ParseFiles(picFiles...))
+	indexTmpl := template.Must(template.ParseFiles("index.tmpl"))
+	zoomTmpl := template.Must(template.ParseFiles("templates/zoompic.tmpl"))
+	picsTmpl := template.Must(template.ParseFiles("templates/browsepics.tmpl"))
+	pagenavTmpl := template.Must(template.ParseFiles("templates/pagination.tmpl"))
 
 	h := &handler{
 		indexTmpl: indexTmpl,
 		zoomTmpl:  zoomTmpl,
 		picsTmpl:  picsTmpl,
+		pagenavTmpl:  pagenavTmpl,
 		lib:       lib,
 	}
 	h.updateLib()
@@ -84,6 +82,7 @@ type handler struct {
 	indexTmpl *template.Template
 	zoomTmpl  *template.Template
 	picsTmpl  *template.Template
+	pagenavTmpl  *template.Template
 	lib       *piclib.Library
 	photos    []*piclib.Photo
 }
@@ -96,7 +95,7 @@ type thumbData struct {
 
 func (h *handler) updateLib() {
 	var err error
-	if h.photos, err = h.lib.ListPhotosN(50000); err != nil {
+	if h.photos, err = h.lib.ListPhotosN(20000); err != nil {
 		log.Println(err)
 	}
 	if len(h.photos) > 0 {
@@ -107,8 +106,8 @@ func (h *handler) updateLib() {
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
 		h.serveHome(w, r)
-	} else if strings.HasPrefix(r.URL.Path, "/pg") {
-		h.servePage(w, r)
+	} else if strings.HasPrefix(r.URL.Path, "/dynamic") {
+		h.serveDynamic(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/zoom") {
 		h.serveZoom(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
@@ -125,41 +124,52 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) serveHome(w http.ResponseWriter, r *http.Request) {
-	pages := make([]int, len(h.photos) / picsPerPage + 1)
-	for i := range pages {
-		pages[i] = i + 1
-	}
-
-	if err := h.indexTmpl.Execute(w, pages); err != nil {
+	if err := h.indexTmpl.Execute(w, nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (h *handler) servePage(w http.ResponseWriter, r *http.Request) {
-	items := strings.Split(r.URL.Path, "pg")
-	if len(items) != 2 {
-		log.Println("invalid gallery page view request")
-		return
-	}
-	pgNum, err := strconv.Atoi(items[1])
-	if err != nil {
-		log.Println("invalid gallery page view request")
+func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
+	items := strings.Split(r.URL.Path, "/")
+	if len(items) != 3 {
+		log.Printf("invalid dynamic content request path %v", r.URL.Path)
 		return
 	}
 
-	start := picsPerPage * (pgNum - 1)
-	end := min(start + picsPerPage, len(h.photos))
-	list := make([]*thumbData, end - start)
-	for i, p := range h.photos[start:end] {
-		list[i] = &thumbData{
-			Path:  p.Meta,
-			Date:  p.Taken.Format("Jan 2, 2006"),
-			Index: i + start,
+	kind := r.URL.Path[len("/dynamic"):]
+	if strings.HasPrefix(kind, "/pg") {
+		pgNum, err := strconv.Atoi(kind[len("/pg"):])
+		if err != nil {
+			log.Println("invalid gallery page view request")
+			return
 		}
-	}
 
-	if err = h.picsTmpl.Execute(w, list); err != nil {
-		log.Fatal(err)
+		start := picsPerPage * (pgNum - 1)
+		end := min(start + picsPerPage, len(h.photos))
+		list := make([]*thumbData, end - start)
+		for i, p := range h.photos[start:end] {
+			list[i] = &thumbData{
+				Path:  p.Meta,
+				Date:  p.Taken.Format("Jan 2, 2006"),
+				Index: i + start,
+			}
+		}
+
+		if err = h.picsTmpl.Execute(w, list); err != nil {
+			log.Fatal(err)
+		}
+	} else if strings.HasPrefix(kind, "/page-nav") {
+		pages := make([]int, len(h.photos) / picsPerPage + 1)
+		for i := range pages {
+			pages[i] = i + 1
+		}
+
+		if err := h.pagenavTmpl.Execute(w, pages); err != nil {
+			log.Fatal(err)
+		}
+	} else if strings.HasPrefix(kind, "/num-pages") {
+		n := len(h.photos) / picsPerPage + 1
+		fmt.Fprint(w, n)
 	}
 }
 

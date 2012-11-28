@@ -11,7 +11,7 @@ function pageTo(page) {
     $("#pg" + currPage.toString()).addClass("active")
   }
 
-  $("#pic-gallery").load("/pg" + currPage.toString(), setAttr)
+  $("#pic-gallery").load("/dynamic/pg" + currPage.toString(), setAttr)
 }
 
 function pagePrev() {
@@ -26,7 +26,22 @@ function pageNext() {
   }
 }
 
+function refreshGallery() {
+  pageTo(currPage)
+}
+
+function loadPageNav() {
+  $("#page-nav").load("/dynamic/page-nav")
+}
+
+function getNumPages() {
+  $.get("/dynamic/num-pages", function(data){numPages = parseInt(data)})
+}
+
+// order matters
+var numPages
 currPage = 0
-numPages = $(".pglink").length
+getNumPages()
+loadPageNav()
 pageTo(1)
 
