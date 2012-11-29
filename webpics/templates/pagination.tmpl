@@ -5,7 +5,8 @@
         <ul>
           <li id="pgprev" ><a href="#" onclick="pagePrev()">Prev</a></li>
             {{range $i, $pgNum := .}}
-            <li id="pg{{$pgNum}}" class="pglink"><a href="#" onclick="pageTo({{$pgNum}})">{{$pgNum}}</a></li>
+            <li id="pg{{$pgNum}}" class="pglink"><a class="pga" href="#"
+            onclick="pageTo({{$pgNum}})"><p class="pgp">{{$pgNum}}</p></a></li>
             {{end}}
           <li id="pgnext"><a href="#" onclick="pageNext()">Next</a></li>
         </ul>

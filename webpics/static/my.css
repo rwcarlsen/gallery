@@ -6,6 +6,16 @@
     margin-top: -45%;
 }
 
+.pga {
+  padding: 0px 0px;
+  margin: 0px 0px;
+}
+
+.pgp {
+  height: 0.72em;
+  width: 1em;
+}
+
 .zoom-img {
   max-height: 800px;
 }
