@@ -48,25 +48,38 @@ function slidePageNav() {
       $(this).show()
     }
   })
+  getStats()
 }
 
 function loadPageNav() {
   $("#page-nav").load("/dynamic/page-nav", slidePageNav)
 }
 
-function getNumPages() {
-  $.get("/dynamic/num-pages", function(data){numPages = parseInt(data)})
+function getStats() {
+  $.get("/dynamic/num-pages", function(data){
+    numPages = parseInt(data)
+    $("#num-pages").text(numPages.toString() + " pages")
+  })
+  $.get("/dynamic/num-pics", function(data){
+    numPhotos = parseInt(data)
+    $("#num-pics").text(numPhotos.toString() + " photos")
+  })
 }
 
-maxDisplayPages = 25
-startPage = 1
+function getNumPhotos() {
+}
+
+// configurable
+var maxDisplayPages = 25
+// end configurable
 
 // order matters
-endPage = maxDisplayPages
-currPage = 0
-var numPages
+var startPage = 1
+var endPage = maxDisplayPages
+var currPage = 0
+var numPages = 0
+var numPhotos = 0
 
-getNumPages()
 loadPageNav()
 pageTo(1)
 

@@ -171,6 +171,8 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 	} else if strings.HasPrefix(kind, "/num-pages") {
 		n := len(h.photos) / picsPerPage + 1
 		fmt.Fprint(w, n)
+	} else if strings.HasPrefix(kind, "/num-pics") {
+		fmt.Fprint(w, len(h.photos))
 	}
 }
 
