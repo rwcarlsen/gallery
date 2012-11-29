@@ -1,0 +1,20 @@
+
+{{define "timenav"}}
+
+{{range $i, $year := .}}
+<li>
+  <div class="pagination pagination-centered">
+    <ul>
+      <li><a href="#" onclick="pageTo($year.StartPage)">{{$year.Year}}</a></li>
+      {{range $j, $month := $year.Months}}
+      <li><a href="#" onclick="pageTo({{$month.Page}})">{{$month.Name}}</a></li>
+      {{end}}
+    </ul>
+  </div>
+</li>
+{{end}}
+
+{{end}}
+
+{{template "timenav" .}}
+
