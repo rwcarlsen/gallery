@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"mime/multipart"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -33,6 +34,12 @@ const (
 	picsPerPage = 28
 )
 
+var indexTmpl = template.Must(template.ParseFiles("index.tmpl"))
+var zoomTmpl = template.Must(template.ParseFiles("templates/zoompic.tmpl"))
+var picsTmpl = template.Must(template.ParseFiles("templates/browsepics.tmpl"))
+var pagenavTmpl = template.Must(template.ParseFiles("templates/pagination.tmpl"))
+var timenavTmpl = template.Must(template.ParseFiles("templates/timenav.tmpl"))
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
@@ -43,19 +50,8 @@ func main() {
 	db := amz.New(auth, aws.USEast)
 	lib := piclib.New(libName, db)
 
-	indexTmpl := template.Must(template.ParseFiles("index.tmpl"))
-	zoomTmpl := template.Must(template.ParseFiles("templates/zoompic.tmpl"))
-	picsTmpl := template.Must(template.ParseFiles("templates/browsepics.tmpl"))
-	pagenavTmpl := template.Must(template.ParseFiles("templates/pagination.tmpl"))
-	timenavTmpl := template.Must(template.ParseFiles("templates/timenav.tmpl"))
-
 	h := &handler{
-		indexTmpl: indexTmpl,
-		zoomTmpl:  zoomTmpl,
-		picsTmpl:  picsTmpl,
-		pagenavTmpl:  pagenavTmpl,
-		timenavTmpl:  timenavTmpl,
-		lib:       lib,
+		lib: lib,
 	}
 	h.updateLib()
 
@@ -82,11 +78,6 @@ func (pl newFirst) Swap(i, j int) {
 }
 
 type handler struct {
-	indexTmpl *template.Template
-	zoomTmpl  *template.Template
-	picsTmpl  *template.Template
-	pagenavTmpl  *template.Template
-	timenavTmpl  *template.Template
 	lib       *piclib.Library
 	photos    []*piclib.Photo
 }
@@ -158,7 +149,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) serveHome(w http.ResponseWriter, r *http.Request) {
-	if err := h.indexTmpl.Execute(w, nil); err != nil {
+	if err := indexTmpl.Execute(w, nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -189,7 +180,7 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if err = h.picsTmpl.Execute(w, list); err != nil {
+		if err = picsTmpl.Execute(w, list); err != nil {
 			log.Fatal(err)
 		}
 	} else if strings.HasPrefix(kind, "/page-nav") {
@@ -199,7 +190,7 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 			pages[i] = i + 1
 		}
 
-		if err := h.pagenavTmpl.Execute(w, pages); err != nil {
+		if err := pagenavTmpl.Execute(w, pages); err != nil {
 			log.Fatal(err)
 		}
 	} else if strings.HasPrefix(kind, "/num-pages") {
@@ -232,7 +223,7 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		yr.StartPage = yr.Months[0].Page
 		years = append(years, yr)
 
-		if err := h.timenavTmpl.Execute(w, years); err != nil {
+		if err := timenavTmpl.Execute(w, years); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -263,7 +254,7 @@ func (h *handler) serveZoom(w http.ResponseWriter, r *http.Request) {
 		Index: i,
 	}
 
-	if err := h.zoomTmpl.Execute(w, pData); err != nil {
+	if err := zoomTmpl.Execute(w, pData); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -275,39 +266,55 @@ func (h *handler) serveAddPhotos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resps := []interface{}{}
-	part, err := mr.NextPart()
+	picCh := make(chan *piclib.Photo)
+	respCh := make(chan map[string]interface{})
+
+	var part *multipart.Part
+	count := 0
 	for {
+		if part, err = mr.NextPart(); err != nil {
+			break
+		}
 		if part.FormName() == "" {
 			continue
 		} else if part.FileName() == "" {
 			continue
 		}
-		name := part.FileName()
 
+		name := part.FileName()
 		data, err := ioutil.ReadAll(part)
-		respMeta := map[string]interface{}{
+		resp := map[string]interface{}{
 			"name": name,
 			"size": len(data),
 		}
 
-		if err != nil {
-			log.Println(err)
-			respMeta["error"] = err
-		} else {
-			p, err := h.lib.AddPhoto(name, data)
+		count++
+		go func(data []byte, nm string, respMeta map[string]interface{}) {
+			var p *piclib.Photo
 			if err != nil {
+				log.Println(err)
 				respMeta["error"] = err.Error()
 			} else {
-				h.photos = append(h.photos, p)
+				p, err = h.lib.AddPhoto(nm, data)
+				if err != nil {
+					respMeta["error"] = err.Error()
+				}
 			}
-		}
+			respCh <- respMeta
+			picCh <- p
+		}(data, name, resp)
+	}
 
-		resps = append(resps, respMeta)
-		if part, err = mr.NextPart(); err != nil {
-			break
+	resps := []interface{}{}
+	for i := 0; i < count; i++ {
+		resp := <- respCh
+		p := <- picCh
+		resps = append(resps, resp)
+		if p != nil {
+			h.photos = append(h.photos, p)
 		}
 	}
+	log.Println("done uploading")
 
 	sort.Sort(newFirst(h.photos))
 	data, _ := json.Marshal(resps)
