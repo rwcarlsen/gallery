@@ -93,7 +93,9 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if s, ok := r.(string); ok && s == "unsupported" {
-				full := fmt.Sprintf("%v-%v%v", path.Base(name), time.Now(), path.Ext(name))
+				base := path.Base(name)
+				nm := base[:len(base)-len(path.Ext(name))]
+				full := fmt.Sprintf("%v-sep-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
 				l.putAll(l.unsupportedDir, full, data)
 				err = fmt.Errorf("unsupported file type %v", name)
 			} else {
@@ -106,7 +108,7 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	ext := path.Ext(name)
 	base := path.Base(name)
 	strDate, date := dateFrom(data)
-	fname := strDate + "-" + base[:len(base)-len(ext)]
+	fname := strDate + "-sep-" + base[:len(base)-len(ext)]
 
 	// decode image bytes and construct thumbnails
 	r := bytes.NewReader(data)
