@@ -212,7 +212,6 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		maxYear := h.photos[0].Taken.Year()
 		minYear := h.photos[len(h.photos)-1].Taken.Year()
 		lastMinMonth := h.photos[len(h.photos)-1].Taken.Month()
-		log.Println(maxYear, ", ", minYear)
 
 		var last, pg int
 		for y := maxYear; y > minYear; y-- {

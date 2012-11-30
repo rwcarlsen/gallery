@@ -67,7 +67,15 @@ func (lb *Backend) Put(path, name string, data []byte) error {
 	fullPath := pth.Join(bpath, name)
 
 	contType := http.DetectContentType(data)
-	return bucket.Put(fullPath, data, contType, s3.Private)
+
+	for i := 0; i < maxRetries; i++ {
+		log.Printf("PutObject %v/%v/%v", bucket.Name, bpath, name)
+		if err = bucket.Put(fullPath, data, contType, s3.Private); err == nil {
+			break
+		}
+		log.Printf("PutObject failed %v/%v/%v", bucket.Name, bpath, name)
+	}
+	return err
 }
 
 func (lb *Backend) Exists(path, name string) bool {
@@ -96,11 +104,13 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 
 	names := make([]string, 0)
 	marker := ""
-	for {
+	for failed := 0; failed < maxRetries; {
 		result, err := bucket.List(bpath, "", marker, n)
 		log.Printf("ListBucket %v/%v", bucket.Name, bpath)
 		if err != nil {
-			return nil, err
+			log.Printf("ListBucket failed %v/%v", bucket.Name, bpath)
+			failed++
+			continue
 		}
 
 		var k s3.Key
