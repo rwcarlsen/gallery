@@ -200,7 +200,7 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 			yr := &year{Year: y}
 			for m := time.January; m <= time.December; m++ {
 				pg, last = h.pageOf(last, time.Date(y, m, 1, 0, 0, 0, 0, time.Local))
-				yr.Months = append(yr.Months, &month{Page: pg, Name: fmt.Sprint(m)})
+				yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
 			}
 			yr.StartPage = yr.Months[0].Page
 			years = append(years, yr)
@@ -209,7 +209,7 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		yr := &year{Year: minYear}
 		for m := lastMinMonth; m <= time.December; m++ {
 			pg, last = h.pageOf(last, time.Date(minYear, m, 1, 0, 0, 0, 0, time.Local))
-			yr.Months = append(yr.Months, &month{Page: pg, Name: fmt.Sprint(m)})
+			yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
 		}
 		yr.StartPage = yr.Months[0].Page
 		years = append(years, yr)
