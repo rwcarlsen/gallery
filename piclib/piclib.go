@@ -2,6 +2,7 @@
 package piclib
 
 import (
+	"fmt"
 	"errors"
 	"bytes"
 	"time"
@@ -21,6 +22,7 @@ const (
 	MetaDir = "metadata"
 	ThumbDir = "thumbnails"
 	IndexDir = "index"
+	UnsupportedDir = "unsupported"
 )
 
 const (
@@ -55,6 +57,7 @@ type Library struct {
 	thumbDir string
 	indDir string
 	metaDir string
+	unsupportedDir string
 	photoCache map[string]*Photo
 	thumb1Cache map[string][]byte
 	thumb2Cache map[string][]byte
@@ -68,6 +71,7 @@ func New(name string, db Backend) *Library {
 		thumbDir: path.Join(name, ThumbDir),
 		indDir: path.Join(name, IndexDir),
 		metaDir: path.Join(name, MetaDir),
+		unsupportedDir: path.Join(name, UnsupportedDir),
 		photoCache: make(map[string]*Photo),
 		thumb1Cache: make(map[string][]byte),
 		thumb2Cache: make(map[string][]byte),
@@ -85,7 +89,19 @@ func (l *Library) ListPhotosN(n int) ([]string, error) {
 	return l.db.ListN(l.metaDir, n)
 }
 
-func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
+func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if s, ok := r.(string); ok && s == "unsupported" {
+				full := fmt.Sprintf("%v-%v%v", path.Base(name), time.Now(), path.Ext(name))
+				l.putAll(l.unsupportedDir, full, data)
+				err = fmt.Errorf("unsupported file type %v", name)
+			} else {
+				panic(r)
+			}
+		}
+	}()
+
 	// construct photo name
 	ext := path.Ext(name)
 	base := path.Base(name)
@@ -96,7 +112,7 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 	r := bytes.NewReader(data)
 	img, _, err := image.Decode(r)
 	if err != nil {
-		return nil, err
+		panic("unsupported")
 	}
 
 	thumb1, err := thumb(144, 0, img)
@@ -109,7 +125,7 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 	}
 
 	// create photo meta object
-	p := &Photo{
+	p = &Photo{
 		Meta: fname + ".json",
 		Orig: fname + ext,
 		Thumb1: fname + "_thumb1.jpg",
@@ -161,11 +177,19 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 }
 
 func (l *Library) putAll(path, name string, data []byte) (err error) {
-	err = l.db.Put(path, name, data)
-	for _, second := range l.seconds {
-		err = second.Put(path, name, data)
+	errs := []error{}
+	if err = l.db.Put(path, name, data); err != nil {
+		errs = append(errs, err)
 	}
-	return err
+	for _, second := range l.seconds {
+		if err = second.Put(path, name, data); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return errs[0]
+	}
+	return nil
 }
 
 func (l *Library) GetPhoto(name string) (*Photo, error) {

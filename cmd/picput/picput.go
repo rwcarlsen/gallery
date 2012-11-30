@@ -2,6 +2,7 @@
 package main
 
 import (
+	"os"
 	"flag"
 	"strings"
 	"log"
@@ -18,10 +19,29 @@ var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3"
 var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
 
+var validFmt = map[string]bool{
+	".jpg": true,
+	".jpeg": true,
+	".gif": true,
+	".png": true,
+	".tif": true,
+	".tiff": true,
+	".bmp": true,
+	".exif": true,
+	".giff": true,
+	".raw": true,
+	".avi": true,
+	".mpg": true,
+	".mp4": true,
+	".mov": true,
+}
+
+var libs []*piclib.Library
+var errlog = log.New(os.Stdin, "", log.LstdFlags)
+
 func main() {
 	flag.Parse()
 
-	var libs []*piclib.Library
 	if strings.Index(*amazonS3, "[") == -1 {
 		libs = append(libs, amzLib())
 	}
@@ -32,18 +52,45 @@ func main() {
 	picPaths := flag.Args()
 
 	for _, path := range picPaths {
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		base := filepath.Base(path)
-		for _, lib := range libs {
-			lib.AddPhoto(base, data)
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			if err := filepath.Walk(path, walkFn); err != nil {
+				log.Print(err)
+			}
+		} else {
+			addToLibs(path)
 		}
 	}
+}
 
-	log.Printf("%v photos stored successfully", len(picPaths))
+func walkFn(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+	if !info.IsDir() {
+		addToLibs(path)
+	}
+	return nil
+}
+
+func addToLibs(path string) {
+	if !validFmt[strings.ToLower(filepath.Ext(path))] {
+		errlog.Printf("skipped file %v", path)
+		return
+	}
+
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		errlog.Print(err)
+		return
+	}
+
+	base := filepath.Base(path)
+	for _, lib := range libs {
+		if _, err = lib.AddPhoto(base, data); err != nil {
+			errlog.Print(err)
+		}
+	}
 }
 
 func amzLib() *piclib.Library {
