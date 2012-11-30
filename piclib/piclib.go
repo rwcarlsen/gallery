@@ -40,6 +40,7 @@ type Photo struct {
 	Orig string
 	Thumb1 string
 	Thumb2 string
+	Size int
 	Uploaded time.Time
 	Taken time.Time
 	Tags map[string]string
@@ -113,6 +114,7 @@ func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {
 		Orig: fname + ext,
 		Thumb1: fname + "_thumb1.jpg",
 		Thumb2: fname + "_thumb2.jpg",
+		Size: len(data),
 		Uploaded: time.Now(),
 		Taken: date,
 		Tags: make(map[string]string),
