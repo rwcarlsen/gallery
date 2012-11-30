@@ -80,27 +80,8 @@ func (l *Library) AddSecondary(db Backend) {
 	l.seconds = append(l.seconds, db)
 }
 
-func (l *Library) ListPhotosN(n int) ([]*Photo, error) {
-	names, err := l.db.ListN(l.metaDir, n)
-	if err != nil {
-		return nil, err
-	}
-
-	var errs []error
-	photos := make([]*Photo, 0, len(names))
-	for _, name := range names {
-		p, err := l.GetPhoto(name)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		photos = append(photos, p)
-	}
-
-	if len(errs) > 0 {
-		return photos, errs[0]
-	}
-	return photos, nil
+func (l *Library) ListPhotosN(n int) ([]string, error) {
+	return l.db.ListN(l.metaDir, n)
 }
 
 func (l *Library) AddPhoto(name string, data []byte) (*Photo, error) {

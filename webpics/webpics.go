@@ -109,10 +109,29 @@ type thumbData struct {
 }
 
 func (h *handler) updateLib() {
-	var err error
-	if h.photos, err = h.lib.ListPhotosN(20000); err != nil {
+	names, err := h.lib.ListPhotosN(20000)
+	if err != nil {
 		log.Println(err)
 	}
+
+	h.photos = make([]*piclib.Photo, 0, len(names))
+	picCh := make(chan *piclib.Photo)
+	for _, nm := range names {
+		go func(name string) {
+			p, err := h.lib.GetPhoto(name)
+			if err != nil {
+				log.Print(err)
+			}
+			picCh <- p
+		}(nm)
+	}
+
+	for _ = range names {
+		if p := <-picCh; p != nil {
+			h.photos = append(h.photos, p)
+		}
+	}
+
 	if len(h.photos) > 0 {
 		sort.Sort(newFirst(h.photos))
 	}
