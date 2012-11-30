@@ -16,6 +16,19 @@
   width: 1em;
 }
 
+.dropdown-page {
+  display: inline-block !important;
+  float: left;
+}
+
+.dropdown-link {
+  display: inline !important;
+}
+
+.dropdown-wide {
+  min-width: 47em !important;
+}
+
 .zoom-img {
   max-height: 800px;
 }

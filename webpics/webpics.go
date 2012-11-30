@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -46,12 +47,14 @@ func main() {
 	zoomTmpl := template.Must(template.ParseFiles("templates/zoompic.tmpl"))
 	picsTmpl := template.Must(template.ParseFiles("templates/browsepics.tmpl"))
 	pagenavTmpl := template.Must(template.ParseFiles("templates/pagination.tmpl"))
+	timenavTmpl := template.Must(template.ParseFiles("templates/timenav.tmpl"))
 
 	h := &handler{
 		indexTmpl: indexTmpl,
 		zoomTmpl:  zoomTmpl,
 		picsTmpl:  picsTmpl,
 		pagenavTmpl:  pagenavTmpl,
+		timenavTmpl:  timenavTmpl,
 		lib:       lib,
 	}
 	h.updateLib()
@@ -83,8 +86,20 @@ type handler struct {
 	zoomTmpl  *template.Template
 	picsTmpl  *template.Template
 	pagenavTmpl  *template.Template
+	timenavTmpl  *template.Template
 	lib       *piclib.Library
 	photos    []*piclib.Photo
+}
+
+type year struct {
+	Year int
+	StartPage int
+	Months []*month
+}
+
+type month struct {
+	Name string
+	Page int
 }
 
 type thumbData struct {
@@ -173,7 +188,47 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, n)
 	} else if strings.HasPrefix(kind, "/num-pics") {
 		fmt.Fprint(w, len(h.photos))
+	} else if strings.HasPrefix(kind, "/time-nav") {
+		years := make([]*year, 0)
+		maxYear := h.photos[0].Taken.Year()
+		minYear := h.photos[len(h.photos)-1].Taken.Year()
+		lastMinMonth := h.photos[len(h.photos)-1].Taken.Month()
+		log.Println(maxYear, ", ", minYear)
+
+		var last, pg int
+		for y := maxYear; y > minYear; y-- {
+			yr := &year{Year: y}
+			for m := time.January; m <= time.December; m++ {
+				pg, last = h.pageOf(last, time.Date(y, m, 1, 0, 0, 0, 0, time.Local))
+				yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
+			}
+			yr.StartPage = yr.Months[0].Page
+			years = append(years, yr)
+		}
+
+		yr := &year{Year: minYear}
+		for m := lastMinMonth; m <= time.December; m++ {
+			pg, last = h.pageOf(last, time.Date(minYear, m, 1, 0, 0, 0, 0, time.Local))
+			yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
+		}
+		yr.StartPage = yr.Months[0].Page
+		years = append(years, yr)
+
+		if err := h.timenavTmpl.Execute(w, years); err != nil {
+			log.Fatal(err)
+		}
 	}
+}
+
+func (h *handler) pageOf(start int, t time.Time) (page, last int) {
+	for i, p := range h.photos[start:] {
+		pg := (i + start) / picsPerPage + 1
+
+		if p.Taken.Before(t) {
+			return pg, i + start
+		}
+	}
+	return len(h.photos) / picsPerPage + 1, len(h.photos)
 }
 
 func (h *handler) serveZoom(w http.ResponseWriter, r *http.Request) {

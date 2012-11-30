@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>RWC Photos</title>
-    <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="/static/bootstrap/css/bootstrap.css" rel="stylesheet" media="screen">
     <link href="/static/my.css" rel="stylesheet" media="screen">
     <link rel="shortcut icon" href="/static/favicon.ico" />
   </head>
@@ -20,6 +20,14 @@
             </li>
 
             <li class="divider-vertical"></li>
+
+            <li class="dropdown" id="time-menu">
+              <a class="dropdown-toggle" data-toggle="dropdown" href="#time-menu">
+                When
+                <b class="caret"></b>
+              </a>
+              <ul class="dropdown-menu" id="time-nav"></ul>
+            </li>
           </ul>
 
           <ul class="nav pull-right">
@@ -47,8 +55,8 @@
 
     <div class="container">
       <br>
-
       <div id="pic-gallery"></div>
+      <br>
 
     <!-------------------------------------------------------------------->
     <!-------------------------------------------------------------------->
@@ -69,7 +77,7 @@
 
       <div id="uploadermodal" class="modal large hide fade" tabindex="-1" role="dialog" aria-hidden="true">
           <div class="modal-header">
-              <h1>Upload Photos</h1>
+              <h2>Upload Photos</h2>
           </div>
 
           <!-- The file upload form used as target for the file upload widget -->

@@ -55,6 +55,10 @@ function loadPageNav() {
   $("#page-nav").load("/dynamic/page-nav", slidePageNav)
 }
 
+function loadTimeNav() {
+  $("#time-nav").load("/dynamic/time-nav")
+}
+
 function getStats() {
   $.get("/dynamic/num-pages", function(data){
     numPages = parseInt(data)
@@ -64,9 +68,6 @@ function getStats() {
     numPhotos = parseInt(data)
     $("#num-pics").text(numPhotos.toString() + " photos")
   })
-}
-
-function getNumPhotos() {
 }
 
 // configurable
@@ -81,5 +82,6 @@ var numPages = 0
 var numPhotos = 0
 
 loadPageNav()
+loadTimeNav()
 pageTo(1)
 
