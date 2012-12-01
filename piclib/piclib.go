@@ -110,22 +110,6 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	strDate, date := dateFrom(data)
 	fname := strDate + "-sep-" + base[:len(base)-len(ext)]
 
-	// decode image bytes and construct thumbnails
-	r := bytes.NewReader(data)
-	img, _, err := image.Decode(r)
-	if err != nil {
-		panic("unsupported")
-	}
-
-	thumb1, err := thumb(144, 0, img)
-	if err != nil {
-		return nil, err
-	}
-	thumb2, err := thumb(800, 0, img)
-	if err != nil {
-		return nil, err
-	}
-
 	// create photo meta object
 	p = &Photo{
 		Meta: fname + ".json",
@@ -142,8 +126,24 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	/////// store all photo related data in backend ////////
 	if l.db.Exists(l.metaDir, p.Meta) {
 		return nil, errors.New("library: photo file " + p.Meta + " already exists")
-	} else if l.db.Exists(l.imgDir, p.Orig) {
-		return nil, errors.New("library: photo file " + p.Orig + " already exists")
+	}// else if l.db.Exists(l.imgDir, p.Orig) {
+	//	return nil, errors.New("library: photo file " + p.Orig + " already exists")
+	//}
+
+	// decode image bytes and construct thumbnails
+	r := bytes.NewReader(data)
+	img, _, err := image.Decode(r)
+	if err != nil {
+		panic("unsupported")
+	}
+
+	thumb1, err := thumb(144, 0, img)
+	if err != nil {
+		return nil, err
+	}
+	thumb2, err := thumb(800, 0, img)
+	if err != nil {
+		return nil, err
 	}
 
 	// add photo meta-data object to db

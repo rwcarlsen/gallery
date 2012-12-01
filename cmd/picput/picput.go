@@ -15,6 +15,8 @@ import (
 	"launchpad.net/goamz/aws"
 )
 
+const nWorkers = 5
+
 var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
 var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
@@ -39,7 +41,8 @@ var validFmt = map[string]bool{
 var libs []*piclib.Library
 var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
-var done = make(chan bool)
+var doneCh = make(chan bool)
+var inCh = make(chan string)
 var count = 0
 
 func main() {
@@ -54,18 +57,23 @@ func main() {
 
 	picPaths := flag.Args()
 
+	for i := 0; i < nWorkers; i++ {
+		go addToLibs()
+	}
+
 	for _, path := range picPaths {
 		if info, err := os.Stat(path); err == nil && info.IsDir() {
 			if err := filepath.Walk(path, walkFn); err != nil {
 				log.Print(err)
 			}
 		} else {
-			addToLibs(path)
+			count++
+			inCh <- path
 		}
 	}
 
 	for count > 0 {
-		<-done
+		<-doneCh
 		count--
 	}
 }
@@ -77,30 +85,35 @@ func walkFn(path string, info os.FileInfo, err error) error {
 	}
 	if !info.IsDir() {
 		count++
-		go addToLibs(path)
+		inCh <- path
 	}
 	return nil
 }
 
-func addToLibs(path string) {
-	if !validFmt[strings.ToLower(filepath.Ext(path))] {
-		errlog.Printf("skipped file %v", path)
-		return
-	}
+func addToLibs() {
+	for {
+		select {
+		case path := <- inCh:
+			if !validFmt[strings.ToLower(filepath.Ext(path))] {
+				errlog.Printf("skipped file %v", path)
+				return
+			}
 
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		errlog.Print(err)
-		return
-	}
+			data, err := ioutil.ReadFile(path)
+			if err != nil {
+				errlog.Print(err)
+				return
+			}
 
-	base := filepath.Base(path)
-	for _, lib := range libs {
-		if _, err = lib.AddPhoto(base, data); err != nil {
-			errlog.Print(err)
+			base := filepath.Base(path)
+			for _, lib := range libs {
+				if _, err = lib.AddPhoto(base, data); err != nil {
+					errlog.Print(err)
+				}
+			}
+			doneCh <- true
 		}
 	}
-	done <- true
 }
 
 func amzLib() *piclib.Library {
