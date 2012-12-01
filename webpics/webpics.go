@@ -26,7 +26,7 @@ const (
 )
 
 const (
-	libName = "rwc-piclib2"
+	libName = "rwc-piclib"
 	addr    = "0.0.0.0:7777"
 )
 
