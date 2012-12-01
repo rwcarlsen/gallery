@@ -39,6 +39,9 @@ var validFmt = map[string]bool{
 var libs []*piclib.Library
 var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
+var done = make(chan bool)
+var count = 0
+
 func main() {
 	flag.Parse()
 
@@ -60,6 +63,11 @@ func main() {
 			addToLibs(path)
 		}
 	}
+
+	for count > 0 {
+		<-done
+		count--
+	}
 }
 
 func walkFn(path string, info os.FileInfo, err error) error {
@@ -68,7 +76,8 @@ func walkFn(path string, info os.FileInfo, err error) error {
 		return nil
 	}
 	if !info.IsDir() {
-		addToLibs(path)
+		count++
+		go addToLibs(path)
 	}
 	return nil
 }
@@ -91,6 +100,7 @@ func addToLibs(path string) {
 			errlog.Print(err)
 		}
 	}
+	done <- true
 }
 
 func amzLib() *piclib.Library {
