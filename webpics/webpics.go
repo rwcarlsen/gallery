@@ -88,6 +88,13 @@ type year struct {
 	Months []*month
 }
 
+func (y *year) reverseMonths() {
+	end := len(y.Months) - 1
+	for i := 0; i < len(y.Months) / 2; i++ {
+		y.Months[i], y.Months[end-i] = y.Months[end-i], y.Months[i]
+	}
+}
+
 type month struct {
 	Name string
 	Page int
@@ -207,19 +214,21 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		var last, pg int
 		for y := maxYear; y > minYear; y-- {
 			yr := &year{Year: y}
-			for m := time.January; m <= time.December; m++ {
+			for m := time.December; m >= time.January; m-- {
 				pg, last = h.pageOf(last, time.Date(y, m, 1, 0, 0, 0, 0, time.Local))
 				yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
 			}
+			yr.reverseMonths()
 			yr.StartPage = yr.Months[0].Page
 			years = append(years, yr)
 		}
 
 		yr := &year{Year: minYear}
-		for m := lastMinMonth; m <= time.December; m++ {
+		for m := time.December; m >= lastMinMonth; m-- {
 			pg, last = h.pageOf(last, time.Date(minYear, m, 1, 0, 0, 0, 0, time.Local))
 			yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
 		}
+		yr.reverseMonths()
 		yr.StartPage = yr.Months[0].Page
 		years = append(years, yr)
 
