@@ -23,6 +23,7 @@ func (lb *Backend) Put(path, name string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	n, err := f.Write(data)
 	if n < len(data) {
@@ -45,6 +46,7 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 
 	N := n
 	if n == 0 {
