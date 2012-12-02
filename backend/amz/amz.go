@@ -7,7 +7,8 @@ import (
 	"errors"
 	pth "path"
 	"strings"
-	"launchpad.net/goamz/s3"
+	//"launchpad.net/goamz/s3"
+	"github.com/rwcarlsen/goamz/s3"
 	"launchpad.net/goamz/aws"
 	"net/http"
 )
