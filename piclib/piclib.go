@@ -3,6 +3,7 @@ package piclib
 
 import (
 	"fmt"
+	"sync"
 	"errors"
 	"bytes"
 	"time"
@@ -61,6 +62,7 @@ type Library struct {
 	photoCache map[string]*Photo
 	thumb1Cache map[string][]byte
 	thumb2Cache map[string][]byte
+	libLock sync.RWMutex
 }
 
 func New(name string, db Backend) *Library {
@@ -195,23 +197,26 @@ func (l *Library) putAll(path, name string, data []byte) (err error) {
 }
 
 func (l *Library) GetPhoto(name string) (*Photo, error) {
+	l.libLock.RLock()
 	if p, ok := l.photoCache[name]; ok {
+		l.libLock.RUnlock()
 		return p, nil
 	}
+	l.libLock.RUnlock()
 
-	fmt.Println("db getting....................")
 	data, err := l.db.Get(l.metaDir, name)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("db gotten....................")
 
 	var p Photo
 	err = json.Unmarshal(data, &p)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("enmarshalled....................")
+
+	l.libLock.Lock()
+	defer l.libLock.Unlock()
 
 	l.photoCache[name] = &p
 	return &p, nil

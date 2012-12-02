@@ -143,17 +143,13 @@ func (lb *Backend) Get(path, name string) ([]byte, error) {
 
 	var data []byte
 	for i := 0; i < maxRetries; i++ {
-		log.Printf("GetObject %v/%v/%v", bucket.Name, bpath, name)
 		if data, err = bucket.Get(fullPath); err == nil {
-			break
+			log.Printf("GetObject %v/%v/%v", bucket.Name, bpath, name)
+			return data, err
 		}
 		log.Printf("GetObject failed %v/%v/%v", bucket.Name, bpath, name)
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return nil, err
 }
 
 
