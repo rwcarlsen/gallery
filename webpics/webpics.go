@@ -117,12 +117,15 @@ func (h *handler) updateLib() {
 		}(nm)
 	}
 
+	log.Print("pulling pics...")
 	for _ = range names {
+		log.Printf("# photos=%v", len(h.photos))
 		if p := <-picCh; p != nil {
 			h.photos = append(h.photos, p)
 		}
 	}
 
+	log.Print("sorting...")
 	if len(h.photos) > 0 {
 		sort.Sort(newFirst(h.photos))
 	}

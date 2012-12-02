@@ -14,7 +14,7 @@ type Backend struct {
 
 func (lb *Backend) Put(path, name string, data []byte) error {
 	fullPath := filepath.Join(lb.Root, path, name)
-	err := os.MkdirAll(path, 0755)
+	err := os.MkdirAll(filepath.Dir(fullPath), 0755)
 	if err != nil {
 		return err
 	}

@@ -199,16 +199,19 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 		return p, nil
 	}
 
+	fmt.Println("db getting....................")
 	data, err := l.db.Get(l.metaDir, name)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("db gotten....................")
 
 	var p Photo
 	err = json.Unmarshal(data, &p)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("enmarshalled....................")
 
 	l.photoCache[name] = &p
 	return &p, nil

@@ -2,6 +2,7 @@
 package amz
 
 import (
+	"fmt"
 	"log"
 	"errors"
 	pth "path"
@@ -25,7 +26,7 @@ func New(auth aws.Auth, region aws.Region) *Backend {
 
 const (
 	NoSuchBucket = "NoSuchBucket"
-	maxRetries = 3
+	maxRetries = 8
 )
 
 func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err error) {
@@ -85,7 +86,7 @@ func (lb *Backend) Exists(path, name string) bool {
 	}
 	fullPath := pth.Join(bpath, name)
 
-	log.Printf("GetObject %v/%v", bucket.Name, bpath)
+	log.Printf("GetObject %v/%v/%v", bucket.Name, bpath, name)
 	_, err = bucket.Get(fullPath)
 	if err != nil {
 		return false
@@ -104,7 +105,8 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 
 	names := make([]string, 0)
 	marker := ""
-	for failed := 0; failed < maxRetries; {
+	failed := 0
+	for failed < maxRetries {
 		result, err := bucket.List(bpath, "", marker, n)
 		log.Printf("ListBucket %v/%v", bucket.Name, bpath)
 		if err != nil {
@@ -124,6 +126,10 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 		} else {
 			break
 		}
+	}
+
+	if failed == maxRetries {
+		return nil, fmt.Errorf("ListBucket FAILED!!! %v/%v", bucket.Name, bpath)
 	}
 	return names, nil
 }

@@ -3,6 +3,16 @@ function pageTo(page) {
   if (page == currPage) {
     return
   }
+  if (page < startPage) {
+    delta = startPage - page
+    startPage -= delta
+    endPage -= delta
+  } else if (page > endPage) {
+    delta = page - endPage
+    startPage += delta
+    endPage += delta
+  }
+  slidePageNav()
 
   currPage = page
 
@@ -16,22 +26,12 @@ function pageTo(page) {
 
 function pagePrev() {
   if (currPage > 1) {
-    if (currPage == startPage) {
-      startPage -= 1
-      endPage -= 1
-      slidePageNav()
-    }
     pageTo(currPage - 1)
   }
 }
 
 function pageNext() {
   if (currPage < numPages) {
-    if (currPage == endPage) {
-      startPage += 1
-      endPage += 1
-      slidePageNav()
-    }
     pageTo(currPage + 1)
   }
 }

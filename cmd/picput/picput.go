@@ -43,7 +43,7 @@ var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
 var doneCh = make(chan bool)
 var inCh = make(chan string)
-var count = 0
+var count = 1
 
 func main() {
 	flag.Parse()
@@ -61,16 +61,19 @@ func main() {
 		go addToLibs()
 	}
 
-	for _, path := range picPaths {
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			if err := filepath.Walk(path, walkFn); err != nil {
-				log.Print(err)
+	go func() {
+		for _, path := range picPaths {
+			if info, err := os.Stat(path); err == nil && info.IsDir() {
+				if err := filepath.Walk(path, walkFn); err != nil {
+					log.Print(err)
+				}
+			} else {
+				count++
+				inCh <- path
 			}
-		} else {
-			count++
-			inCh <- path
 		}
-	}
+		doneCh <- true
+	}()
 
 	for count > 0 {
 		<-doneCh
@@ -92,27 +95,27 @@ func walkFn(path string, info os.FileInfo, err error) error {
 
 func addToLibs() {
 	for {
-		select {
-		case path := <- inCh:
-			if !validFmt[strings.ToLower(filepath.Ext(path))] {
-				errlog.Printf("skipped file %v", path)
-				return
-			}
-
-			data, err := ioutil.ReadFile(path)
-			if err != nil {
-				errlog.Print(err)
-				return
-			}
-
-			base := filepath.Base(path)
-			for _, lib := range libs {
-				if _, err = lib.AddPhoto(base, data); err != nil {
-					errlog.Print(err)
-				}
-			}
+		path := <- inCh
+		if !validFmt[strings.ToLower(filepath.Ext(path))] {
+			errlog.Printf("skipped file %v", path)
 			doneCh <- true
+			continue
 		}
+
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			errlog.Printf("path %v: %v", path, err)
+			doneCh <- true
+			continue
+		}
+
+		base := filepath.Base(path)
+		for _, lib := range libs {
+			if _, err = lib.AddPhoto(base, data); err != nil {
+				errlog.Printf("path %v: %v", path, err)
+			}
+		}
+		doneCh <- true
 	}
 }
 
