@@ -27,7 +27,7 @@ func New(auth aws.Auth, region aws.Region) *Backend {
 
 const (
 	NoSuchBucket = "NoSuchBucket"
-	maxRetries = 8
+	maxRetries = 4
 )
 
 func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err error) {
@@ -118,11 +118,10 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 
 		var k s3.Key
 		for _, k = range result.Contents {
-			name := strings.Split(k.Key, "/")[1]
-			names = append(names, name)
+			names = append(names, pth.Join(bucket.Name, k.Key))
 		}
 
-		if result.IsTruncated {
+		if result.IsTruncated  && len(result.Contents) < n {
 			marker = k.Key
 		} else {
 			break

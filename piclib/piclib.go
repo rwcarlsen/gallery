@@ -88,7 +88,15 @@ func (l *Library) AddSecondary(db Backend) {
 }
 
 func (l *Library) ListPhotosN(n int) ([]string, error) {
-	return l.db.ListN(l.metaDir, n)
+	names, err := l.db.ListN(l.metaDir, n)
+	if err != nil {
+		return nil, err
+	}
+	bases := make([]string, len(names))
+	for i, name := range names {
+		bases[i] = path.Base(name)
+	}
+	return bases, nil
 }
 
 func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
