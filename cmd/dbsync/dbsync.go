@@ -33,15 +33,37 @@ func main() {
 		libs = append(libs, localLib())
 	}
 
+	// retrieve file list for each db
 	for _, info := range libs {
 		names, err := info.db.ListN(*libName, 20)
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		for _, name := range names {
-			log.Println(name)
+			info.objects[name] = true
 		}
 	}
+
+	// sync them - add only - no mod checks
+	for _, info1 := range libs {
+		for _, info2 := range libs {
+			for name, _ := range info1.objects {
+				if !info2.objects[name] {
+					data, err := info1.db.Get(name, "")
+					if err != nil {
+						log.Print(err)
+						continue
+					}
+					if err := info2.db.Put(name, "", data); err != nil {
+						log.Print(err)
+					}
+				}
+			}
+		}
+	}
+
+
 }
 
 func amzLib() *dbInfo {
