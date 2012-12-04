@@ -16,7 +16,7 @@ var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3"
 var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
 
-var libs []*dbInfo
+var libs = make(map[string]*dbInfo)
 
 type dbInfo struct {
 	db piclib.Backend
@@ -27,15 +27,15 @@ func main() {
 	flag.Parse()
 
 	if strings.Index(*amazonS3, "[") == -1 {
-		libs = append(libs, amzLib())
+		libs["amz"] = amzLib()
 	}
 	if strings.Index(*local, "[") == -1 {
-		libs = append(libs, localLib())
+		libs["localhd"] = localLib()
 	}
 
 	// retrieve file list for each db
 	for _, info := range libs {
-		names, err := info.db.ListN(*libName, 20)
+		names, err := info.db.ListN(*libName, 0)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -46,10 +46,11 @@ func main() {
 	}
 
 	// sync them - add only - no mod checks
-	for _, info1 := range libs {
-		for _, info2 := range libs {
+	for n1, info1 := range libs {
+		for n2, info2 := range libs {
 			for name, _ := range info1.objects {
 				if !info2.objects[name] {
+					log.Printf("sync from %v to %v: %v", n1, n2, name)
 					data, err := info1.db.Get(name, "")
 					if err != nil {
 						log.Print(err)
@@ -62,8 +63,6 @@ func main() {
 			}
 		}
 	}
-
-
 }
 
 func amzLib() *dbInfo {
