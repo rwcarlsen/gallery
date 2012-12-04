@@ -10,6 +10,11 @@ import (
 
 type Backend struct {
 	Root string
+	DbName string
+}
+
+func (lb *Backend) Name() string {
+	return lb.DbName
 }
 
 func (lb *Backend) Put(path string, data []byte) error {

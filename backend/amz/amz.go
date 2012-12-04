@@ -13,9 +13,15 @@ import (
 	"net/http"
 )
 
+const (
+	NoSuchBucket = "NoSuchBucket"
+	maxRetries = 4
+)
+
 type Backend struct {
 	s3link *s3.S3
 	buckets map[string]*s3.Bucket
+	DbName string
 }
 
 func New(auth aws.Auth, region aws.Region) *Backend {
@@ -25,10 +31,9 @@ func New(auth aws.Auth, region aws.Region) *Backend {
 	}
 }
 
-const (
-	NoSuchBucket = "NoSuchBucket"
-	maxRetries = 4
-)
+func (lb *Backend) Name() string {
+	return lb.DbName
+}
 
 func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err error) {
 	items := strings.Split(path, "/")

@@ -62,7 +62,7 @@ func main() {
 
 	primary, libs = libs[0], libs[1:]
 	for _, lib := range libs {
-		primary.AddSecondary(lib)
+		primary.AddSecondary(lib.Db)
 	}
 
 	picPaths := flag.Args()
