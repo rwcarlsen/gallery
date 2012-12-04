@@ -51,12 +51,12 @@ func main() {
 			for name, _ := range info1.objects {
 				if !info2.objects[name] {
 					log.Printf("sync from %v to %v: %v", n1, n2, name)
-					data, err := info1.db.Get(name, "")
+					data, err := info1.db.Get(name)
 					if err != nil {
 						log.Print(err)
 						continue
 					}
-					if err := info2.db.Put(name, "", data); err != nil {
+					if err := info2.db.Put(name, data); err != nil {
 						log.Print(err)
 					}
 				}

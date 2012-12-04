@@ -32,10 +32,10 @@ const (
 )
 
 type Backend interface {
-	Put(path, name string, data []byte) error
-	Exists(path, name string) bool
+	Put(path string, data []byte) error
+	Exists(path string) bool
 	ListN(path string, n int) ([]string, error)
-	Get(path, name string) ([]byte, error)
+	Get(path string) ([]byte, error)
 }
 
 type Photo struct {
@@ -134,7 +134,7 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	}
 
 	/////// store all photo related data in backend ////////
-	if l.db.Exists(l.metaDir, p.Meta) {
+	if l.db.Exists(path.Join(l.metaDir, p.Meta)) {
 		return nil, errors.New("library: photo file " + p.Meta + " already exists")
 	}// else if l.db.Exists(l.imgDir, p.Orig) {
 	//	return nil, errors.New("library: photo file " + p.Orig + " already exists")
@@ -188,13 +188,14 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	return p, nil
 }
 
-func (l *Library) putAll(path, name string, data []byte) (err error) {
+func (l *Library) putAll(pth, name string, data []byte) (err error) {
+	fullPath := path.Join(pth, name)
 	errs := []error{}
-	if err = l.db.Put(path, name, data); err != nil {
+	if err = l.db.Put(fullPath, data); err != nil {
 		errs = append(errs, err)
 	}
 	for _, second := range l.seconds {
-		if err = second.Put(path, name, data); err != nil {
+		if err = second.Put(fullPath, data); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -212,7 +213,7 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 	}
 	l.libLock.RUnlock()
 
-	data, err := l.db.Get(l.metaDir, name)
+	data, err := l.db.Get(path.Join(l.metaDir, name))
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +232,7 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 }
 
 func (l *Library) GetOriginal(p *Photo) (data []byte, err error) {
-	orig, err := l.db.Get(l.imgDir, p.Orig)
+	orig, err := l.db.Get(path.Join(l.imgDir, p.Orig))
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +244,7 @@ func (l *Library) GetThumb1(p *Photo) (data []byte, err error) {
 		return data, nil
 	}
 
-	thumb1, err := l.db.Get(l.thumbDir, p.Thumb1)
+	thumb1, err := l.db.Get(path.Join(l.thumbDir, p.Thumb1))
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +258,7 @@ func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
 		return data, nil
 	}
 
-	thumb2, err := l.db.Get(l.thumbDir, p.Thumb2)
+	thumb2, err := l.db.Get(path.Join(l.thumbDir, p.Thumb2))
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +268,7 @@ func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
 }
 
 func (l *Library) getIndex(name string, v interface{}) error {
-	data, err := l.db.Get(l.indDir, name)
+	data, err := l.db.Get(path.Join(l.indDir, name))
 	if err != nil {
 		return err
 	}

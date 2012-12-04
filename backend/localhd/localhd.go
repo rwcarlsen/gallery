@@ -12,8 +12,8 @@ type Backend struct {
 	Root string
 }
 
-func (lb *Backend) Put(path, name string, data []byte) error {
-	fullPath := filepath.Join(lb.Root, path, name)
+func (lb *Backend) Put(path string, data []byte) error {
+	fullPath := filepath.Join(lb.Root, path)
 	err := os.MkdirAll(filepath.Dir(fullPath), 0755)
 	if err != nil {
 		return err
@@ -35,8 +35,8 @@ func (lb *Backend) Put(path, name string, data []byte) error {
 	return nil
 }
 
-func (lb *Backend) Exists(path, name string) bool {
-	fullPath := filepath.Join(lb.Root, path, name)
+func (lb *Backend) Exists(path string) bool {
+	fullPath := filepath.Join(lb.Root, path)
 	_, err := os.Stat(fullPath)
 	return err == nil
 }
@@ -88,8 +88,8 @@ func getWalker(ch chan string, done chan bool, base string) func(string, os.File
 	}
 }
 
-func (lb *Backend) Get(path, name string) ([]byte, error) {
-	fullPath := filepath.Join(lb.Root, path, name)
+func (lb *Backend) Get(path string) ([]byte, error) {
+	fullPath := filepath.Join(lb.Root, path)
 
 	data, err := ioutil.ReadFile(fullPath)
 	if err != nil {

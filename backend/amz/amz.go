@@ -61,34 +61,32 @@ func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err
 	return b, bpath, nil
 }
 
-func (lb *Backend) Put(path, name string, data []byte) error {
+func (lb *Backend) Put(path string, data []byte) error {
 	bucket, bpath, err := lb.makeBucket(path)
 	if err != nil {
 		return err
 	}
-	fullPath := pth.Join(bpath, name)
 
 	contType := http.DetectContentType(data)
 
 	for i := 0; i < maxRetries; i++ {
-		log.Printf("PutObject %v/%v/%v", bucket.Name, bpath, name)
-		if err = bucket.Put(fullPath, data, contType, s3.Private); err == nil {
+		log.Printf("PutObject %v/%v", bucket.Name, bpath)
+		if err = bucket.Put(bpath, data, contType, s3.Private); err == nil {
 			break
 		}
-		log.Printf("PutObject failed %v/%v/%v", bucket.Name, bpath, name)
+		log.Printf("PutObject failed %v/%v", bucket.Name, bpath)
 	}
 	return err
 }
 
-func (lb *Backend) Exists(path, name string) bool {
+func (lb *Backend) Exists(path string) bool {
 	bucket, bpath, err := lb.makeBucket(path)
 	if err != nil {
 		return false
 	}
-	fullPath := pth.Join(bpath, name)
 
-	log.Printf("GetObject %v/%v/%v", bucket.Name, bpath, name)
-	_, err = bucket.Get(fullPath)
+	log.Printf("GetObject %v/%v", bucket.Name, bpath)
+	_, err = bucket.Get(bpath)
 	if err != nil {
 		return false
 	}
@@ -134,20 +132,19 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 	return names, nil
 }
 
-func (lb *Backend) Get(path, name string) ([]byte, error) {
+func (lb *Backend) Get(path string) ([]byte, error) {
 	bucket, bpath, err := lb.makeBucket(path)
 	if err != nil {
 		return nil, err
 	}
-	fullPath := pth.Join(bpath, name)
 
 	var data []byte
 	for i := 0; i < maxRetries; i++ {
-		if data, err = bucket.Get(fullPath); err == nil {
-			log.Printf("GetObject %v/%v/%v", bucket.Name, bpath, name)
+		if data, err = bucket.Get(bpath); err == nil {
+			log.Printf("GetObject %v/%v", bucket.Name, bpath)
 			return data, err
 		}
-		log.Printf("GetObject failed %v/%v/%v", bucket.Name, bpath, name)
+		log.Printf("GetObject failed %v/%v", bucket.Name, bpath)
 	}
 	return nil, err
 }
