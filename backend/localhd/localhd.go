@@ -10,10 +10,15 @@ import (
 
 type Backend struct {
 	Root string
+	DbName string
 }
 
-func (lb *Backend) Put(path, name string, data []byte) error {
-	fullPath := filepath.Join(lb.Root, path, name)
+func (lb *Backend) Name() string {
+	return lb.DbName
+}
+
+func (lb *Backend) Put(path string, data []byte) error {
+	fullPath := filepath.Join(lb.Root, path)
 	err := os.MkdirAll(filepath.Dir(fullPath), 0755)
 	if err != nil {
 		return err
@@ -35,34 +40,61 @@ func (lb *Backend) Put(path, name string, data []byte) error {
 	return nil
 }
 
-func (lb *Backend) Exists(path, name string) bool {
-	fullPath := filepath.Join(lb.Root, path, name)
+func (lb *Backend) Exists(path string) bool {
+	fullPath := filepath.Join(lb.Root, path)
 	_, err := os.Stat(fullPath)
 	return err == nil
 }
 
 func (lb *Backend) ListN(path string, n int) ([]string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
+	fullPath := filepath.Join(lb.Root, path)
 
-	N := n
-	if n == 0 {
-		N = -1
+	ch := make(chan string)
+	done := make(chan bool)
+	errCh := make(chan error, 2)
+	go func() {
+		errCh <- filepath.Walk(fullPath, getWalker(ch, done, lb.Root))
+		close(ch)
+		close(errCh)
+	}()
+
+	var names []string
+	count := 0
+	for name := range ch {
+		if n > 0 && count == n {
+			done <- true
+			break
+		}
+		names = append(names, name)
+		count++
 	}
 
-	names, err := f.Readdirnames(N)
-	if err != nil {
+	if err := <- errCh; err != nil && err.Error() != "incomplete" {
 		return nil, err
 	}
 
 	return names, nil
 }
 
-func (lb *Backend) Get(path, name string) ([]byte, error) {
-	fullPath := filepath.Join(lb.Root, path, name)
+func getWalker(ch chan string, done chan bool, base string) func(string, os.FileInfo, error) error {
+	return func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			rel, _ := filepath.Rel(base, path)
+			select {
+			case ch <- rel:
+			case <- done:
+				return errors.New("incomplete")
+			}
+		}
+		return nil
+	}
+}
+
+func (lb *Backend) Get(path string) ([]byte, error) {
+	fullPath := filepath.Join(lb.Root, path)
 
 	data, err := ioutil.ReadFile(fullPath)
 	if err != nil {
