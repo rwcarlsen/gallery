@@ -75,8 +75,8 @@ func (lb *Backend) Put(path string, data []byte) error {
 	contType := http.DetectContentType(data)
 
 	for i := 0; i < maxRetries; i++ {
-		log.Printf("PutObject %v/%v", bucket.Name, bpath)
 		if err = bucket.Put(bpath, data, contType, s3.Private); err == nil {
+			log.Printf("PutObject %v/%v", bucket.Name, bpath)
 			break
 		}
 		log.Printf("PutObject failed %v/%v", bucket.Name, bpath)

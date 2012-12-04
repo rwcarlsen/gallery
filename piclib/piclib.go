@@ -17,6 +17,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
+	//cache "github.com/rwcarlsen/gocache"
 )
 
 const (
@@ -82,9 +83,6 @@ func New(name string, db Backend) *Library {
 	}
 }
 
-func (l *Library) Close() {
-}
-
 func (l *Library) AddSecondary(db Backend) {
 	l.seconds = append(l.seconds, db)
 }
@@ -104,15 +102,16 @@ func (l *Library) ListPhotosN(n int) ([]string, error) {
 func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			base := path.Base(name)
+			nm := base[:len(base)-len(path.Ext(name))]
 			if s, ok := r.(string); ok && s == "unsupported" {
-				base := path.Base(name)
-				nm := base[:len(base)-len(path.Ext(name))]
-				full := fmt.Sprintf("%v-sep-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
+				full := fmt.Sprintf("%v-sep-unsupported-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
 				l.putAll(l.unsupportedDir, full, data)
-				err = fmt.Errorf("unsupported file type %v", name)
 			} else {
-				panic(r)
+				full := fmt.Sprintf("%v-sep-badfile-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
+				l.putAll(l.unsupportedDir, full, data)
 			}
+			err = fmt.Errorf("unsupported file type %v", name)
 		}
 	}()
 
@@ -135,12 +134,9 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 		LibVersion: currVersion,
 	}
 
-	/////// store all photo related data in backend ////////
 	if l.Db.Exists(path.Join(l.metaDir, p.Meta)) {
 		return nil, errors.New("library: photo file " + p.Meta + " already exists")
-	}// else if l.Db.Exists(l.imgDir, p.Orig) {
-	//	return nil, errors.New("library: photo file " + p.Orig + " already exists")
-	//}
+	}
 
 	// decode image bytes and construct thumbnails
 	r := bytes.NewReader(data)
@@ -157,6 +153,8 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	/////// store all photo related data in backend ////////
 
 	// add photo meta-data object to db
 	meta, err := json.Marshal(p)
@@ -184,9 +182,6 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 		return nil, err
 	}
 
-	l.thumb1Cache[p.Thumb1] = thumb1
-	l.thumb1Cache[p.Thumb2] = thumb2
-	l.photoCache[p.Meta] = p
 	return p, nil
 }
 
