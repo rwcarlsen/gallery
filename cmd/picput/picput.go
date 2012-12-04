@@ -38,7 +38,7 @@ var validFmt = map[string]bool{
 	".mov": true,
 }
 
-var libs []*piclib.Library
+var primary *piclib.Library
 var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
 var doneCh = make(chan bool)
@@ -48,11 +48,21 @@ var count = 1
 func main() {
 	flag.Parse()
 
+	var libs []*piclib.Library
 	if strings.Index(*amazonS3, "[") == -1 {
 		libs = append(libs, amzLib())
 	}
 	if strings.Index(*local, "[") == -1 {
 		libs = append(libs, localLib())
+	}
+
+	if len(libs) == 0 {
+		return
+	}
+
+	primary, libs = libs[0], libs[1:]
+	for _, lib := range libs {
+		primary.AddSecondary(lib)
 	}
 
 	picPaths := flag.Args()
@@ -110,10 +120,8 @@ func addToLibs() {
 		}
 
 		base := filepath.Base(path)
-		for _, lib := range libs {
-			if _, err = lib.AddPhoto(base, data); err != nil {
-				errlog.Printf("path %v: %v", path, err)
-			}
+		if _, err = primary.AddPhoto(base, data); err != nil {
+			errlog.Printf("path %v: %v", path, err)
 		}
 		doneCh <- true
 	}
