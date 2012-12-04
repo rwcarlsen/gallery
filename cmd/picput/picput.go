@@ -39,7 +39,6 @@ var validFmt = map[string]bool{
 }
 
 var primary *piclib.Library
-var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
 var doneCh = make(chan bool)
 var inCh = make(chan string)
@@ -107,21 +106,21 @@ func addToLibs() {
 	for {
 		path := <- inCh
 		if !validFmt[strings.ToLower(filepath.Ext(path))] {
-			errlog.Printf("skipped file %v", path)
+			log.Printf("skipped file %v", path)
 			doneCh <- true
 			continue
 		}
 
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			errlog.Printf("path %v: %v", path, err)
+			log.Printf("path %v: %v", path, err)
 			doneCh <- true
 			continue
 		}
 
 		base := filepath.Base(path)
 		if _, err = primary.AddPhoto(base, data); err != nil {
-			errlog.Printf("path %v: %v", path, err)
+			log.Printf("path %v: %v", path, err)
 		}
 		doneCh <- true
 	}

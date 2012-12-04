@@ -12,8 +12,10 @@ const (
 	Cdry = 1 << iota
 )
 
+const infinity = 500000
+
 func OneWay(path string, config int, from, to piclib.Backend) (results []string, err error) {
-	names, err := from.ListN(path, 500000)
+	names, err := from.ListN(path, infinity)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +25,7 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 		fromObj[name] = true
 	}
 
-	names, err = to.ListN(path, 500000)
+	names, err = to.ListN(path, infinity)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +39,7 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 	for objName, _ := range fromObj {
 		if !toObj[objName] {
 			results = append(results, fmt.Sprintf("sync from %v to %v: %v", from.Name(), to.Name(), objName))
-			if config | Cdry != 0 {
+			if config & Cdry != 0 {
 				continue
 			}
 			data, err := from.Get(objName)
@@ -64,9 +66,9 @@ type dbInfo struct {
 }
 
 func AllWay(path string, config int, dbs ...piclib.Backend) (results []string, err error) {
-	var infos map[string]*dbInfo
+	infos := map[string]*dbInfo{}
 	for _, db := range dbs {
-		names, err := db.ListN(path, 500000)
+		names, err := db.ListN(path, infinity)
 		if err != nil {
 			return nil, err
 		}
@@ -83,7 +85,7 @@ func AllWay(path string, config int, dbs ...piclib.Backend) (results []string, e
 			for name, _ := range info1.objects {
 				if !info2.objects[name] {
 					results = append(results, fmt.Sprintf("sync from %v to %v: %v", n1, n2, name))
-					if config | Cdry != 0 {
+					if config & Cdry != 0 {
 						continue
 					}
 					data, err := info1.db.Get(name)
