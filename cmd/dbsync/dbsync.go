@@ -15,6 +15,7 @@ import (
 var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
 var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
+var dry = flag.Bool("dry", false, "true to just print output of command and not sync anything")
 
 var libs = make(map[string]*dbInfo)
 
@@ -35,7 +36,7 @@ func main() {
 
 	// retrieve file list for each db
 	for _, info := range libs {
-		names, err := info.db.ListN(*libName, 0)
+		names, err := info.db.ListN(*libName, 100000)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -51,6 +52,9 @@ func main() {
 			for name, _ := range info1.objects {
 				if !info2.objects[name] {
 					log.Printf("sync from %v to %v: %v", n1, n2, name)
+					if *dry {
+						continue
+					}
 					data, err := info1.db.Get(name)
 					if err != nil {
 						log.Print(err)
