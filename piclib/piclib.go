@@ -54,7 +54,6 @@ type Photo struct {
 
 type Library struct {
 	Db Backend
-	seconds []Backend
 	name string
 	imgDir string
 	thumbDir string
@@ -80,10 +79,6 @@ func New(name string, db Backend) *Library {
 		thumb1Cache: make(map[string][]byte),
 		thumb2Cache: make(map[string][]byte),
 	}
-}
-
-func (l *Library) AddSecondary(db Backend) {
-	l.seconds = append(l.seconds, db)
 }
 
 func (l *Library) ListPhotosN(n int) ([]string, error) {
@@ -188,20 +183,7 @@ func (l *Library) putAll(pth, name string, data []byte) (err error) {
 	if l.Db.Exists(fullPath) {
 		return fmt.Errorf("piclib: photo file already exists %v", fullPath)
 	}
-
-	errs := []error{}
-	if err = l.Db.Put(fullPath, data); err != nil {
-		errs = append(errs, err)
-	}
-	for _, second := range l.seconds {
-		if err = second.Put(fullPath, data); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	if len(errs) > 0 {
-		return errs[0]
-	}
-	return nil
+	return l.Db.Put(fullPath, data)
 }
 
 func (l *Library) GetPhoto(name string) (*Photo, error) {

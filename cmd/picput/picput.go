@@ -38,7 +38,8 @@ var validFmt = map[string]bool{
 	".mov": true,
 }
 
-var primary *piclib.Library
+var lib *piclib.Library
+var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
 var doneCh = make(chan bool)
 var inCh = make(chan string)
@@ -47,27 +48,20 @@ var count = 1
 func main() {
 	flag.Parse()
 
-	var libs []*piclib.Library
 	if strings.Index(*amazonS3, "[") == -1 {
-		libs = append(libs, amzLib())
-	}
-	if strings.Index(*local, "[") == -1 {
-		libs = append(libs, localLib())
+		lib = amzLib()
+	} else if strings.Index(*local, "[") == -1 {
+		lib = localLib()
 	}
 
-	if len(libs) == 0 {
+	if lib == nil {
 		return
-	}
-
-	primary, libs = libs[0], libs[1:]
-	for _, lib := range libs {
-		primary.AddSecondary(lib.Db)
 	}
 
 	picPaths := flag.Args()
 
 	for i := 0; i < nWorkers; i++ {
-		go addToLibs()
+		go addToLib()
 	}
 
 	go func() {
@@ -102,25 +96,25 @@ func walkFn(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func addToLibs() {
+func addToLib() {
 	for {
 		path := <- inCh
 		if !validFmt[strings.ToLower(filepath.Ext(path))] {
-			log.Printf("skipped file %v", path)
+			errlog.Printf("skipped file %v", path)
 			doneCh <- true
 			continue
 		}
 
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			log.Printf("path %v: %v", path, err)
+			errlog.Printf("path %v: %v", path, err)
 			doneCh <- true
 			continue
 		}
 
 		base := filepath.Base(path)
-		if _, err = primary.AddPhoto(base, data); err != nil {
-			log.Printf("path %v: %v", path, err)
+		if _, err = lib.AddPhoto(base, data); err != nil {
+			errlog.Printf("path %v: %v", path, err)
 		}
 		doneCh <- true
 	}
