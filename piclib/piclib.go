@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"io"
 
 	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
@@ -32,7 +33,7 @@ const (
 )
 
 type Backend interface {
-	Put(path string, data []byte) error
+	Put(path string, r io.ReadSeeker) error
 	Exists(path string) bool
 	ListN(path string, n int) ([]string, error)
 	Get(path string) ([]byte, error)
@@ -92,26 +93,27 @@ func (l *Library) ListPhotosN(n int) ([]string, error) {
 	return bases, nil
 }
 
-func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
+func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			base := path.Base(name)
 			nm := base[:len(base)-len(path.Ext(name))]
 			if s, ok := r.(string); ok && s == "unsupported" {
 				full := fmt.Sprintf("%v-sep-unsupported-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
-				l.putAll(l.unsupportedDir, full, data)
+				l.putAll(l.unsupportedDir, full, buf)
+				err = fmt.Errorf("unsupported file type %v", name)
 			} else {
 				full := fmt.Sprintf("%v-sep-badfile-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
-				l.putAll(l.unsupportedDir, full, data)
+				l.putAll(l.unsupportedDir, full, buf)
+				err = fmt.Errorf("corrupt file %v: %v", name, r)
 			}
-			err = fmt.Errorf("unsupported file type %v", name)
 		}
 	}()
 
 	// construct photo name
 	ext := path.Ext(name)
 	base := path.Base(name)
-	strDate, date := dateFrom(data)
+	strDate, date := dateFrom(buf)
 	fname := strDate + "-sep-" + base[:len(base)-len(ext)]
 
 	// create photo meta object
@@ -120,7 +122,6 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 		Orig:       fname + strings.ToLower(ext),
 		Thumb1:     fname + "_thumb1.jpg",
 		Thumb2:     fname + "_thumb2.jpg",
-		Size:       len(data),
 		Uploaded:   time.Now(),
 		Taken:      date,
 		Tags:       make(map[string]string),
@@ -128,13 +129,12 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	}
 
 	// decode image bytes and construct thumbnails
-	r := bytes.NewReader(data)
-	img, _, err := image.Decode(r)
+	img, _, err := image.Decode(buf)
 	if err != nil {
 		panic("unsupported")
 	}
 
-	var thumb1, thumb2 []byte
+	var thumb1, thumb2 io.ReadSeeker
 	if !l.Db.Exists(path.Join(l.thumbDir, p.Thumb1)) || !l.Db.Exists(path.Join(l.thumbDir, p.Thumb2)) {
 		thumb1, err = thumb(144, 0, img)
 		if err != nil {
@@ -153,13 +153,13 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	if err != nil {
 		err2 = err
 	}
-	err = l.putAll(l.metaDir, p.Meta, meta)
+	err = l.putAll(l.metaDir, p.Meta, bytes.NewReader(meta))
 	if err != nil {
 		err2 = err
 	}
 
 	// add photo image/thumb files to db
-	err = l.putAll(l.imgDir, p.Orig, data)
+	err = l.putAll(l.imgDir, p.Orig, buf)
 	if err != nil {
 		err2 = err
 	}
@@ -177,12 +177,16 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 	return p, err2
 }
 
-func (l *Library) putAll(pth, name string, data []byte) (err error) {
+func (l *Library) putAll(pth, name string, buf io.ReadSeeker) (err error) {
+	if _, err := buf.Seek(0, 0); err != nil {
+		return err
+	}
+
 	fullPath := path.Join(pth, name)
 	if l.Db.Exists(fullPath) {
 		return fmt.Errorf("piclib: photo file already exists %v", fullPath)
 	}
-	return l.Db.Put(fullPath, data)
+	return l.Db.Put(fullPath, buf)
 }
 
 func (l *Library) GetPhoto(name string) (*Photo, error) {
@@ -260,10 +264,9 @@ func (l *Library) getIndex(name string, v interface{}) error {
 	return nil
 }
 
-func dateFrom(data []byte) (string, time.Time) {
+func dateFrom(buf io.Reader) (string, time.Time) {
 	now := time.Now()
-	r := bytes.NewReader(data)
-	x, err := exif.Decode(r)
+	x, err := exif.Decode(buf)
 	if err != nil {
 		return now.Format(nameTimeFmt) + "-NoDate", now
 	}
@@ -284,7 +287,7 @@ func dateFrom(data []byte) (string, time.Time) {
 	return t.Format(nameTimeFmt), t
 }
 
-func thumb(w, h uint, img image.Image) ([]byte, error) {
+func thumb(w, h uint, img image.Image) (io.ReadSeeker, error) {
 	m := resize.Resize(w, h, img, resize.Bilinear)
 
 	var buf bytes.Buffer
@@ -292,5 +295,5 @@ func thumb(w, h uint, img image.Image) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	return bytes.NewReader(buf.Bytes()), nil
 }

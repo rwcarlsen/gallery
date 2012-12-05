@@ -10,6 +10,7 @@ import (
 	"github.com/rwcarlsen/goamz/s3"
 	"launchpad.net/goamz/aws"
 	"net/http"
+	"io"
 )
 
 const (
@@ -65,19 +66,28 @@ func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err
 	return b, bpath, nil
 }
 
-func (lb *Backend) Put(path string, data []byte) error {
+func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 	bucket, bpath, err := lb.makeBucket(path)
 	if err != nil {
 		return err
 	}
 
-	contType := http.DetectContentType(data)
+	tmp := make([]byte, 1024)
+	if _, err := r.Read(tmp); err != nil {
+		return err
+	}
+	if _, err := r.Seek(0, 0); err != nil {
+		return err
+	}
+
+	contType := http.DetectContentType(tmp)
 
 	for i := 0; i < maxRetries; i++ {
-		if err = bucket.Put(bpath, data, contType, s3.Private); err == nil {
+		if err = bucket.PutReader(bpath, r, -1, contType, s3.Private); err == nil {
 			log.Printf("PutObject %v/%v", bucket.Name, bpath)
 			break
 		}
+		r.Seek(0, 0)
 		log.Printf("PutObject failed %v/%v", bucket.Name, bpath)
 	}
 	return err

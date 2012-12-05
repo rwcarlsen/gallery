@@ -1,6 +1,7 @@
 package localhd
 
 import (
+	"io"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -16,7 +17,7 @@ func (lb *Backend) Name() string {
 	return lb.DbName
 }
 
-func (lb *Backend) Put(path string, data []byte) error {
+func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 	fullPath := filepath.Join(lb.Root, path)
 	err := os.MkdirAll(filepath.Dir(fullPath), 0755)
 	if err != nil {
@@ -29,10 +30,7 @@ func (lb *Backend) Put(path string, data []byte) error {
 	}
 	defer f.Close()
 
-	n, err := f.Write(data)
-	if n < len(data) {
-		return errors.New("local: failed to write entire data stream")
-	} else if err != nil {
+	if _, err := io.Copy(f, r); err != nil {
 		return err
 	}
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,8 +12,6 @@ import (
 	"github.com/rwcarlsen/gallery/piclib"
 	"launchpad.net/goamz/aws"
 )
-
-const nWorkers = 5
 
 var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
 var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
@@ -40,12 +37,8 @@ var validFmt = map[string]bool{
 var lib *piclib.Library
 var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
-var doneCh = make(chan bool)
-var inCh = make(chan string)
-var count = 1
-
 func main() {
-	flag.Parse()
+    flag.Parse()
 
 	if strings.Index(*amazonS3, "[") == -1 {
 		lib = amzLib()
@@ -59,27 +52,14 @@ func main() {
 
 	picPaths := flag.Args()
 
-	for i := 0; i < nWorkers; i++ {
-		go addToLib()
-	}
-
-	go func() {
-		for _, path := range picPaths {
-			if info, err := os.Stat(path); err == nil && info.IsDir() {
-				if err := filepath.Walk(path, walkFn); err != nil {
-					log.Print(err)
-				}
-			} else {
-				count++
-				inCh <- path
+	for _, path := range picPaths {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			if err := filepath.Walk(path, walkFn); err != nil {
+				log.Print(err)
 			}
+		} else {
+			addToLib(path)
 		}
-		doneCh <- true
-	}()
-
-	for count > 0 {
-		<-doneCh
-		count--
 	}
 }
 
@@ -89,33 +69,26 @@ func walkFn(path string, info os.FileInfo, err error) error {
 		return nil
 	}
 	if !info.IsDir() {
-		count++
-		inCh <- path
+		addToLib(path)
 	}
 	return nil
 }
 
-func addToLib() {
-	for {
-		path := <-inCh
-		if !validFmt[strings.ToLower(filepath.Ext(path))] {
-			errlog.Printf("skipped file %v", path)
-			doneCh <- true
-			continue
-		}
+func addToLib(path string) {
+	if !validFmt[strings.ToLower(filepath.Ext(path))] {
+		errlog.Printf("skipped file %v", path)
+		return
+	}
 
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			errlog.Printf("path %v: %v", path, err)
-			doneCh <- true
-			continue
-		}
+	f, err := os.Open(path)
+	if err != nil {
+		errlog.Printf("path %v: %v", path, err)
+		return
+	}
 
-		base := filepath.Base(path)
-		if _, err = lib.AddPhoto(base, data); err != nil {
-			errlog.Printf("path %v: %v", path, err)
-		}
-		doneCh <- true
+	base := filepath.Base(path)
+	if _, err = lib.AddPhoto(base, f); err != nil {
+		errlog.Printf("path %v: %v", path, err)
 	}
 }
 
