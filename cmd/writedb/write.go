@@ -1,13 +1,12 @@
-
 package main
 
 import (
-	"log"
 	"flag"
 	"io/ioutil"
+	"log"
 
-	"github.com/rwcarlsen/gallery/piclib"
 	"github.com/rwcarlsen/gallery/backend/amz"
+	"github.com/rwcarlsen/gallery/piclib"
 	"launchpad.net/goamz/aws"
 )
 
@@ -37,4 +36,3 @@ func amzLib() piclib.Backend {
 	db.DbName = "amz"
 	return db
 }
-

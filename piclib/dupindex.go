@@ -1,9 +1,8 @@
-
 package piclib
 
 import (
-	_ "crypto/sha256"
 	"crypto"
+	_ "crypto/sha256"
 	"encoding/json"
 	"errors"
 )
@@ -48,4 +47,3 @@ func (di *dupIndex) Load(data []byte) {
 		panic(err.Error())
 	}
 }
-

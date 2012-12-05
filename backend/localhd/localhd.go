@@ -1,15 +1,14 @@
-
 package localhd
 
 import (
-	"os"
 	"errors"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 )
 
 type Backend struct {
-	Root string
+	Root   string
 	DbName string
 }
 
@@ -69,7 +68,7 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 		count++
 	}
 
-	if err := <- errCh; err != nil && err.Error() != "incomplete" {
+	if err := <-errCh; err != nil && err.Error() != "incomplete" {
 		return nil, err
 	}
 
@@ -85,7 +84,7 @@ func getWalker(ch chan string, done chan bool, base string) func(string, os.File
 			rel, _ := filepath.Rel(base, path)
 			select {
 			case ch <- rel:
-			case <- done:
+			case <-done:
 				return errors.New("incomplete")
 			}
 		}

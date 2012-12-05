@@ -1,18 +1,17 @@
-
 package piclib
 
 import (
-	"fmt"
-	"sync"
-	"strings"
 	"bytes"
-	"time"
-	"path"
 	"encoding/json"
+	"fmt"
 	"image"
-	"image/jpeg"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/png"
+	"path"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
@@ -20,10 +19,10 @@ import (
 )
 
 const (
-	ImageDir = "originals"
-	MetaDir = "metadata"
-	ThumbDir = "thumbnails"
-	IndexDir = "index"
+	ImageDir       = "originals"
+	MetaDir        = "metadata"
+	ThumbDir       = "thumbnails"
+	IndexDir       = "index"
 	UnsupportedDir = "unsupported"
 )
 
@@ -41,43 +40,43 @@ type Backend interface {
 }
 
 type Photo struct {
-	Meta string
-	Orig string
-	Thumb1 string
-	Thumb2 string
-	Size int
-	Uploaded time.Time
-	Taken time.Time
-	Tags map[string]string
+	Meta       string
+	Orig       string
+	Thumb1     string
+	Thumb2     string
+	Size       int
+	Uploaded   time.Time
+	Taken      time.Time
+	Tags       map[string]string
 	LibVersion string
 }
 
 type Library struct {
-	Db Backend
-	name string
-	imgDir string
-	thumbDir string
-	indDir string
-	metaDir string
+	Db             Backend
+	name           string
+	imgDir         string
+	thumbDir       string
+	indDir         string
+	metaDir        string
 	unsupportedDir string
-	photoCache map[string]*Photo
-	thumb1Cache map[string][]byte
-	thumb2Cache map[string][]byte
-	libLock sync.RWMutex
+	photoCache     map[string]*Photo
+	thumb1Cache    map[string][]byte
+	thumb2Cache    map[string][]byte
+	libLock        sync.RWMutex
 }
 
 func New(name string, db Backend) *Library {
 	return &Library{
-		Db: db,
-		name: name,
-		imgDir: path.Join(name, ImageDir),
-		thumbDir: path.Join(name, ThumbDir),
-		indDir: path.Join(name, IndexDir),
-		metaDir: path.Join(name, MetaDir),
+		Db:             db,
+		name:           name,
+		imgDir:         path.Join(name, ImageDir),
+		thumbDir:       path.Join(name, ThumbDir),
+		indDir:         path.Join(name, IndexDir),
+		metaDir:        path.Join(name, MetaDir),
 		unsupportedDir: path.Join(name, UnsupportedDir),
-		photoCache: make(map[string]*Photo),
-		thumb1Cache: make(map[string][]byte),
-		thumb2Cache: make(map[string][]byte),
+		photoCache:     make(map[string]*Photo),
+		thumb1Cache:    make(map[string][]byte),
+		thumb2Cache:    make(map[string][]byte),
 	}
 }
 
@@ -117,14 +116,14 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 
 	// create photo meta object
 	p = &Photo{
-		Meta: fname + ".json",
-		Orig: fname + strings.ToLower(ext),
-		Thumb1: fname + "_thumb1.jpg",
-		Thumb2: fname + "_thumb2.jpg",
-		Size: len(data),
-		Uploaded: time.Now(),
-		Taken: date,
-		Tags: make(map[string]string),
+		Meta:       fname + ".json",
+		Orig:       fname + strings.ToLower(ext),
+		Thumb1:     fname + "_thumb1.jpg",
+		Thumb2:     fname + "_thumb2.jpg",
+		Size:       len(data),
+		Uploaded:   time.Now(),
+		Taken:      date,
+		Tags:       make(map[string]string),
 		LibVersion: currVersion,
 	}
 
@@ -271,10 +270,10 @@ func dateFrom(data []byte) (string, time.Time) {
 
 	tg, err := x.Get("DateTimeOriginal")
 	if err != nil {
-    tg, err = x.Get("DateTime")
-    if err != nil {
-      return now.Format(nameTimeFmt) + "-NoDate", now
-    }
+		tg, err = x.Get("DateTime")
+		if err != nil {
+			return now.Format(nameTimeFmt) + "-NoDate", now
+		}
 	}
 
 	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
@@ -295,4 +294,3 @@ func thumb(w, h uint, img image.Image) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
-

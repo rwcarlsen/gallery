@@ -1,10 +1,9 @@
-
 package amz
 
 import (
+	"errors"
 	"fmt"
 	"log"
-	"errors"
 	pth "path"
 	"strings"
 	//"launchpad.net/goamz/s3"
@@ -15,18 +14,18 @@ import (
 
 const (
 	NoSuchBucket = "NoSuchBucket"
-	maxRetries = 4
+	maxRetries   = 4
 )
 
 type Backend struct {
-	s3link *s3.S3
+	s3link  *s3.S3
 	buckets map[string]*s3.Bucket
-	DbName string
+	DbName  string
 }
 
 func New(auth aws.Auth, region aws.Region) *Backend {
 	return &Backend{
-		s3link: s3.New(auth, region),
+		s3link:  s3.New(auth, region),
 		buckets: make(map[string]*s3.Bucket),
 	}
 }
@@ -124,7 +123,7 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 			names = append(names, pth.Join(bucket.Name, k.Key))
 		}
 
-		if result.IsTruncated  && len(result.Contents) < n {
+		if result.IsTruncated && len(result.Contents) < n {
 			marker = k.Key
 		} else {
 			break
@@ -153,5 +152,3 @@ func (lb *Backend) Get(path string) ([]byte, error) {
 	}
 	return nil, err
 }
-
-

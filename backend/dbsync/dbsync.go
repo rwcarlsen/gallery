@@ -1,9 +1,8 @@
-
 package dbsync
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 
 	"github.com/rwcarlsen/gallery/piclib"
 )
@@ -39,7 +38,7 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 	for objName, _ := range fromObj {
 		if !toObj[objName] {
 			results = append(results, fmt.Sprintf("sync from %v to %v: %v", from.Name(), to.Name(), objName))
-			if config & Cdry != 0 {
+			if config&Cdry != 0 {
 				continue
 			}
 			data, err := from.Get(objName)
@@ -61,7 +60,7 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 }
 
 type dbInfo struct {
-	db piclib.Backend
+	db      piclib.Backend
 	objects map[string]bool
 }
 
@@ -85,7 +84,7 @@ func AllWay(path string, config int, dbs ...piclib.Backend) (results []string, e
 			for name, _ := range info1.objects {
 				if !info2.objects[name] {
 					results = append(results, fmt.Sprintf("sync from %v to %v: %v", n1, n2, name))
-					if config & Cdry != 0 {
+					if config&Cdry != 0 {
 						continue
 					}
 					data, err := info1.db.Get(name)

@@ -6,12 +6,12 @@ import (
 	"html/template"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-	"mime/multipart"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -78,19 +78,19 @@ func (pl newFirst) Swap(i, j int) {
 }
 
 type handler struct {
-	lib       *piclib.Library
-	photos    []*piclib.Photo
+	lib    *piclib.Library
+	photos []*piclib.Photo
 }
 
 type year struct {
-	Year int
+	Year      int
 	StartPage int
-	Months []*month
+	Months    []*month
 }
 
 func (y *year) reverseMonths() {
 	end := len(y.Months) - 1
-	for i := 0; i < len(y.Months) / 2; i++ {
+	for i := 0; i < len(y.Months)/2; i++ {
 		y.Months[i], y.Months[end-i] = y.Months[end-i], y.Months[i]
 	}
 }
@@ -177,8 +177,8 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		}
 
 		start := picsPerPage * (pgNum - 1)
-		end := min(start + picsPerPage, len(h.photos))
-		list := make([]*thumbData, end - start)
+		end := min(start+picsPerPage, len(h.photos))
+		list := make([]*thumbData, end-start)
 		for i, p := range h.photos[start:end] {
 			list[i] = &thumbData{
 				Path:  p.Meta,
@@ -191,7 +191,7 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 	} else if strings.HasPrefix(kind, "/page-nav") {
-		n := len(h.photos) / picsPerPage + 1
+		n := len(h.photos)/picsPerPage + 1
 		pages := make([]int, n)
 		for i := range pages {
 			pages[i] = i + 1
@@ -201,7 +201,7 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 	} else if strings.HasPrefix(kind, "/num-pages") {
-		n := len(h.photos) / picsPerPage + 1
+		n := len(h.photos)/picsPerPage + 1
 		fmt.Fprint(w, n)
 	} else if strings.HasPrefix(kind, "/num-pics") {
 		fmt.Fprint(w, len(h.photos))
@@ -240,13 +240,13 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) pageOf(start int, t time.Time) (page, last int) {
 	for i, p := range h.photos[start:] {
-		pg := (i + start) / picsPerPage + 1
+		pg := (i+start)/picsPerPage + 1
 
 		if p.Taken.Before(t) {
 			return pg, i + start
 		}
 	}
-	return len(h.photos) / picsPerPage + 1, len(h.photos)
+	return len(h.photos)/picsPerPage + 1, len(h.photos)
 }
 
 func (h *handler) serveZoom(w http.ResponseWriter, r *http.Request) {
@@ -316,8 +316,8 @@ func (h *handler) serveAddPhotos(w http.ResponseWriter, r *http.Request) {
 
 	resps := []interface{}{}
 	for i := 0; i < count; i++ {
-		resp := <- respCh
-		p := <- picCh
+		resp := <-respCh
+		p := <-picCh
 		resps = append(resps, resp)
 		if p != nil {
 			h.photos = append(h.photos, p)

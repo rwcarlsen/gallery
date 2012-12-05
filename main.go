@@ -1,18 +1,17 @@
-
 package main
 
 import (
-	"log"
-	"io/ioutil"
-	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/backend/amz"
+	"github.com/rwcarlsen/gallery/backend/localhd"
+	"github.com/rwcarlsen/gallery/piclib"
+	"io/ioutil"
 	"launchpad.net/goamz/aws"
+	"log"
 )
 
 const (
-	root = "./"
-	sample = "./sample.jpg"
+	root    = "./"
+	sample  = "./sample.jpg"
 	libName = "rwc-webpics"
 )
 

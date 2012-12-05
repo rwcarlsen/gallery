@@ -1,17 +1,16 @@
-
 package main
 
 import (
-	"os"
 	"flag"
-	"strings"
-	"log"
 	"io/ioutil"
+	"log"
+	"os"
 	"path/filepath"
+	"strings"
 
-	"github.com/rwcarlsen/gallery/piclib"
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
+	"github.com/rwcarlsen/gallery/piclib"
 	"launchpad.net/goamz/aws"
 )
 
@@ -22,20 +21,20 @@ var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
 
 var validFmt = map[string]bool{
-	".jpg": true,
+	".jpg":  true,
 	".jpeg": true,
-	".gif": true,
-	".png": true,
-	".tif": true,
+	".gif":  true,
+	".png":  true,
+	".tif":  true,
 	".tiff": true,
-	".bmp": true,
+	".bmp":  true,
 	".exif": true,
 	".giff": true,
-	".raw": true,
-	".avi": true,
-	".mpg": true,
-	".mp4": true,
-	".mov": true,
+	".raw":  true,
+	".avi":  true,
+	".mpg":  true,
+	".mp4":  true,
+	".mov":  true,
 }
 
 var lib *piclib.Library
@@ -98,7 +97,7 @@ func walkFn(path string, info os.FileInfo, err error) error {
 
 func addToLib() {
 	for {
-		path := <- inCh
+		path := <-inCh
 		if !validFmt[strings.ToLower(filepath.Ext(path))] {
 			errlog.Printf("skipped file %v", path)
 			doneCh <- true
