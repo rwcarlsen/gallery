@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 	"strings"
-	"errors"
 	"bytes"
 	"time"
 	"path"
@@ -134,10 +133,6 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 		LibVersion: currVersion,
 	}
 
-	if l.Db.Exists(path.Join(l.metaDir, p.Meta)) {
-		return nil, errors.New("library: photo file " + p.Meta + " already exists")
-	}
-
 	// decode image bytes and construct thumbnails
 	r := bytes.NewReader(data)
 	img, _, err := image.Decode(r)
@@ -145,48 +140,55 @@ func (l *Library) AddPhoto(name string, data []byte) (p *Photo, err error) {
 		panic("unsupported")
 	}
 
-	thumb1, err := thumb(144, 0, img)
-	if err != nil {
-		return nil, err
+	var thumb1, thumb2 []byte
+	if !l.Db.Exists(path.Join(l.thumbDir, p.Thumb1)) || !l.Db.Exists(path.Join(l.thumbDir, p.Thumb2)) {
+		thumb1, err = thumb(144, 0, img)
+		if err != nil {
+			return nil, err
+		}
+		thumb2, err = thumb(800, 0, img)
+		if err != nil {
+			return nil, err
+		}
 	}
-	thumb2, err := thumb(800, 0, img)
-	if err != nil {
-		return nil, err
-	}
-
 	/////// store all photo related data in backend ////////
 
+	var err2 error
 	// add photo meta-data object to db
 	meta, err := json.Marshal(p)
 	if err != nil {
-		return nil, err
+		err2 = err
 	}
 	err = l.putAll(l.metaDir, p.Meta, meta)
 	if err != nil {
-		return nil, err
+		err2 = err
 	}
 
 	// add photo image/thumb files to db
 	err = l.putAll(l.imgDir, p.Orig, data)
 	if err != nil {
-		return nil, err
+		err2 = err
 	}
 
 	err = l.putAll(l.thumbDir, p.Thumb1, thumb1)
 	if err != nil {
-		return nil, err
+		err2 = err
 	}
 
 	err = l.putAll(l.thumbDir, p.Thumb2, thumb2)
 	if err != nil {
-		return nil, err
+		err2 = err
 	}
 
-	return p, nil
+	return p, err2
 }
 
 func (l *Library) putAll(pth, name string, data []byte) (err error) {
 	fullPath := path.Join(pth, name)
+	if l.Db.Exists(fullPath) {
+		return fmt.Errorf("piclib: photo file already exists %v", fullPath)
+	}
+
 	errs := []error{}
 	if err = l.Db.Put(fullPath, data); err != nil {
 		errs = append(errs, err)

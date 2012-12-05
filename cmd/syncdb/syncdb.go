@@ -17,6 +17,7 @@ var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3"
 var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var syncPath = flag.String("path", "", "name of library to create/access")
 var dry = flag.Bool("dry", false, "true to just print output of command and not sync anything")
+var flow = flag.String("flow", "toamz", "")
 
 func main() {
 	flag.Parse()
@@ -29,12 +30,25 @@ func main() {
 		dbs = append(dbs, localLib())
 	}
 
+	if len(dbs) < 2 {
+		log.Fatal("not enough backends")
+	}
+
 	config := 0
 	if *dry {
 		config = dbsync.Cdry
 	}
 
-	results, err := dbsync.AllWay(*syncPath, config, dbs...)
+	var err error
+	var results []string
+	if *flow == "toamz" {
+		results, err = dbsync.OneWay(*syncPath, config, dbs[1], dbs[0])
+	} else if *flow == "allway" {
+		results, err = dbsync.AllWay(*syncPath, config, dbs...)
+	} else {
+		log.Fatalf("invalid flow %v", *flow)
+	}
+
 	if err != nil {
 		log.Println(err)
 	}
