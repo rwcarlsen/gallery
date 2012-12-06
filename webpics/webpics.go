@@ -67,7 +67,9 @@ func main() {
 type newFirst []*piclib.Photo
 
 func (pl newFirst) Less(i, j int) bool {
-	return pl[i].Taken.After(pl[j].Taken)
+	itm := pl[i].Taken
+	jtm := pl[j].Taken
+	return itm.After(jtm)
 }
 
 func (pl newFirst) Len() int {

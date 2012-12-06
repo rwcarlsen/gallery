@@ -28,6 +28,10 @@ const (
 )
 
 const (
+	noDate = "-NoDate"
+)
+
+const (
 	nameTimeFmt = "2006-01-02-15-04-05"
 	currVersion = "0.1"
 )
@@ -50,6 +54,10 @@ type Photo struct {
 	Taken      time.Time
 	Tags       map[string]string
 	LibVersion string
+}
+
+func (p *Photo) LegitTaken() bool {
+	return !strings.Contains(p.Meta, noDate)
 }
 
 type Library struct {
@@ -274,20 +282,20 @@ func dateFrom(buf io.Reader) (string, time.Time) {
 	now := time.Now()
 	x, err := exif.Decode(buf)
 	if err != nil {
-		return now.Format(nameTimeFmt) + "-NoDate", now
+		return now.Format(nameTimeFmt) + noDate, now
 	}
 
 	tg, err := x.Get("DateTimeOriginal")
 	if err != nil {
 		tg, err = x.Get("DateTime")
 		if err != nil {
-			return now.Format(nameTimeFmt) + "-NoDate", now
+			return now.Format(nameTimeFmt) + noDate, now
 		}
 	}
 
 	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
 	if err != nil {
-		return now.Format(nameTimeFmt) + "-NoDate", now
+		return now.Format(nameTimeFmt) + noDate, now
 	}
 
 	return t.Format(nameTimeFmt), t
