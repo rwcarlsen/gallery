@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"bytes"
 	"time"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
@@ -304,7 +305,7 @@ func (h *handler) serveAddPhotos(w http.ResponseWriter, r *http.Request) {
 				log.Println(err)
 				respMeta["error"] = err.Error()
 			} else {
-				p, err = h.lib.AddPhoto(nm, data)
+				p, err = h.lib.AddPhoto(nm, bytes.NewReader(data))
 				if err != nil {
 					respMeta["error"] = err.Error()
 				}

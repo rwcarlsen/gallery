@@ -4,9 +4,9 @@ import (
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
-	"io/ioutil"
 	"launchpad.net/goamz/aws"
 	"log"
+	"os"
 )
 
 const (
@@ -31,13 +31,13 @@ func testAmzPut() {
 	db := amz.New(auth, aws.USEast)
 	lib := piclib.New(libName, db)
 
-	data, err := ioutil.ReadFile(sample)
+	f, err := os.Open(sample)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// load and dump photo, thumbs, etc.
-	p, err := lib.AddPhoto(sample, data)
+	p, err := lib.AddPhoto(sample, f)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,13 +81,13 @@ func testLocal() {
 	db := &localhd.Backend{Root: root}
 	lib := piclib.New(libName, db)
 
-	data, err := ioutil.ReadFile(sample)
+	f, err := os.Open(sample)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// load and dump photo, thumbs, etc.
-	p, err := lib.AddPhoto(sample, data)
+	p, err := lib.AddPhoto(sample, f)
 	if err != nil {
 		log.Fatal(err)
 	}
