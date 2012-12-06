@@ -103,6 +103,7 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 				l.putAll(l.unsupportedDir, full, buf)
 				err = fmt.Errorf("unsupported file type %v", name)
 			} else {
+				panic(r)
 				full := fmt.Sprintf("%v-sep-badfile-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
 				l.putAll(l.unsupportedDir, full, buf)
 				err = fmt.Errorf("corrupt file %v: %v", name, r)
@@ -128,9 +129,14 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 		LibVersion: currVersion,
 	}
 
+	if _, err := buf.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
 	// decode image bytes and construct thumbnails
 	img, _, err := image.Decode(buf)
 	if err != nil {
+		fmt.Println("--------------------------------- ", err)
 		panic("unsupported")
 	}
 
@@ -178,13 +184,13 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 }
 
 func (l *Library) putAll(pth, name string, buf io.ReadSeeker) (err error) {
-	if _, err := buf.Seek(0, 0); err != nil {
-		return err
-	}
-
 	fullPath := path.Join(pth, name)
 	if l.Db.Exists(fullPath) {
 		return fmt.Errorf("piclib: photo file already exists %v", fullPath)
+	}
+
+	if _, err := buf.Seek(0, 0); err != nil {
+		return err
 	}
 	return l.Db.Put(fullPath, buf)
 }

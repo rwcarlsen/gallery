@@ -3,6 +3,7 @@ package dbsync
 import (
 	"errors"
 	"fmt"
+	"bytes"
 
 	"github.com/rwcarlsen/gallery/piclib"
 )
@@ -47,7 +48,7 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 				errs = true
 				continue
 			}
-			if err := to.Put(objName, data); err != nil {
+			if err := to.Put(objName, bytes.NewReader(data)); err != nil {
 				results = append(results, err.Error())
 				errs = true
 			}
@@ -93,7 +94,7 @@ func AllWay(path string, config int, dbs ...piclib.Backend) (results []string, e
 						errs = true
 						continue
 					}
-					if err := info2.db.Put(name, data); err != nil {
+					if err := info2.db.Put(name, bytes.NewReader(data)); err != nil {
 						results = append(results, err.Error())
 						errs = true
 					}

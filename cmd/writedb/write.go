@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"bytes"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -21,7 +22,7 @@ func main() {
 	}
 
 	db := amzLib()
-	if err := db.Put(dstPath, data); err != nil {
+	if err := db.Put(dstPath, bytes.NewReader(data)); err != nil {
 		log.Fatal(err)
 	}
 	log.Println("success")
