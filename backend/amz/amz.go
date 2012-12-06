@@ -11,6 +11,7 @@ import (
 	"launchpad.net/goamz/aws"
 	"net/http"
 	"io"
+	"io/ioutil"
 )
 
 const (
@@ -80,15 +81,19 @@ func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 		return err
 	}
 
-	contType := http.DetectContentType(tmp)
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	contType := http.DetectContentType(data)
 
 	for i := 0; i < maxRetries; i++ {
-		if err = bucket.PutReader(bpath, r, -1, contType, s3.Private); err == nil {
+		if err = bucket.Put(bpath, data, contType, s3.Private); err == nil {
 			log.Printf("PutObject %v/%v", bucket.Name, bpath)
 			break
 		}
-		r.Seek(0, 0)
-		log.Printf("PutObject failed %v/%v", bucket.Name, bpath)
+		log.Printf("PutObject failed %v/%v: %v", bucket.Name, bpath, err)
 	}
 	return err
 }
