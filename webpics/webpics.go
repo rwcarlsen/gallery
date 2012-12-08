@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"strings"
 	"bytes"
-	"time"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
 	"launchpad.net/goamz/aws"
+	"github.com/gorilla/sessions"
 )
 
 
@@ -28,7 +28,7 @@ const (
 )
 
 const (
-	libName = "rwc-piclib"
+	libName = "rwc-piclib2"
 	addr    = "0.0.0.0:7777"
 )
 
@@ -41,6 +41,8 @@ var zoomTmpl = template.Must(template.ParseFiles("templates/zoompic.tmpl"))
 var picsTmpl = template.Must(template.ParseFiles("templates/browsepics.tmpl"))
 var pagenavTmpl = template.Must(template.ParseFiles("templates/pagination.tmpl"))
 var timenavTmpl = template.Must(template.ParseFiles("templates/timenav.tmpl"))
+
+var store = sessions.NewCookieStore([]byte("something-very-secret"))
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -179,13 +181,19 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 	}
 	defer session.Save(r, w)
 
-	c, ok := session.Values["context"]
+	v, ok := session.Values["context"]
 	if !ok {
-		session.Values["context"] = &context{h: h, photos: h.photos}
+		v = &context{h: h, photos: h.photos}
+		session.Values["context"] = v
+	}
+	c, ok := v.(*context)
+	if !ok {
+		log.Print("failed context assertion")
+		return
 	}
 
 	switch {
-	case strings.HasPrefix(kind, "/pg"):
+	case strings.HasPrefix(r.URL.Path, "/dynamic/pg"):
 		c.servePage(w, r)
 	case r.URL.Path == "/dynamic/page-nav":
 		c.servePageNav(w, r)
@@ -197,6 +205,8 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		c.serveTimeNav(w, r)
 	case r.URL.Path == "/dynamic/hide-nodate":
 		c.hideNoDate()
+	case r.URL.Path == "/dynamic/show-nodate":
+		c.resetPics()
 	default:
 		log.Printf("invalid dynamic content request path %v", r.URL.Path)
 	}

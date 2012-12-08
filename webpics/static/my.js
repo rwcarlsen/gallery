@@ -76,11 +76,25 @@ function updateNav() {
   pageTo(1)
 }
 
+function toggleDateless() {
+  showDateless = !showDateless
+  text = "Show Dateless"
+  if (showDateless) {
+    text = "Hide Dateless"
+    $.post("/dynamic/show-nodate", function(data) {updateNav()})
+  } else {
+    $.post("/dynamic/hide-nodate", function(data) {updateNav()})
+  }
+
+  $("#dateless-toggle").text(text)
+}
+
 // configurable
 var maxDisplayPages = 25
 // end configurable
 
 // order matters
+var showDateless = true
 var startPage = 1
 var endPage = maxDisplayPages
 var currPage = 0

@@ -2,19 +2,27 @@
 package main
 
 import (
-	"github.com/gorilla/sessions"
-)
+	"log"
+	"fmt"
+	"time"
+	"strconv"
+	"net/http"
 
-var store = sessions.NewCookieStore([]byte("something-very-secret"))
+	"github.com/rwcarlsen/gallery/piclib"
+)
 
 type context struct {
 	h *handler
 	photos []*piclib.Photo
+	showDateless string
 }
 
 func (c *context) hideNoDate() {
+	log.Println(c.showDateless)
+	c.showDateless = "hide prev clicked"
+
 	newlist := make([]*piclib.Photo, 0, len(c.photos))
-	for _, p := range photos {
+	for _, p := range c.photos {
 		if p.LegitTaken() {
 			newlist = append(newlist, p)
 		}
@@ -49,7 +57,7 @@ func (c *context) servePage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *context) servePageNav(w, r) {
+func (c *context) servePageNav(w http.ResponseWriter, r *http.Request) {
 	n := len(c.photos)/picsPerPage + 1
 	pages := make([]int, n)
 	for i := range pages {
@@ -61,16 +69,16 @@ func (c *context) servePageNav(w, r) {
 	}
 }
 
-func (c *context) serveNumPages(w, r) {
+func (c *context) serveNumPages(w http.ResponseWriter, r *http.Request) {
 	n := len(c.photos)/picsPerPage + 1
 	fmt.Fprint(w, n)
 }
 
-func (c *context) serveNumPics(w, r) {
+func (c *context) serveNumPics(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, len(c.photos))
 }
 
-func (c *context) serveTimeNav(w, r) {
+func (c *context) serveTimeNav(w http.ResponseWriter, r *http.Request) {
 	years := make([]*year, 0)
 	maxYear := c.photos[0].Taken.Year()
 	minYear := c.photos[len(c.photos)-1].Taken.Year()
