@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -12,12 +13,13 @@ import (
 	"strconv"
 	"strings"
 	"bytes"
-	"time"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
 	"launchpad.net/goamz/aws"
+	"github.com/gorilla/sessions"
 )
+
 
 const (
 	MetaFile  = "meta"
@@ -27,7 +29,7 @@ const (
 )
 
 const (
-	libName = "rwc-piclib"
+	libName = "rwc-piclib2"
 	addr    = "0.0.0.0:7777"
 )
 
@@ -41,6 +43,8 @@ var picsTmpl = template.Must(template.ParseFiles("templates/browsepics.tmpl"))
 var pagenavTmpl = template.Must(template.ParseFiles("templates/pagination.tmpl"))
 var timenavTmpl = template.Must(template.ParseFiles("templates/timenav.tmpl"))
 
+var store = sessions.NewCookieStore([]byte("my-secret"))
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
@@ -53,6 +57,7 @@ func main() {
 
 	h := &handler{
 		lib: lib,
+		contexts: make(map[string]*context),
 	}
 	h.updateLib()
 
@@ -83,6 +88,7 @@ func (pl newFirst) Swap(i, j int) {
 type handler struct {
 	lib    *piclib.Library
 	photos []*piclib.Photo
+	contexts map[string]*context
 }
 
 type year struct {
@@ -171,85 +177,46 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	kind := r.URL.Path[len("/dynamic"):]
-	if strings.HasPrefix(kind, "/pg") {
-		pgNum, err := strconv.Atoi(kind[len("/pg"):])
-		if err != nil {
-			log.Println("invalid gallery page view request")
-			return
-		}
-
-		start := picsPerPage * (pgNum - 1)
-		end := min(start+picsPerPage, len(h.photos))
-		list := make([]*thumbData, end-start)
-		for i, p := range h.photos[start:end] {
-			list[i] = &thumbData{
-				Path:  p.Meta,
-				Date:  p.Taken.Format("Jan 2, 2006"),
-				Index: i + start,
-			}
-		}
-
-		if err = picsTmpl.Execute(w, list); err != nil {
-			log.Fatal(err)
-		}
-	} else if strings.HasPrefix(kind, "/page-nav") {
-		n := len(h.photos)/picsPerPage + 1
-		pages := make([]int, n)
-		for i := range pages {
-			pages[i] = i + 1
-		}
-
-		if err := pagenavTmpl.Execute(w, pages); err != nil {
-			log.Fatal(err)
-		}
-	} else if strings.HasPrefix(kind, "/num-pages") {
-		n := len(h.photos)/picsPerPage + 1
-		fmt.Fprint(w, n)
-	} else if strings.HasPrefix(kind, "/num-pics") {
-		fmt.Fprint(w, len(h.photos))
-	} else if strings.HasPrefix(kind, "/time-nav") {
-		years := make([]*year, 0)
-		maxYear := h.photos[0].Taken.Year()
-		minYear := h.photos[len(h.photos)-1].Taken.Year()
-		lastMinMonth := h.photos[len(h.photos)-1].Taken.Month()
-
-		var last, pg int
-		for y := maxYear; y > minYear; y-- {
-			yr := &year{Year: y}
-			for m := time.December; m >= time.January; m-- {
-				pg, last = h.pageOf(last, time.Date(y, m, 1, 0, 0, 0, 0, time.Local))
-				yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
-			}
-			yr.reverseMonths()
-			yr.StartPage = yr.Months[0].Page
-			years = append(years, yr)
-		}
-
-		yr := &year{Year: minYear}
-		for m := time.December; m >= lastMinMonth; m-- {
-			pg, last = h.pageOf(last, time.Date(minYear, m, 1, 0, 0, 0, 0, time.Local))
-			yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
-		}
-		yr.reverseMonths()
-		yr.StartPage = yr.Months[0].Page
-		years = append(years, yr)
-
-		if err := timenavTmpl.Execute(w, years); err != nil {
-			log.Fatal(err)
-		}
+	session, err := store.Get(r, "dyn-content")
+	if err != nil {
+		log.Printf("failed session retrieval/creation: %v", err)
+		return
 	}
-}
 
-func (h *handler) pageOf(start int, t time.Time) (page, last int) {
-	for i, p := range h.photos[start:] {
-		pg := (i+start)/picsPerPage + 1
-
-		if p.Taken.Before(t) {
-			return pg, i + start
-		}
+	v, ok := session.Values["name"]
+	if !ok {
+		v = time.Now().String()
+		session.Values["name"] = v
+		h.contexts[v.(string)] = &context{h: h, photos: h.photos}
 	}
-	return len(h.photos)/picsPerPage + 1, len(h.photos)
+	c, ok := h.contexts[v.(string)]
+	if !ok {
+		log.Println("failed to find context")
+		return
+	}
+
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/dynamic/pg"):
+		c.servePage(w, r)
+	case r.URL.Path == "/dynamic/page-nav":
+		c.servePageNav(w, r)
+	case r.URL.Path == "/dynamic/num-pages":
+		c.serveNumPages(w, r)
+	case r.URL.Path == "/dynamic/num-pics":
+		c.serveNumPics(w, r)
+	case r.URL.Path == "/dynamic/time-nav":
+		c.serveTimeNav(w, r)
+	case r.URL.Path == "/dynamic/toggle-dateless":
+		c.toggleDateless()
+	case r.URL.Path == "/dynamic/hiding-dateless":
+		fmt.Fprint(w, c.HideDateless)
+	default:
+		log.Printf("invalid dynamic content request path %v", r.URL.Path)
+	}
+
+	if err := session.Save(r, w); err != nil {
+		log.Println(err)
+	}
 }
 
 func (h *handler) serveZoom(w http.ResponseWriter, r *http.Request) {

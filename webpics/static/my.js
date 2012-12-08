@@ -70,6 +70,31 @@ function getStats() {
   })
 }
 
+function updateNav() {
+  loadPageNav()
+  loadTimeNav()
+  pageTo(1)
+  updateDatelessToggle()
+}
+
+function updateDatelessToggle() {
+    $.post("/dynamic/hiding-dateless", function(data) {
+      text = "Hide Dateless"
+      alert(data)
+      if (data == "true") {
+        text = "Show Dateless"
+      }
+      $("#dateless-toggle").text(text)
+    })
+}
+
+function toggleDateless() {
+    $.post("/dynamic/toggle-dateless", function(data) {
+      currPage = 0 // forces a refresh despite potentially being on pg 1 already
+      updateNav()
+    })
+}
+
 // configurable
 var maxDisplayPages = 25
 // end configurable
@@ -81,7 +106,5 @@ var currPage = 0
 var numPages = 0
 var numPhotos = 0
 
-loadPageNav()
-loadTimeNav()
-pageTo(1)
+updateNav()
 
