@@ -14,13 +14,9 @@ import (
 type context struct {
 	h *handler
 	photos []*piclib.Photo
-	showDateless string
 }
 
 func (c *context) hideNoDate() {
-	log.Println(c.showDateless)
-	c.showDateless = "hide prev clicked"
-
 	newlist := make([]*piclib.Photo, 0, len(c.photos))
 	for _, p := range c.photos {
 		if p.LegitTaken() {

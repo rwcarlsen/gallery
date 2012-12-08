@@ -29,7 +29,7 @@ const (
 )
 
 const (
-	libName = "rwc-piclib2"
+	libName = "rwc-piclib"
 	addr    = "0.0.0.0:7777"
 )
 
@@ -189,7 +189,11 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		session.Values["name"] = v
 		h.contexts[v.(string)] = &context{h: h, photos: h.photos}
 	}
-	c := h.contexts[v.(string)]
+	c, ok := h.contexts[v.(string)]
+	if !ok {
+		log.Println("failed to find context")
+		return
+	}
 
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/dynamic/pg"):
@@ -209,6 +213,7 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 	default:
 		log.Printf("invalid dynamic content request path %v", r.URL.Path)
 	}
+
 	if err := session.Save(r, w); err != nil {
 		log.Println(err)
 	}
