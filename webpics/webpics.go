@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -42,7 +43,7 @@ var picsTmpl = template.Must(template.ParseFiles("templates/browsepics.tmpl"))
 var pagenavTmpl = template.Must(template.ParseFiles("templates/pagination.tmpl"))
 var timenavTmpl = template.Must(template.ParseFiles("templates/timenav.tmpl"))
 
-var store = sessions.NewCookieStore([]byte("something-very-secret"))
+var store = sessions.NewCookieStore([]byte("my-secret"))
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -56,6 +57,7 @@ func main() {
 
 	h := &handler{
 		lib: lib,
+		contexts: make(map[string]*context),
 	}
 	h.updateLib()
 
@@ -86,6 +88,7 @@ func (pl newFirst) Swap(i, j int) {
 type handler struct {
 	lib    *piclib.Library
 	photos []*piclib.Photo
+	contexts map[string]*context
 }
 
 type year struct {
@@ -179,18 +182,14 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		log.Printf("failed session retrieval/creation: %v", err)
 		return
 	}
-	defer session.Save(r, w)
 
-	v, ok := session.Values["context"]
+	v, ok := session.Values["name"]
 	if !ok {
-		v = &context{h: h, photos: h.photos}
-		session.Values["context"] = v
+		v = time.Now().String()
+		session.Values["name"] = v
+		h.contexts[v.(string)] = &context{h: h, photos: h.photos}
 	}
-	c, ok := v.(*context)
-	if !ok {
-		log.Print("failed context assertion")
-		return
-	}
+	c := h.contexts[v.(string)]
 
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/dynamic/pg"):
@@ -209,6 +208,9 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		c.resetPics()
 	default:
 		log.Printf("invalid dynamic content request path %v", r.URL.Path)
+	}
+	if err := session.Save(r, w); err != nil {
+		log.Println(err)
 	}
 }
 
