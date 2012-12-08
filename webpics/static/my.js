@@ -70,6 +70,12 @@ function getStats() {
   })
 }
 
+function updateNav() {
+  loadPageNav()
+  loadTimeNav()
+  pageTo(1)
+}
+
 // configurable
 var maxDisplayPages = 25
 // end configurable
@@ -81,7 +87,5 @@ var currPage = 0
 var numPages = 0
 var numPhotos = 0
 
-loadPageNav()
-loadTimeNav()
-pageTo(1)
+updateNav()
 
