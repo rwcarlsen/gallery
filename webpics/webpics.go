@@ -29,7 +29,7 @@ const (
 )
 
 const (
-	libName = "rwc-piclib"
+	libName = "rwc-piclib2"
 	addr    = "0.0.0.0:7777"
 )
 
@@ -206,10 +206,10 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		c.serveNumPics(w, r)
 	case r.URL.Path == "/dynamic/time-nav":
 		c.serveTimeNav(w, r)
-	case r.URL.Path == "/dynamic/hide-nodate":
-		c.hideNoDate()
-	case r.URL.Path == "/dynamic/show-nodate":
-		c.resetPics()
+	case r.URL.Path == "/dynamic/toggle-dateless":
+		c.toggleDateless()
+	case r.URL.Path == "/dynamic/hiding-dateless":
+		fmt.Fprint(w, c.HideDateless)
 	default:
 		log.Printf("invalid dynamic content request path %v", r.URL.Path)
 	}

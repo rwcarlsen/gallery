@@ -14,16 +14,22 @@ import (
 type context struct {
 	h *handler
 	photos []*piclib.Photo
+	HideDateless bool
 }
 
-func (c *context) hideNoDate() {
-	newlist := make([]*piclib.Photo, 0, len(c.photos))
-	for _, p := range c.photos {
-		if p.LegitTaken() {
-			newlist = append(newlist, p)
+func (c *context) toggleDateless() {
+	c.HideDateless = !c.HideDateless
+	if c.HideDateless {
+		newlist := make([]*piclib.Photo, 0, len(c.photos))
+		for _, p := range c.photos {
+			if p.LegitTaken() {
+				newlist = append(newlist, p)
+			}
 		}
+		c.photos = newlist
+	} else {
+		c.resetPics()
 	}
-	c.photos = newlist
 }
 
 func (c *context) resetPics() {

@@ -74,19 +74,25 @@ function updateNav() {
   loadPageNav()
   loadTimeNav()
   pageTo(1)
+  updateDatelessToggle()
+}
+
+function updateDatelessToggle() {
+    $.post("/dynamic/hiding-dateless", function(data) {
+      text = "Hide Dateless"
+      alert(data)
+      if (data == "true") {
+        text = "Show Dateless"
+      }
+      $("#dateless-toggle").text(text)
+    })
 }
 
 function toggleDateless() {
-  showDateless = !showDateless
-  text = "Show Dateless"
-  if (showDateless) {
-    text = "Hide Dateless"
-    $.post("/dynamic/show-nodate", function(data) {updateNav()})
-  } else {
-    $.post("/dynamic/hide-nodate", function(data) {updateNav()})
-  }
-
-  $("#dateless-toggle").text(text)
+    $.post("/dynamic/toggle-dateless", function(data) {
+      currPage = 0 // forces a refresh despite potentially being on pg 1 already
+      updateNav()
+    })
 }
 
 // configurable
@@ -94,7 +100,6 @@ var maxDisplayPages = 25
 // end configurable
 
 // order matters
-var showDateless = true
 var startPage = 1
 var endPage = maxDisplayPages
 var currPage = 0
