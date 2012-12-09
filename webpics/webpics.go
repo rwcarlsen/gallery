@@ -10,7 +10,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"bytes"
 
@@ -177,8 +176,6 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serveHome(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/dynamic") {
 		h.serveDynamic(w, r)
-	} else if strings.HasPrefix(r.URL.Path, "/zoom") {
-		h.serveZoom(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/static") {
 		http.ServeFile(w, r, r.URL.Path[1:])
 	} else if strings.HasPrefix(r.URL.Path, "/addphotos") {
@@ -200,7 +197,7 @@ func (h *handler) serveHome(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 	items := strings.Split(r.URL.Path, "/")
-	if len(items) != 3 {
+	if len(items) < 3 {
 		log.Printf("invalid dynamic content request path %v", r.URL.Path)
 		return
 	}
@@ -226,6 +223,8 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/dynamic/pg"):
 		c.servePage(w, r)
+	case strings.HasPrefix(r.URL.Path, "/dynamic/zoom"):
+		c.serveZoom(w, r)
 	case r.URL.Path == "/dynamic/page-nav":
 		c.servePageNav(w, r)
 	case r.URL.Path == "/dynamic/num-pages":
@@ -244,25 +243,6 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 
 	if err := session.Save(r, w); err != nil {
 		log.Println(err)
-	}
-}
-
-func (h *handler) serveZoom(w http.ResponseWriter, r *http.Request) {
-	items := strings.Split(r.URL.Path[1:], "/")
-	if len(items) != 2 {
-		log.Printf("Invalid zoom request path '%v'", r.URL.Path)
-	}
-
-	i, _ := strconv.Atoi(items[1])
-	p := h.photos[i]
-	pData := &thumbData{
-		Path:  p.Meta,
-		Date:  p.Taken.Format("Jan 2, 2006"),
-		Index: i,
-	}
-
-	if err := zoomTmpl.Execute(w, pData); err != nil {
-		log.Fatal(err)
 	}
 }
 

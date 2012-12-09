@@ -5,6 +5,7 @@ import (
 	"log"
 	"fmt"
 	"time"
+	"strings"
 	"strconv"
 	"net/http"
 
@@ -55,6 +56,25 @@ func (c *context) servePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = picsTmpl.Execute(w, list); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (c *context) serveZoom(w http.ResponseWriter, r *http.Request) {
+	items := strings.Split(r.URL.Path[1:], "/")
+	if len(items) != 3 {
+		log.Printf("Invalid zoom request path '%v'", r.URL.Path)
+	}
+
+	i , _ := strconv.Atoi(items[2])
+	p := c.photos[i]
+	pData := &thumbData{
+		Path:  p.Meta,
+		Date:  p.Taken.Format("Jan 2, 2006"),
+		Index: i,
+	}
+
+	if err := zoomTmpl.Execute(w, pData); err != nil {
 		log.Fatal(err)
 	}
 }
