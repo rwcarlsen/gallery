@@ -80,7 +80,6 @@ function updateNav() {
 function updateDatelessToggle() {
     $.post("/dynamic/hiding-dateless", function(data) {
       text = "Hide Dateless"
-      alert(data)
       if (data == "true") {
         text = "Show Dateless"
       }

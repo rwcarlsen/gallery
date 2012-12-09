@@ -15,6 +15,7 @@ import (
 	"bytes"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
+	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
 	"launchpad.net/goamz/aws"
 	"github.com/gorilla/sessions"
@@ -29,7 +30,7 @@ const (
 )
 
 const (
-	libName = "rwc-piclib2"
+	libName = "rwc-piclib"
 	addr    = "0.0.0.0:7777"
 )
 
@@ -45,14 +46,22 @@ var timenavTmpl = template.Must(template.ParseFiles("templates/timenav.tmpl"))
 
 var store = sessions.NewCookieStore([]byte("my-secret"))
 
-func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+func localBackend() piclib.Backend {
+	return &localhd.Backend{Root: "/media/spare"}
+}
 
+func amzBackend() piclib.Backend {
 	auth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatal(err)
 	}
-	db := amz.New(auth, aws.USEast)
+	return amz.New(auth, aws.USEast)
+}
+
+func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	db := localBackend()
 	lib := piclib.New(libName, db)
 
 	h := &handler{
@@ -63,7 +72,7 @@ func main() {
 
 	http.Handle("/", h)
 	log.Printf("listening on %v", addr)
-	err = http.ListenAndServe(addr, nil)
+	err := http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -121,22 +130,41 @@ func (h *handler) updateLib() {
 		log.Println(err)
 	}
 
-	h.photos = make([]*piclib.Photo, 0, len(names))
+	nWorkers := 10
 	picCh := make(chan *piclib.Photo)
-	for _, nm := range names {
-		go func(name string) {
-			p, err := h.lib.GetPhoto(name)
-			if err != nil {
-				log.Print(err)
+	nameCh := make(chan string)
+	done := make(chan bool)
+	for i := 0; i < nWorkers; i++ {
+		go func() {
+			for {
+				select {
+				case name := <- nameCh:
+					p, err := h.lib.GetPhoto(name)
+					if err != nil {
+						log.Printf("err on %v: %v", name, err)
+					}
+					picCh <- p
+				case <- done:
+					return
+				}
 			}
-			picCh <- p
-		}(nm)
+		}()
 	}
 
+	go func() {
+		for _, name := range names {
+			nameCh <- name
+		}
+	}()
+
 	for _ = range names {
-		if p := <-picCh; p != nil {
+		if p := <- picCh; p != nil {
 			h.photos = append(h.photos, p)
 		}
+	}
+
+	for i := 0; i < nWorkers; i++ {
+		done <- true
 	}
 
 	if len(h.photos) > 0 {
