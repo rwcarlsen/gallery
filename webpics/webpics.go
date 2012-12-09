@@ -183,8 +183,6 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, r.URL.Path[1:])
 	} else if strings.HasPrefix(r.URL.Path, "/addphotos") {
 		h.serveAddPhotos(w, r)
-	} else if strings.HasPrefix(r.URL.Path, "/piclib") {
-		h.servePhoto(w, r)
 	} else {
 		msg := fmt.Sprintf("Invalid request path '%v'", r.URL.Path)
 		log.Print(msg)
@@ -199,12 +197,6 @@ func (h *handler) serveHome(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
-	items := strings.Split(r.URL.Path, "/")
-	if len(items) != 3 {
-		log.Printf("invalid dynamic content request path %v", r.URL.Path)
-		return
-	}
-
 	session, err := store.Get(r, "dyn-content")
 	if err != nil {
 		log.Printf("failed session retrieval/creation: %v", err)
@@ -238,6 +230,8 @@ func (h *handler) serveDynamic(w http.ResponseWriter, r *http.Request) {
 		c.toggleDateless()
 	case r.URL.Path == "/dynamic/hiding-dateless":
 		fmt.Fprint(w, c.HideDateless)
+	case strings.HasPrefix(r.URL.Path, "/dynamic/piclib"):
+		c.servePhoto(w, r)
 	default:
 		log.Printf("invalid dynamic content request path %v", r.URL.Path)
 	}
@@ -326,48 +320,6 @@ func (h *handler) serveAddPhotos(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(newFirst(h.photos))
 	data, _ := json.Marshal(resps)
 	w.Write(data)
-}
-
-func (h *handler) servePhoto(w http.ResponseWriter, r *http.Request) {
-	data, err := h.fetchImg(r.URL.Path)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-	w.Write(data)
-}
-
-func (h *handler) fetchImg(path string) ([]byte, error) {
-	items := strings.Split(path[1:], "/")
-	if len(items) != 3 {
-		return nil, fmt.Errorf("invalid piclib resource '%v'", path)
-	}
-	imgType, pName := items[1], items[2]
-
-	p, err := h.lib.GetPhoto(pName)
-	if err != nil {
-		log.Println("pName: ", pName)
-		return nil, err
-	}
-
-	var data []byte
-	switch imgType {
-	case MetaFile:
-		data, err = json.Marshal(p)
-	case OrigImg:
-		data, err = h.lib.GetOriginal(p)
-	case Thumb1Img:
-		data, err = h.lib.GetThumb1(p)
-	case Thumb2Img:
-		data, err = h.lib.GetThumb2(p)
-	default:
-		return nil, fmt.Errorf("invalid image type '%v'", imgType)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
 }
 
 func min(x, y int) int {

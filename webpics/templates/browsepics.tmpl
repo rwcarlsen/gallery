@@ -4,7 +4,7 @@
   {{range $index, $photo := .}}
     <li class="span2">
       <a href="/zoom/{{$photo.Index}}" data-target="#zoom{{$photo.Index}}" data-toggle="modal">
-        <img class="thumbnail img-rounded" src="/piclib/thumb1/{{$photo.Path}}">
+        <img class="thumbnail img-rounded" src="/dynamic/piclib/thumb1/{{$photo.Path}}">
       </a>
       <p class="pagination-centered">{{$photo.Date}}</p>
 

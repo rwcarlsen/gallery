@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"time"
 	"strconv"
+	"strings"
 	"net/http"
+	"encoding/json"
 
 	"github.com/rwcarlsen/gallery/piclib"
 )
@@ -123,3 +125,45 @@ func (c *context) pageOf(start int, t time.Time) (page, last int) {
 	return len(c.photos)/picsPerPage + 1, len(c.photos)
 }
 
+
+func (c *context) servePhoto(w http.ResponseWriter, r *http.Request) {
+	data, err := c.fetchImg(r.URL.Path)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	w.Write(data)
+}
+
+func (c *context) fetchImg(path string) ([]byte, error) {
+	items := strings.Split(path[1:], "/")
+	if len(items) != 4 {
+		return nil, fmt.Errorf("invalid piclib resource '%v'", path)
+	}
+	imgType, pName := items[2], items[3]
+
+	p, err := c.h.lib.GetPhoto(pName)
+	if err != nil {
+		log.Println("pName: ", pName)
+		return nil, err
+	}
+
+	var data []byte
+	switch imgType {
+	case MetaFile:
+		data, err = json.Marshal(p)
+	case OrigImg:
+		data, err = c.h.lib.GetOriginal(p)
+	case Thumb1Img:
+		data, err = c.h.lib.GetThumb1(p)
+	case Thumb2Img:
+		data, err = c.h.lib.GetThumb2(p)
+	default:
+		return nil, fmt.Errorf("invalid image type '%v'", imgType)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
