@@ -21,14 +21,11 @@ import (
 	"github.com/gorilla/mux"
 )
 
-
 const (
 	libName = "rwc-piclib"
-	addr    = "0.0.0.0:7777"
-)
-
-const (
+	cacheSize = 300 * piclib.Mb
 	picsPerPage = 28
+	addr    = "0.0.0.0:7777"
 )
 
 const (
@@ -51,7 +48,7 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	db := localBackend()
-	lib = piclib.New(libName, db)
+	lib = piclib.New(libName, db, cacheSize)
 	updateLib()
 
 	r := mux.NewRouter()

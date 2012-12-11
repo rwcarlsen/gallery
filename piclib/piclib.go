@@ -5,18 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	_ "image/gif"
 	"image/jpeg"
+	_ "image/gif"
 	_ "image/png"
 	"path"
 	"strings"
-	"sync"
 	"time"
 	"io"
 
 	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
-	//cache "github.com/rwcarlsen/gocache"
+	cache "github.com/rwcarlsen/gocache"
+)
+
+const (
+	Byte = 1
+	Kb = 1000 * Byte
+	Mb = 1000 * Kb
+	Gb = 1000 * Mb
 )
 
 const (
@@ -68,13 +74,10 @@ type Library struct {
 	indDir         string
 	metaDir        string
 	unsupportedDir string
-	photoCache     map[string]*Photo
-	thumb1Cache    map[string][]byte
-	thumb2Cache    map[string][]byte
-	libLock        sync.RWMutex
+	cache		   *cache.LRUCache
 }
 
-func New(name string, db Backend) *Library {
+func New(name string, db Backend, cacheSize uint64) *Library {
 	return &Library{
 		Db:             db,
 		name:           name,
@@ -83,9 +86,7 @@ func New(name string, db Backend) *Library {
 		indDir:         path.Join(name, IndexDir),
 		metaDir:        path.Join(name, MetaDir),
 		unsupportedDir: path.Join(name, UnsupportedDir),
-		photoCache:     make(map[string]*Photo),
-		thumb1Cache:    make(map[string][]byte),
-		thumb2Cache:    make(map[string][]byte),
+		cache: cache.NewLRUCache(cacheSize),
 	}
 }
 
@@ -203,13 +204,34 @@ func (l *Library) putAll(pth, name string, buf io.ReadSeeker) (err error) {
 	return l.Db.Put(fullPath, buf)
 }
 
-func (l *Library) GetPhoto(name string) (*Photo, error) {
-	l.libLock.RLock()
-	if p, ok := l.photoCache[name]; ok {
-		l.libLock.RUnlock()
-		return p, nil
+type cacheVal struct {
+	size int
+	data []byte
+	p *Photo
+}
+
+func CachePic(p *Photo) cache.Value {
+	return &cacheVal{
+		p: p,
+		size: 2000,
 	}
-	l.libLock.RUnlock()
+}
+
+func CacheData(data []byte) cache.Value {
+	return &cacheVal{
+		data: data,
+		size: len(data),
+	}
+}
+
+func (cv *cacheVal) Size() int {
+	return cv.size
+}
+
+func (l *Library) GetPhoto(name string) (*Photo, error) {
+	if v, ok := l.cache.Get(name); ok {
+		return v.(*cacheVal).p, nil
+	}
 
 	data, err := l.Db.Get(path.Join(l.metaDir, name))
 	if err != nil {
@@ -222,10 +244,8 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 		return nil, err
 	}
 
-	l.libLock.Lock()
-	defer l.libLock.Unlock()
 
-	l.photoCache[name] = &p
+	l.cache.Set(name, CachePic(&p))
 	return &p, nil
 }
 
@@ -238,8 +258,8 @@ func (l *Library) GetOriginal(p *Photo) (data []byte, err error) {
 }
 
 func (l *Library) GetThumb1(p *Photo) (data []byte, err error) {
-	if data, ok := l.thumb1Cache[p.Thumb1]; ok {
-		return data, nil
+	if v, ok := l.cache.Get(p.Thumb1); ok {
+		return v.(*cacheVal).data, nil
 	}
 
 	thumb1, err := l.Db.Get(path.Join(l.thumbDir, p.Thumb1))
@@ -247,13 +267,13 @@ func (l *Library) GetThumb1(p *Photo) (data []byte, err error) {
 		return nil, err
 	}
 
-	l.thumb1Cache[p.Thumb1] = thumb1
+	l.cache.Set(p.Thumb1, CacheData(thumb1))
 	return thumb1, nil
 }
 
 func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
-	if data, ok := l.thumb2Cache[p.Thumb2]; ok {
-		return data, nil
+	if v, ok := l.cache.Get(p.Thumb2); ok {
+		return v.(*cacheVal).data, nil
 	}
 
 	thumb2, err := l.Db.Get(path.Join(l.thumbDir, p.Thumb2))
@@ -261,7 +281,7 @@ func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
 		return nil, err
 	}
 
-	l.thumb2Cache[p.Thumb1] = thumb2
+	l.cache.Set(p.Thumb2, CacheData(thumb2))
 	return thumb2, nil
 }
 

@@ -17,6 +17,8 @@ var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3"
 var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
 
+const cacheSize = 300 * piclib.Mb
+
 var validFmt = map[string]bool{
 	".jpg":  true,
 	".jpeg": true,
@@ -100,10 +102,10 @@ func amzLib() *piclib.Library {
 
 	auth := aws.Auth{AccessKey: keys[0], SecretKey: keys[1]}
 	db := amz.New(auth, aws.USEast)
-	return piclib.New(*libName, db)
+	return piclib.New(*libName, db, cacheSize)
 }
 
 func localLib() *piclib.Library {
 	db := &localhd.Backend{Root: *local}
-	return piclib.New(*libName, db)
+	return piclib.New(*libName, db, cacheSize)
 }
