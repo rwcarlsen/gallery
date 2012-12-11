@@ -60,11 +60,11 @@ function loadTimeNav() {
 }
 
 function getStats() {
-  $.get("/dynamic/num-pages", function(data){
+  $.get("/dynamic/stat/num-pages", function(data){
     numPages = parseInt(data)
     $("#num-pages").text(numPages.toString() + " pages")
   })
-  $.get("/dynamic/num-pics", function(data){
+  $.get("/dynamic/stat/num-pics", function(data){
     numPhotos = parseInt(data)
     $("#num-pics").text(numPhotos.toString() + " photos")
   })
@@ -78,7 +78,7 @@ function updateNav() {
 }
 
 function updateDatelessToggle() {
-    $.post("/dynamic/hiding-dateless", function(data) {
+    $.post("/dynamic/stat/hiding-dateless", function(data) {
       text = "Hide Dateless"
       if (data == "true") {
         text = "Show Dateless"

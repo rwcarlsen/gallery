@@ -5,15 +5,21 @@ import (
 	"log"
 	"fmt"
 	"time"
-	"strings"
 	"strconv"
 	"net/http"
+	"html/template"
 
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
+var (
+	zoomTmpl = template.Must(template.ParseFiles("templates/zoompic.tmpl"))
+	picsTmpl = template.Must(template.ParseFiles("templates/browsepics.tmpl"))
+	pagenavTmpl = template.Must(template.ParseFiles("templates/pagination.tmpl"))
+	timenavTmpl = template.Must(template.ParseFiles("templates/timenav.tmpl"))
+)
+
 type context struct {
-	h *handler
 	photos []*piclib.Photo
 	HideDateless bool
 }
@@ -34,11 +40,11 @@ func (c *context) toggleDateless() {
 }
 
 func (c *context) resetPics() {
-	c.photos = c.h.photos
+	c.photos = allPhotos
 }
 
-func (c *context) servePage(w http.ResponseWriter, r *http.Request) {
-	pgNum, err := strconv.Atoi(r.URL.Path[len("/dynamic/pg"):])
+func (c *context) servePage(w http.ResponseWriter, pg string) {
+	pgNum, err := strconv.Atoi(pg)
 	if err != nil {
 		log.Println("invalid gallery page view request")
 		return
@@ -60,13 +66,8 @@ func (c *context) servePage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *context) serveZoom(w http.ResponseWriter, r *http.Request) {
-	items := strings.Split(r.URL.Path[1:], "/")
-	if len(items) != 3 {
-		log.Printf("Invalid zoom request path '%v'", r.URL.Path)
-	}
-
-	i , _ := strconv.Atoi(items[2])
+func (c *context) serveZoom(w http.ResponseWriter, index string) {
+	i , _ := strconv.Atoi(index)
 	p := c.photos[i]
 	pData := &thumbData{
 		Path:  p.Meta,
@@ -79,7 +80,7 @@ func (c *context) serveZoom(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *context) servePageNav(w http.ResponseWriter, r *http.Request) {
+func (c *context) servePageNav(w http.ResponseWriter) {
 	n := len(c.photos)/picsPerPage + 1
 	pages := make([]int, n)
 	for i := range pages {
@@ -91,16 +92,21 @@ func (c *context) servePageNav(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *context) serveNumPages(w http.ResponseWriter, r *http.Request) {
-	n := len(c.photos)/picsPerPage + 1
-	fmt.Fprint(w, n)
+func (c *context) serveStat(w http.ResponseWriter, stat string) {
+	switch stat {
+	case "num-pages":
+		n := len(c.photos)/picsPerPage + 1
+		fmt.Fprint(w, n)
+	case "num-pics":
+		fmt.Fprint(w, len(c.photos))
+	case "hiding-dateless":
+		fmt.Fprint(w, c.HideDateless)
+	default:
+		fmt.Fprintf(w, "invalid stat '%v'", stat)
+	}
 }
 
-func (c *context) serveNumPics(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, len(c.photos))
-}
-
-func (c *context) serveTimeNav(w http.ResponseWriter, r *http.Request) {
+func (c *context) serveTimeNav(w http.ResponseWriter) {
 	years := make([]*year, 0)
 	maxYear := c.photos[0].Taken.Year()
 	minYear := c.photos[len(c.photos)-1].Taken.Year()
@@ -143,3 +149,9 @@ func (c *context) pageOf(start int, t time.Time) (page, last int) {
 	return len(c.photos)/picsPerPage + 1, len(c.photos)
 }
 
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
