@@ -60,6 +60,7 @@ func main() {
 	r.HandleFunc("/dynamic/zoom/{index:[0-9]*}", ZoomHandler)
 	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
 	r.HandleFunc("/dynamic/time-nav", TimeNavHandler)
+	r.HandleFunc("/dynamic/toggle-dateless", DateToggleHandler)
 	r.HandleFunc("/dynamic/stat/{stat}", StatHandler)
 
 	http.Handle("/", r)
@@ -248,42 +249,60 @@ func fetchImg(imgType, picName string) ([]byte, error) {
 ///////////////////////////////////////////////////////////
 
 func PageHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars := getContext(w, r)
+	c, vars, s := getContext(w, r)
 	c.servePage(w, vars["pg"])
+	if err := s.Save(r, w); err != nil {
+		log.Print(err)
+	}
 }
 
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars := getContext(w, r)
+	c, vars, s := getContext(w, r)
 	c.serveZoom(w, vars["index"])
+	if err := s.Save(r, w); err != nil {
+		log.Print(err)
+	}
 }
 
 func PageNavHandler(w http.ResponseWriter, r *http.Request) {
-	c, _ := getContext(w, r)
+	c, _, s := getContext(w, r)
 	c.servePageNav(w)
+	if err := s.Save(r, w); err != nil {
+		log.Print(err)
+	}
 }
 
 func StatHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars := getContext(w, r)
+	c, vars, s := getContext(w, r)
 	c.serveStat(w, vars["stat"])
+	if err := s.Save(r, w); err != nil {
+		log.Print(err)
+	}
 }
 
 func TimeNavHandler(w http.ResponseWriter, r *http.Request) {
-	c, _ := getContext(w, r)
+	c, _, s := getContext(w, r)
 	c.serveTimeNav(w)
+	if err := s.Save(r, w); err != nil {
+		log.Print(err)
+	}
 }
 
 func DateToggleHandler(w http.ResponseWriter, r *http.Request) {
-	c, _ := getContext(w, r)
+	c, _, s := getContext(w, r)
 	c.toggleDateless()
+	if err := s.Save(r, w); err != nil {
+		log.Print(err)
+	}
 }
 
-func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]string) {
-	session, _ := store.Get(r, "dyn-content")
+func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]string, *sessions.Session) {
+	s, _ := store.Get(r, "dyn-content")
 
-	v, ok := session.Values["context-id"]
+	v, ok := s.Values["context-id"]
 	if !ok {
 		v = time.Now().String()
-		session.Values["context-id"] = v
+		s.Values["context-id"] = v
 		contexts[v.(string)] = &context{photos: allPhotos}
 	}
 	c, ok := contexts[v.(string)]
@@ -292,6 +311,6 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 	}
 
 	vars := mux.Vars(r)
-	return c, vars
+	return c, vars, s
 }
 
