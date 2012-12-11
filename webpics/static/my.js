@@ -94,6 +94,12 @@ function toggleDateless() {
     })
 }
 
+function copyLink(picIndex) {
+    $.post("/link-pic/" + picIndex, function(link) {
+      $("#sharelink" + picIndex).popover({placement:'top', content:link})
+    })
+}
+
 // configurable
 var maxDisplayPages = 25
 // end configurable

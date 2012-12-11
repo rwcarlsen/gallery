@@ -12,7 +12,18 @@
         <div class="modal-header"></div>
         <div class="modal-body pagination-centered"></div>
         <div class="modal-footer">
-          <p class="pagination-centered">{{$photo.Date}}</p>
+
+      <div class="navbar">
+          <ul class="nav">
+            <li><a href="#" disabled>Taken {{$photo.Date}}</a></li>
+          </ul>
+          <ul class="nav pull-right">
+            <li><div>
+              <a id="sharelink{{$photo.Index}}" class="btn" onclick="copyLink({{$photo.Index}})" href="#">Share</a>
+            </div></li>
+          </ul>
+      </div>
+
         </div>
       </div>
 
