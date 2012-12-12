@@ -25,6 +25,7 @@ type month struct {
 
 type thumbData struct {
 	Path  string
+	Notes string
 	Date  string
 	Index int
 }

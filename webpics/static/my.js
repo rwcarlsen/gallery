@@ -96,6 +96,9 @@ function toggleDateless() {
     })
 }
 
+function saveNotes(index) {
+}
+
 // configurable
 var maxDisplayPages = 25
 // end configurable

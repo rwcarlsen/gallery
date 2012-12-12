@@ -25,6 +25,8 @@ type context struct {
 	CurrPage string
 }
 
+const noteField = "LibNotes"
+
 func (c *context) toggleDateless() {
 	c.HideDateless = !c.HideDateless
 	if c.HideDateless {
@@ -59,6 +61,7 @@ func (c *context) servePage(w http.ResponseWriter, pg string) {
 			Path:  p.Meta,
 			Date:  p.Taken.Format("Jan 2, 2006"),
 			Index: i + start,
+			Notes: p.Tags[noteField],
 		}
 	}
 
@@ -75,6 +78,7 @@ func (c *context) serveZoom(w http.ResponseWriter, index string) {
 		Path:  p.Meta,
 		Date:  p.Taken.Format("Jan 2, 2006"),
 		Index: i,
+		Notes: p.Tags[noteField],
 	}
 
 	if err := zoomTmpl.Execute(w, pData); err != nil {

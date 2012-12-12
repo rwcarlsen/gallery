@@ -15,12 +15,12 @@
 
       <div class="navbar">
           <ul class="nav">
-            <li><a href="#" disabled>Taken {{$photo.Date}}</a></li>
+            <li><textarea id="pic-notes{{$photo.Index}}">{{$photo.Notes}}</textarea></li>
+            <li><div><a href="#" class="btn" onclick="saveNotes({{$photo.Index}})">Save Notes</a></div></li>
           </ul>
           <ul class="nav pull-right">
-            <li><div>
-              <a class="btn" href="/piclib/orig/{{$photo.Path}}">Original</a>
-            </div></li>
+            <li><a href="#" disabled>Taken {{$photo.Date}}</a></li>
+            <li><div><a class="btn" href="/piclib/orig/{{$photo.Path}}">Original</a></div></li>
           </ul>
       </div>
 
