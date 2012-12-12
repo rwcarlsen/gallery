@@ -73,7 +73,9 @@ function getStats() {
 function updateNav() {
   loadPageNav()
   loadTimeNav()
-  pageTo(1)
+  $.get("/dynamic/pg", function(pg) {
+    pageTo(parseInt(pg))
+  })
   updateDatelessToggle()
 }
 
@@ -91,12 +93,6 @@ function toggleDateless() {
     $.post("/dynamic/toggle-dateless", function(data) {
       currPage = 0 // forces a refresh despite potentially being on pg 1 already
       updateNav()
-    })
-}
-
-function copyLink(picIndex) {
-    $.post("/link-pic/" + picIndex, function(link) {
-      $("#sharelink" + picIndex).popover({placement:'top', content:link})
     })
 }
 

@@ -22,6 +22,7 @@ var (
 type context struct {
 	photos []*piclib.Photo
 	HideDateless bool
+	CurrPage string
 }
 
 func (c *context) toggleDateless() {
@@ -64,6 +65,7 @@ func (c *context) servePage(w http.ResponseWriter, pg string) {
 	if err = picsTmpl.Execute(w, list); err != nil {
 		log.Fatal(err)
 	}
+	c.CurrPage = pg
 }
 
 func (c *context) serveZoom(w http.ResponseWriter, index string) {

@@ -249,61 +249,51 @@ func fetchImg(imgType, picName string) ([]byte, error) {
 ///////////////////////////////////////////////////////////
 
 func PageHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars, s := getContext(w, r)
-	c.servePage(w, vars["pg"])
-	if err := s.Save(r, w); err != nil {
-		log.Print(err)
+	c, vars := getContext(w, r)
+	if pg := vars["pg"]; len(pg) == 0 {
+		fmt.Fprint(w, c.CurrPage)
+	} else {
+		c.servePage(w, pg)
 	}
 }
 
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars, s := getContext(w, r)
+	c, vars := getContext(w, r)
 	c.serveZoom(w, vars["index"])
-	if err := s.Save(r, w); err != nil {
-		log.Print(err)
-	}
 }
 
 func PageNavHandler(w http.ResponseWriter, r *http.Request) {
-	c, _, s := getContext(w, r)
+	c, _ := getContext(w, r)
 	c.servePageNav(w)
-	if err := s.Save(r, w); err != nil {
-		log.Print(err)
-	}
 }
 
 func StatHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars, s := getContext(w, r)
+	c, vars := getContext(w, r)
 	c.serveStat(w, vars["stat"])
-	if err := s.Save(r, w); err != nil {
-		log.Print(err)
-	}
 }
 
 func TimeNavHandler(w http.ResponseWriter, r *http.Request) {
-	c, _, s := getContext(w, r)
+	c, _ := getContext(w, r)
 	c.serveTimeNav(w)
-	if err := s.Save(r, w); err != nil {
-		log.Print(err)
-	}
 }
 
 func DateToggleHandler(w http.ResponseWriter, r *http.Request) {
-	c, _, s := getContext(w, r)
+	c, _ := getContext(w, r)
 	c.toggleDateless()
-	if err := s.Save(r, w); err != nil {
-		log.Print(err)
-	}
 }
 
-func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]string, *sessions.Session) {
-	s, _ := store.Get(r, "dyn-content")
+func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]string) {
+	s, err := store.Get(r, "dyn-content")
+	if err != nil {
+		panic(err.Error())
+	}
 
 	v, ok := s.Values["context-id"]
 	if !ok {
 		v = time.Now().String()
 		s.Values["context-id"] = v
-		contexts[v.(string)] = &context{photos: allPhotos}
+		s.Save(r, w)
+		contexts[v.(string)] = &context{photos: allPhotos, CurrPage: "1"}
 	}
 	c, ok := contexts[v.(string)]
 	if !ok {
@@ -311,6 +301,6 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 	}
 
 	vars := mux.Vars(r)
-	return c, vars, s
+	return c, vars
 }
 
