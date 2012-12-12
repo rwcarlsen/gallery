@@ -292,13 +292,14 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 	if !ok {
 		v = time.Now().String()
 		s.Values["context-id"] = v
-		s.Save(r, w)
+		contexts[v.(string)] = &context{photos: allPhotos, CurrPage: "1"}
+	} else if _, ok := contexts[v.(string)]; !ok {
+		v = time.Now().String()
+		s.Values["context-id"] = v
 		contexts[v.(string)] = &context{photos: allPhotos, CurrPage: "1"}
 	}
-	c, ok := contexts[v.(string)]
-	if !ok {
-		panic("failed to find context")
-	}
+	s.Save(r, w)
+	c := contexts[v.(string)]
 
 	vars := mux.Vars(r)
 	return c, vars
