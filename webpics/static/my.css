@@ -9,6 +9,12 @@
     max-width: 90%;
 }
 
+#uploadermodal{
+  width: 720px;
+  margin-left: -360px;
+  margin-top: -30%;
+}
+
 /* for the zoom view image size */
 .zoom-img {
   height: 85%;
