@@ -16,23 +16,28 @@
   width: 1em;
 }
 
+/* for the time navigation dropdown menu */
 .dropdown-page {
   display: inline-block !important;
   float: left;
 }
 
+/* for the time navigation dropdown menu */
 .dropdown-link {
   display: inline !important;
 }
 
+/* for the time navigation dropdown menu */
 .dropdown-wide {
   min-width: 47em !important;
 }
 
+/* for the zoom view modal and image size */
 .zoom-img {
   max-height: 800px;
 }
 
+/* for the zoom view modal and image size */
 .modal-body {
     max-height: 800px;
 }

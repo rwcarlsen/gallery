@@ -195,7 +195,7 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 }
 
 func (l *Library) UpdatePhoto(picName, key, val string) error {
-	p, err := GetPhoto(picName)
+	p, err := l.GetPhoto(picName)
 	if err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func (l *Library) UpdatePhoto(picName, key, val string) error {
 	if err != nil {
 		return err
 	}
-	return l.db.Put(l.metaDir, p.Meta, bytes.NewReader(data))
+	return l.Db.Put(path.Join(l.metaDir, p.Meta), bytes.NewReader(data))
 }
 
 func (l *Library) put(pth, name string, buf io.ReadSeeker) (err error) {
