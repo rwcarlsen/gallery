@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
@@ -35,16 +34,21 @@ const (
 	Thumb2Img = "thumb2"
 )
 
-var indexTmpl = template.Must(template.ParseFiles("index.tmpl"))
-
 var (
 	lib    *piclib.Library
 	allPhotos []*piclib.Photo
 	contexts = make(map[string]*context)
 	store = sessions.NewCookieStore([]byte("my-secret"))
+	home []byte // index.html
 )
 
 func main() {
+	var err error
+	home, err = ioutil.ReadFile("index.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	db := localBackend()
@@ -135,9 +139,7 @@ func updateLib() {
 ///////////////////////////////////////////////////////////
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	if err := indexTmpl.Execute(w, nil); err != nil {
-		log.Print(err)
-	}
+	w.Write(home)
 }
 
 func StaticHandler(w http.ResponseWriter, r *http.Request) {
