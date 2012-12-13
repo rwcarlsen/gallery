@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
@@ -35,16 +34,21 @@ const (
 	Thumb2Img = "thumb2"
 )
 
-var indexTmpl = template.Must(template.ParseFiles("index.tmpl"))
-
 var (
 	lib    *piclib.Library
 	allPhotos []*piclib.Photo
 	contexts = make(map[string]*context)
 	store = sessions.NewCookieStore([]byte("my-secret"))
+	home []byte // index.html
 )
 
 func main() {
+	var err error
+	home, err = ioutil.ReadFile("index.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	db := localBackend()
@@ -57,11 +61,12 @@ func main() {
 	r.HandleFunc("/addphotos", AddPhotoHandler)
 	r.HandleFunc("/piclib/{imgType}/{picName}", PhotoHandler)
 	r.HandleFunc("/dynamic/pg{pg:[0-9]*}", PageHandler)
-	r.HandleFunc("/dynamic/zoom/{index:[0-9]*}", ZoomHandler)
+	r.HandleFunc("/dynamic/zoom/{index:[0-9]+}", ZoomHandler)
 	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
 	r.HandleFunc("/dynamic/time-nav", TimeNavHandler)
 	r.HandleFunc("/dynamic/toggle-dateless", DateToggleHandler)
 	r.HandleFunc("/dynamic/stat/{stat}", StatHandler)
+	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
 
 	http.Handle("/", r)
 	log.Printf("listening on %v", addr)
@@ -135,9 +140,7 @@ func updateLib() {
 ///////////////////////////////////////////////////////////
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	if err := indexTmpl.Execute(w, nil); err != nil {
-		log.Print(err)
-	}
+	w.Write(home)
 }
 
 func StaticHandler(w http.ResponseWriter, r *http.Request) {
@@ -255,6 +258,11 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		c.servePage(w, pg)
 	}
+}
+
+func NotesHandler(w http.ResponseWriter, r *http.Request) {
+	c, vars := getContext(w, r)
+	c.saveNotes(r, vars["picIndex"])
 }
 
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {

@@ -35,6 +35,8 @@ const (
 
 const (
 	noDate = "-NoDate"
+	oldMeta = "OldMeta"
+	revSepMarker = "\n---revsepmarker---\n"
 )
 
 const (
@@ -109,12 +111,12 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 			nm := base[:len(base)-len(path.Ext(name))]
 			if s, ok := r.(string); ok && s == "unsupported" {
 				full := fmt.Sprintf("%v-sep-unsupported-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
-				l.putAll(l.unsupportedDir, full, buf)
+				l.put(l.unsupportedDir, full, buf)
 				err = fmt.Errorf("unsupported file type %v", name)
 			} else {
 				panic(r)
 				full := fmt.Sprintf("%v-sep-badfile-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
-				l.putAll(l.unsupportedDir, full, buf)
+				l.put(l.unsupportedDir, full, buf)
 				err = fmt.Errorf("corrupt file %v: %v", name, r)
 			}
 		}
@@ -168,23 +170,23 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 	if err != nil {
 		err2 = err
 	}
-	err = l.putAll(l.metaDir, p.Meta, bytes.NewReader(meta))
+	err = l.put(l.metaDir, p.Meta, bytes.NewReader(meta))
 	if err != nil {
 		err2 = err
 	}
 
 	// add photo image/thumb files to db
-	err = l.putAll(l.imgDir, p.Orig, buf)
+	err = l.put(l.imgDir, p.Orig, buf)
 	if err != nil {
 		err2 = err
 	}
 
-	err = l.putAll(l.thumbDir, p.Thumb1, thumb1)
+	err = l.put(l.thumbDir, p.Thumb1, thumb1)
 	if err != nil {
 		err2 = err
 	}
 
-	err = l.putAll(l.thumbDir, p.Thumb2, thumb2)
+	err = l.put(l.thumbDir, p.Thumb2, thumb2)
 	if err != nil {
 		err2 = err
 	}
@@ -192,7 +194,25 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 	return p, err2
 }
 
-func (l *Library) putAll(pth, name string, buf io.ReadSeeker) (err error) {
+func (l *Library) UpdatePhoto(picName, key, val string) error {
+	p, err := l.GetPhoto(picName)
+	if err != nil {
+		return err
+	}
+
+	if v, ok := p.Tags[key]; ok {
+		p.Tags[oldMeta] = p.Tags[oldMeta] + revSepMarker + v
+	}
+	p.Tags[key] = val
+
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	return l.Db.Put(path.Join(l.metaDir, p.Meta), bytes.NewReader(data))
+}
+
+func (l *Library) put(pth, name string, buf io.ReadSeeker) (err error) {
 	fullPath := path.Join(pth, name)
 	if l.Db.Exists(fullPath) {
 		return fmt.Errorf("piclib: photo file already exists %v", fullPath)
@@ -202,30 +222,6 @@ func (l *Library) putAll(pth, name string, buf io.ReadSeeker) (err error) {
 		return err
 	}
 	return l.Db.Put(fullPath, buf)
-}
-
-type cacheVal struct {
-	size int
-	data []byte
-	p *Photo
-}
-
-func CachePic(p *Photo) cache.Value {
-	return &cacheVal{
-		p: p,
-		size: 2000,
-	}
-}
-
-func CacheData(data []byte) cache.Value {
-	return &cacheVal{
-		data: data,
-		size: len(data),
-	}
-}
-
-func (cv *cacheVal) Size() int {
-	return cv.size
 }
 
 func (l *Library) GetPhoto(name string) (*Photo, error) {
@@ -331,3 +327,28 @@ func thumb(w, h uint, img image.Image) (io.ReadSeeker, error) {
 	}
 	return bytes.NewReader(buf.Bytes()), nil
 }
+
+type cacheVal struct {
+	size int
+	data []byte
+	p *Photo
+}
+
+func CachePic(p *Photo) cache.Value {
+	return &cacheVal{
+		p: p,
+		size: 2000,
+	}
+}
+
+func CacheData(data []byte) cache.Value {
+	return &cacheVal{
+		data: data,
+		size: len(data),
+	}
+}
+
+func (cv *cacheVal) Size() int {
+	return cv.size
+}
+

@@ -97,6 +97,12 @@ function toggleDateless() {
 }
 
 function saveNotes(index) {
+  ind = index.toString()
+  selector = "#pic-notes" + ind
+  alert(selector)
+  data = $("#pic-notes" + ind).val()
+  alert(data)
+  $.post("/dynamic/save-notes/" + ind, data)
 }
 
 // configurable

@@ -1,9 +1,24 @@
 
-/* make modal able to be bigger */
+/* zoom view modal total size */
 .modal.large{
-    width: 850px;
-    margin-left: -425px; /* - width/2 */
-    margin-top: -45%;
+    position: fixed;
+    height: 90% !important; 
+    margin-top: -45% !important;
+    width: 980px;
+    margin-left: -490px;
+    max-width: 90%;
+}
+
+/* for the zoom view image size */
+.zoom-img {
+  height: 85%;
+  width: auto !important;
+}
+
+/* for the zoom view modal body size */
+.modal-body {
+    height: auto !important;
+    max-height: 85%;
 }
 
 .pga {
@@ -16,25 +31,20 @@
   width: 1em;
 }
 
+/* for the time navigation dropdown menu */
 .dropdown-page {
   display: inline-block !important;
   float: left;
 }
 
+/* for the time navigation dropdown menu */
 .dropdown-link {
   display: inline !important;
 }
 
+/* for the time navigation dropdown menu */
 .dropdown-wide {
   min-width: 47em !important;
-}
-
-.zoom-img {
-  max-height: 800px;
-}
-
-.modal-body {
-    max-height: 800px;
 }
 
 .pagination {
@@ -48,5 +58,4 @@
     -ms-transition: opacity .2s linear, none;
     -o-transition: opacity .2s linear, none;
     transition: opacity .2s linear, none;
-    top: 50%;
 }
