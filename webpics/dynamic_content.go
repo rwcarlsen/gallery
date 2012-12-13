@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"html/template"
+	"math/rand"
 
 	"github.com/rwcarlsen/gallery/piclib"
 )
@@ -24,23 +25,42 @@ type context struct {
 	photos []*piclib.Photo
 	HideDateless bool
 	CurrPage string
+	random []int
+	currIndex int
 }
 
 const noteField = "LibNotes"
 
 func (c *context) toggleDateless() {
 	c.HideDateless = !c.HideDateless
-	if c.HideDateless {
-		newlist := make([]*piclib.Photo, 0, len(c.photos))
-		for _, p := range c.photos {
-			if p.LegitTaken() {
-				newlist = append(newlist, p)
-			}
+	c.updateFilter()
+}
+
+func (c *context) updateFilter() {
+	newlist := make([]*piclib.Photo, 0, len(c.photos))
+	for _, p := range allPhotos {
+		if c.passFilter(p) {
+			newlist = append(newlist, p)
 		}
-		c.photos = newlist
-	} else {
-		c.resetPics()
 	}
+	c.photos = newlist
+}
+
+func (c *context) passFilter(p *piclib.Photo) bool {
+	if c.HideDateless && !p.LegitTaken() {
+		return false
+	}
+	return true
+}
+
+func (c *context) addPics(pics []*piclib.Photo) {
+	newlist := []*piclib.Photo{}
+	for _, p := range pics {
+		if c.passFilter(p) {
+			newlist = append(newlist, p)
+		}
+	}
+	c.photos = append(newlist, c.photos...)
 }
 
 func (c *context) saveNotes(r *http.Request, picIndex string) {
@@ -65,8 +85,19 @@ func (c *context) saveNotes(r *http.Request, picIndex string) {
 	p.Tags[noteField] = string(data)
 }
 
-func (c *context) resetPics() {
-	c.photos = allPhotos
+func (c *context) serveRandom(w http.ResponseWriter) {
+	if c.random == nil {
+		c.random = rand.Perm(len(c.photos))
+	}
+	data, err := lib.GetOriginal(c.photos[c.random[c.currIndex]])
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	w.Write(data)
+	if c.currIndex++; c.currIndex == len(c.photos) {
+		c.currIndex = 0
+	}
 }
 
 func (c *context) servePage(w http.ResponseWriter, pg string) {

@@ -67,6 +67,7 @@ func main() {
 	r.HandleFunc("/dynamic/toggle-dateless", DateToggleHandler)
 	r.HandleFunc("/dynamic/stat/{stat}", StatHandler)
 	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
+	r.HandleFunc("/dynamic/slideshow", SlideshowHandler)
 
 	http.Handle("/", r)
 	log.Printf("listening on %v", addr)
@@ -195,11 +196,13 @@ func AddPhotoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resps := []interface{}{}
+	newPics := []*piclib.Photo{}
 	for i := 0; i < count; i++ {
 		resp := <-respCh
 		p := <-picCh
 		resps = append(resps, resp)
 		if p != nil {
+			newPics = append(newPics, p)
 			allPhotos = append(allPhotos, p)
 		}
 	}
@@ -208,6 +211,9 @@ func AddPhotoHandler(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(newFirst(allPhotos))
 	data, _ := json.Marshal(resps)
 	w.Write(data)
+	for _, c := range contexts {
+		c.addPics(newPics)
+	}
 }
 
 func PhotoHandler(w http.ResponseWriter, r *http.Request) {
@@ -263,6 +269,11 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 func NotesHandler(w http.ResponseWriter, r *http.Request) {
 	c, vars := getContext(w, r)
 	c.saveNotes(r, vars["picIndex"])
+}
+
+func SlideshowHandler(w http.ResponseWriter, r *http.Request) {
+	c, _ := getContext(w, r)
+	c.serveRandom(w)
 }
 
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
