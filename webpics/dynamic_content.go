@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 	"strconv"
+	"io/ioutil"
 	"net/http"
 	"html/template"
 
@@ -40,6 +41,28 @@ func (c *context) toggleDateless() {
 	} else {
 		c.resetPics()
 	}
+}
+
+func (c *context) saveNotes(r *http.Request, picIndex string) {
+	i, err := strconv.Atoi(picIndex)
+	if err != nil {
+		log.Println("invalid gallery page view request")
+		return
+	}
+
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	r.Body.Close()
+
+	p := c.photos[i]
+	if err := lib.UpdatePhoto(p.Meta, noteField, string(data)); err != nil {
+		log.Print(err)
+		return
+	}
+	p.Tags[noteField] = string(data)
 }
 
 func (c *context) resetPics() {

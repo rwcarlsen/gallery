@@ -61,11 +61,12 @@ func main() {
 	r.HandleFunc("/addphotos", AddPhotoHandler)
 	r.HandleFunc("/piclib/{imgType}/{picName}", PhotoHandler)
 	r.HandleFunc("/dynamic/pg{pg:[0-9]*}", PageHandler)
-	r.HandleFunc("/dynamic/zoom/{index:[0-9]*}", ZoomHandler)
+	r.HandleFunc("/dynamic/zoom/{index:[0-9]+}", ZoomHandler)
 	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
 	r.HandleFunc("/dynamic/time-nav", TimeNavHandler)
 	r.HandleFunc("/dynamic/toggle-dateless", DateToggleHandler)
 	r.HandleFunc("/dynamic/stat/{stat}", StatHandler)
+	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
 
 	http.Handle("/", r)
 	log.Printf("listening on %v", addr)
@@ -257,6 +258,11 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		c.servePage(w, pg)
 	}
+}
+
+func NotesHandler(w http.ResponseWriter, r *http.Request) {
+	c, vars := getContext(w, r)
+	c.saveNotes(r, vars["picIndex"])
 }
 
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
