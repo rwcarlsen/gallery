@@ -1,9 +1,24 @@
 
-/* make modal able to be bigger */
+/* zoom view modal total size */
 .modal.large{
-    width: 850px;
-    margin-left: -425px; /* - width/2 */
-    margin-top: -45%;
+    position: fixed;
+    height: 90% !important; 
+    margin-top: -45% !important;
+    width: 980px;
+    margin-left: -490px;
+    max-width: 90%;
+}
+
+/* for the zoom view image size */
+.zoom-img {
+  height: 85%;
+  width: auto !important;
+}
+
+/* for the zoom view modal body size */
+.modal-body {
+    height: auto !important;
+    max-height: 85%;
 }
 
 .pga {
@@ -32,16 +47,6 @@
   min-width: 47em !important;
 }
 
-/* for the zoom view modal and image size */
-.zoom-img {
-  max-height: 800px;
-}
-
-/* for the zoom view modal and image size */
-.modal-body {
-    max-height: 800px;
-}
-
 .pagination {
   margin: 7px;
 }
@@ -53,5 +58,4 @@
     -ms-transition: opacity .2s linear, none;
     -o-transition: opacity .2s linear, none;
     transition: opacity .2s linear, none;
-    top: 50%;
 }
