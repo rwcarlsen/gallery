@@ -17,6 +17,7 @@ var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var syncPath = flag.String("path", "", "name of library to create/access")
 var dry = flag.Bool("dry", false, "true to just print output of command and not sync anything")
 var flow = flag.String("flow", "toamz", "")
+var del = flag.Bool("del", false, "delete files at dst that don't exist at src")
 
 func main() {
 	flag.Parse()
@@ -36,6 +37,9 @@ func main() {
 	config := 0
 	if *dry {
 		config = dbsync.Cdry
+	}
+	if *del {
+		config = config | dbsync.Cdel
 	}
 
 	var err error
