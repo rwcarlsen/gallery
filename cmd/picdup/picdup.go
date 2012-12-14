@@ -10,19 +10,18 @@ import (
 	pth "path"
 	"crypto"
 	_ "crypto/sha1"
-	"strings"
+	"io/ioutil"
+	"encoding/json"
 
-	"github.com/rwcarlsen/gallery/backend/amz"
-	"github.com/rwcarlsen/gallery/backend/localhd"
+	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/goamz/aws"
 )
 
 const cacheSize = 300 * piclib.Mb
+const confPath = "/home/robert/.backends"
 
-var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
-var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
+var db = flag.String("db", "", "name of db")
 var dry = flag.Bool("dry", true, "just print output")
 
 var h = crypto.SHA1.New()
@@ -31,12 +30,24 @@ var lib *piclib.Library
 
 func main() {
 	flag.Parse()
-	if strings.Index(*amazonS3, "[") == -1 {
-		lib = amzLib()
-	} else if strings.Index(*local, "[") == -1 {
-		lib = localLib()
+	data, err := ioutil.ReadFile(confPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dblist := map[string]*backend.Spec{}
+	if err := json.Unmarshal(data, &dblist); err != nil {
+		log.Fatal(err)
+	}
+
+	if spec, ok := dblist[*db]; ok {
+		if db, err := spec.Make(); err != nil {
+			log.Fatal(err)
+		} else {
+			lib = piclib.New(*libName, db, cacheSize)
+		}
 	} else {
-		log.Fatal("no library specified")
+		log.Fatalf("db %v not found", *db)
 	}
 
 	pics, err := lib.ListPhotos(50000)
@@ -97,21 +108,5 @@ func removeDup(p *piclib.Photo, sum string) {
 	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 	}
-}
-
-func amzLib() *piclib.Library {
-	keys := strings.Split(*amazonS3, ",")
-	if len(keys) != 2 {
-		log.Fatalf("invalid amazon aws keyset '%v'", *amazonS3)
-	}
-
-	auth := aws.Auth{AccessKey: keys[0], SecretKey: keys[1]}
-	db := amz.New(auth, aws.USEast)
-	return piclib.New(*libName, db, cacheSize)
-}
-
-func localLib() *piclib.Library {
-	db := &localhd.Backend{Root: *local}
-	return piclib.New(*libName, db, cacheSize)
 }
 
