@@ -8,10 +8,8 @@ import (
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/piclib"
-	"launchpad.net/goamz/aws"
+	"github.com/rwcarlsen/goamz/aws"
 )
-
-var del := flag.Bool("del", false, "delete instead of overwrite the specified file")
 
 func main() {
 	flag.Parse()

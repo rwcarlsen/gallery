@@ -9,7 +9,7 @@ import (
 	"github.com/rwcarlsen/gallery/backend/dbsync"
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
-	"launchpad.net/goamz/aws"
+	"github.com/rwcarlsen/goamz/aws"
 )
 
 var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
@@ -40,11 +40,14 @@ func main() {
 
 	var err error
 	var results []string
-	if *flow == "toamz" {
+	switch *flow {
+	case "toamz":
 		results, err = dbsync.OneWay(*syncPath, config, dbs[1], dbs[0])
-	} else if *flow == "allway" {
+	case "fromamz":
+		results, err = dbsync.OneWay(*syncPath, config, dbs[0], dbs[1])
+	case "allway":
 		results, err = dbsync.AllWay(*syncPath, config, dbs...)
-	} else {
+	default:
 		log.Fatalf("invalid flow %v", *flow)
 	}
 

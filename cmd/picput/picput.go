@@ -1,3 +1,5 @@
+
+// picput recursively walks passed dirs and photos and adds them to a library
 package main
 
 import (
@@ -10,7 +12,7 @@ import (
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
-	"launchpad.net/goamz/aws"
+	"github.com/rwcarlsen/goamz/aws"
 )
 
 var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
@@ -41,15 +43,12 @@ var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
 func main() {
     flag.Parse()
-
 	if strings.Index(*amazonS3, "[") == -1 {
 		lib = amzLib()
 	} else if strings.Index(*local, "[") == -1 {
 		lib = localLib()
-	}
-
-	if lib == nil {
-		return
+	} else {
+		log.Fatal("no library specified")
 	}
 
 	picPaths := flag.Args()

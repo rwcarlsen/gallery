@@ -57,6 +57,22 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 			}
 		}
 	}
+
+	if config&Cdel != 0 {
+		for objName, _ := range toObj {
+			results = append(results, fmt.Sprintf("del at dst %v: %v", to.Name(), objName))
+			if config&Cdry != 0 {
+				continue
+			}
+			if !fromObj[objName] {
+				if err := to.Del(objName); err != nil {
+					results = append(results, err.Error())
+					errs = true
+				}
+			}
+		}
+	}
+
 	if errs {
 		return results, errors.New("dbsync: errors occurred during sync")
 	}

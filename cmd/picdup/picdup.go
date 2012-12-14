@@ -6,19 +6,23 @@ package main
 import (
 	"log"
 	"fmt"
-	"os"
 	"flag"
-	"path/filepath"
+	pth "path"
 	"crypto"
 	_ "crypto/sha1"
-	"github.com/rwcarlsen/gallery/piclib"
+	"strings"
+
+	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
+	"github.com/rwcarlsen/gallery/piclib"
+	"github.com/rwcarlsen/goamz/aws"
 )
 
+const cacheSize = 300 * piclib.Mb
 
-const backendPath = "/media/spare"
-const libName = "rwc-piclib"
-
+var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
+var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
+var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
 var dry = flag.Bool("dry", true, "just print output")
 
 var h = crypto.SHA1.New()
@@ -27,16 +31,19 @@ var lib *piclib.Library
 
 func main() {
 	flag.Parse()
-
-	db := &localhd.Backend{Root: backendPath}
-	lib = piclib.New(libName, db, 100 * piclib.Mb)
+	if strings.Index(*amazonS3, "[") == -1 {
+		lib = amzLib()
+	} else if strings.Index(*local, "[") == -1 {
+		lib = localLib()
+	} else {
+		log.Fatal("no library specified")
+	}
 
 	pics, err := lib.ListPhotos(50000)
 	if err != nil {
 		log.Print(err)
 	}
 
-	log.Printf("len(pics)=%v", len(pics))
 	for _, p := range pics {
 		data, err := p.GetOriginal()
 		if err != nil {
@@ -58,7 +65,8 @@ func main() {
 		}
 		hashExists[hashSum] = true
 	}
-	log.Printf("len(hashExists)=%v", len(hashExists))
+	log.Printf("%v original pics", len(pics))
+	log.Printf("%v unique pics", len(hashExists))
 }
 
 func removeDup(p *piclib.Photo, sum string) {
@@ -66,28 +74,44 @@ func removeDup(p *piclib.Photo, sum string) {
 	if *dry {
 		return
 	}
-	root := filepath.Join(backendPath, libName)
 
-	path := filepath.Join(root, piclib.ImageDir, p.Orig)
-	if err := os.Remove(path); err != nil {
+	path := pth.Join(*libName, piclib.ImageDir, p.Orig)
+	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = filepath.Join(root, piclib.ThumbDir, p.Thumb2)
-	if err := os.Remove(path); err != nil {
+	path = pth.Join(*libName, piclib.ThumbDir, p.Thumb2)
+	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = filepath.Join(root, piclib.ThumbDir, p.Thumb1)
-	if err := os.Remove(path); err != nil {
+	path = pth.Join(*libName, piclib.ThumbDir, p.Thumb1)
+	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = filepath.Join(root, piclib.MetaDir, p.Meta)
-	if err := os.Remove(path); err != nil {
+	path = pth.Join(*libName, piclib.MetaDir, p.Meta)
+	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 	}
 }
+
+func amzLib() *piclib.Library {
+	keys := strings.Split(*amazonS3, ",")
+	if len(keys) != 2 {
+		log.Fatalf("invalid amazon aws keyset '%v'", *amazonS3)
+	}
+
+	auth := aws.Auth{AccessKey: keys[0], SecretKey: keys[1]}
+	db := amz.New(auth, aws.USEast)
+	return piclib.New(*libName, db, cacheSize)
+}
+
+func localLib() *piclib.Library {
+	db := &localhd.Backend{Root: *local}
+	return piclib.New(*libName, db, cacheSize)
+}
+

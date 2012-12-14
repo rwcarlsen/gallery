@@ -37,6 +37,11 @@ func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 	return nil
 }
 
+func (lb *Backend) Del(path string) error {
+	fullPath := filepath.Join(lb.Root, path)
+	return os.Remove(fullPath)
+}
+
 func (lb *Backend) Exists(path string) bool {
 	fullPath := filepath.Join(lb.Root, path)
 	_, err := os.Stat(fullPath)

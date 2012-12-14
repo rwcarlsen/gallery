@@ -15,7 +15,7 @@ import (
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
-	"launchpad.net/goamz/aws"
+	"github.com/rwcarlsen/goamz/aws"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/mux"
 )

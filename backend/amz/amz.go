@@ -6,9 +6,9 @@ import (
 	"log"
 	pth "path"
 	"strings"
-	//"launchpad.net/goamz/s3"
+	//"github.com/rwcarlsen/goamz/s3"
 	"github.com/rwcarlsen/goamz/s3"
-	"launchpad.net/goamz/aws"
+	"github.com/rwcarlsen/goamz/aws"
 	"net/http"
 	"io"
 	"io/ioutil"
@@ -94,6 +94,22 @@ func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 			break
 		}
 		log.Printf("PutObject failed %v/%v: %v", bucket.Name, bpath, err)
+	}
+	return err
+}
+
+func (lb *Backend) Del(path string) error {
+	bucket, bpath, err := lb.makeBucket(path)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < maxRetries; i++ {
+		if err = bucket.Del(bpath); err == nil {
+			log.Printf("DelObject %v/%v", bucket.Name, bpath)
+			return nil
+		}
+		log.Printf("DelObject failed %v/%v: %v", bucket.Name, bpath, err)
 	}
 	return err
 }
