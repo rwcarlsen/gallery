@@ -1,23 +1,22 @@
-package dbsync
+
+package backend
 
 import (
 	"errors"
 	"fmt"
 	"bytes"
-
-	"github.com/rwcarlsen/gallery/piclib"
 )
 
 const (
 	// print output without actually doing anything
-	Cdry = 1 << iota
+	Sdry = 1 << iota
 	// delete files at dst that don't exist at src (OneWay only)
-	Cdel
+	Sdel
 )
 
 const infinity = 500000
 
-func OneWay(path string, config int, from, to piclib.Backend) (results []string, err error) {
+func SyncOneWay(path string, config int, from, to Backend) (results []string, err error) {
 	names, err := from.ListN(path, infinity)
 	if err != nil {
 		return nil, err
@@ -42,7 +41,7 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 	for objName, _ := range fromObj {
 		if !toObj[objName] {
 			results = append(results, fmt.Sprintf("sync from %v to %v: %v", from.Name(), to.Name(), objName))
-			if config&Cdry != 0 {
+			if config&Sdry != 0 {
 				continue
 			}
 			data, err := from.Get(objName)
@@ -58,10 +57,10 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 		}
 	}
 
-	if config&Cdel != 0 {
+	if config&Sdel != 0 {
 		for objName, _ := range toObj {
 			results = append(results, fmt.Sprintf("del at dst %v: %v", to.Name(), objName))
-			if config&Cdry != 0 {
+			if config&Sdry != 0 {
 				continue
 			}
 			if !fromObj[objName] {
@@ -80,11 +79,11 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 }
 
 type dbInfo struct {
-	db      piclib.Backend
+	db      Backend
 	objects map[string]bool
 }
 
-func AllWay(path string, config int, dbs ...piclib.Backend) (results []string, err error) {
+func SyncAllWay(path string, config int, dbs ...Interface) (results []string, err error) {
 	infos := map[string]*dbInfo{}
 	for _, db := range dbs {
 		names, err := db.ListN(path, infinity)
@@ -104,7 +103,7 @@ func AllWay(path string, config int, dbs ...piclib.Backend) (results []string, e
 			for name, _ := range info1.objects {
 				if !info2.objects[name] {
 					results = append(results, fmt.Sprintf("sync from %v to %v: %v", n1, n2, name))
-					if config&Cdry != 0 {
+					if config&Sdry != 0 {
 						continue
 					}
 					data, err := info1.db.Get(name)

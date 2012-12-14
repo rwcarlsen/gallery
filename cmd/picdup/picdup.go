@@ -111,7 +111,7 @@ func amzLib() *piclib.Library {
 }
 
 func localLib() *piclib.Library {
-	db := &localhd.Backend{Root: *local}
+	db := &localhd.Interface{Root: *local}
 	return piclib.New(*libName, db, cacheSize)
 }
 

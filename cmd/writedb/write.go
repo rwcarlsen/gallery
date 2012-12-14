@@ -28,7 +28,7 @@ func main() {
 	log.Println("success")
 }
 
-func amzLib() piclib.Backend {
+func amzLib() backend.Interface {
 	auth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatal(err)

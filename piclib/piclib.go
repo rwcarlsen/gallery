@@ -18,6 +18,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
+	"github.com/rwcarlsen/gallery/backend"
 	cache "github.com/rwcarlsen/gocache"
 )
 
@@ -46,15 +47,6 @@ const (
 	nameTimeFmt = "2006-01-02-15-04-05"
 	currVersion = "0.1"
 )
-
-type Backend interface {
-	Put(path string, r io.ReadSeeker) error
-	Exists(path string) bool
-	ListN(path string, n int) ([]string, error)
-	Get(path string) ([]byte, error)
-	Del(path string) error
-	Name() string
-}
 
 type Photo struct {
 	Meta       string
@@ -119,7 +111,7 @@ func (p *Photo) GetThumb2() (data []byte, err error) {
 }
 
 type Library struct {
-	Db             Backend
+	Db             backend.Interface
 	name           string
 	imgDir         string
 	thumbDir       string
@@ -129,7 +121,7 @@ type Library struct {
 	cache		   *cache.LRUCache
 }
 
-func New(name string, db Backend, cacheSize uint64) *Library {
+func New(name string, db backend.Interface, cacheSize uint64) *Library {
 	return &Library{
 		Db:             db,
 		name:           name,

@@ -76,11 +76,11 @@ func main() {
 	}
 }
 
-func localBackend() piclib.Backend {
-	return &localhd.Backend{Root: "/media/spare"}
+func localBackend() backend.Interface {
+	return &localhd.Interface{Root: "/media/spare"}
 }
 
-func amzBackend() piclib.Backend {
+func amzBackend() backend.Interface {
 	auth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatal(err)
