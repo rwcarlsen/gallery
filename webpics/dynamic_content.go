@@ -89,7 +89,7 @@ func (c *context) serveRandom(w http.ResponseWriter) {
 	if c.random == nil {
 		c.random = rand.Perm(len(c.photos))
 	}
-	data, err := lib.GetOriginal(c.photos[c.random[c.currIndex]])
+	data, err := c.photos[c.random[c.currIndex]].GetOriginal()
 	if err != nil {
 		log.Print(err)
 		return

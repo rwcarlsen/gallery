@@ -89,7 +89,7 @@ func amzBackend() piclib.Backend {
 }
 
 func updateLib() {
-	names, err := lib.ListPhotosN(20000)
+	names, err := lib.ListNames(20000)
 	if err != nil {
 		log.Println(err)
 	}
@@ -238,11 +238,11 @@ func fetchImg(imgType, picName string) ([]byte, error) {
 	case MetaFile:
 		data, err = json.Marshal(p)
 	case OrigImg:
-		data, err = lib.GetOriginal(p)
+		data, err = p.GetOriginal()
 	case Thumb1Img:
-		data, err = lib.GetThumb1(p)
+		data, err = p.GetThumb1()
 	case Thumb2Img:
-		data, err = lib.GetThumb2(p)
+		data, err = p.GetThumb2()
 	default:
 		return nil, fmt.Errorf("invalid image type '%v'", imgType)
 	}

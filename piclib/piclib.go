@@ -2,6 +2,7 @@ package piclib
 
 import (
 	"bytes"
+	"errors"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -62,10 +63,56 @@ type Photo struct {
 	Taken      time.Time
 	Tags       map[string]string
 	LibVersion string
+	lib *Library
 }
 
 func (p *Photo) LegitTaken() bool {
 	return !strings.Contains(p.Meta, noDate)
+}
+
+func (p *Photo) GetOriginal() (data []byte, err error) {
+	if p.lib == nil {
+		return nil, errors.New("piclib: photo not initialized with library")
+	}
+	orig, err := p.lib.Db.Get(path.Join(p.lib.imgDir, p.Orig))
+	if err != nil {
+		return nil, err
+	}
+	return orig, nil
+}
+
+func (p *Photo) GetThumb1() (data []byte, err error) {
+	if p.lib == nil {
+		return nil, errors.New("piclib: photo not initialized with library")
+	}
+	if v, ok := p.lib.cache.Get(p.Thumb1); ok {
+		return v.(*cacheVal).data, nil
+	}
+
+	thumb1, err := p.lib.Db.Get(path.Join(p.lib.thumbDir, p.Thumb1))
+	if err != nil {
+		return nil, err
+	}
+
+	p.lib.cache.Set(p.Thumb1, CacheData(thumb1))
+	return thumb1, nil
+}
+
+func (p *Photo) GetThumb2() (data []byte, err error) {
+	if p.lib == nil {
+		return nil, errors.New("piclib: photo not initialized with library")
+	}
+	if v, ok := p.lib.cache.Get(p.Thumb2); ok {
+		return v.(*cacheVal).data, nil
+	}
+
+	thumb2, err := p.lib.Db.Get(path.Join(p.lib.thumbDir, p.Thumb2))
+	if err != nil {
+		return nil, err
+	}
+
+	p.lib.cache.Set(p.Thumb2, CacheData(thumb2))
+	return thumb2, nil
 }
 
 type Library struct {
@@ -92,7 +139,25 @@ func New(name string, db Backend, cacheSize uint64) *Library {
 	}
 }
 
-func (l *Library) ListPhotosN(n int) ([]string, error) {
+func (l *Library) ListPhotos(n int) ([]*Photo, error) {
+	names, err := l.Db.ListN(l.metaDir, n)
+	if err != nil {
+		return nil, err
+	}
+	pics := make([]*Photo, 0, len(names))
+	for _, name := range names {
+		base := path.Base(name)
+		p, err := l.GetPhoto(base)
+		if err != nil {
+			return nil, err
+		}
+		pics = append(pics, p)
+	}
+
+	return pics, nil
+}
+
+func (l *Library) ListNames(n int) ([]string, error) {
 	names, err := l.Db.ListN(l.metaDir, n)
 	if err != nil {
 		return nil, err
@@ -138,6 +203,7 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 		Taken:      date,
 		Tags:       make(map[string]string),
 		LibVersion: currVersion,
+		lib: l,
 	}
 
 	if _, err := buf.Seek(0, 0); err != nil {
@@ -239,59 +305,10 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	p.lib = l
 
 	l.cache.Set(name, CachePic(&p))
 	return &p, nil
-}
-
-func (l *Library) GetOriginal(p *Photo) (data []byte, err error) {
-	orig, err := l.Db.Get(path.Join(l.imgDir, p.Orig))
-	if err != nil {
-		return nil, err
-	}
-	return orig, nil
-}
-
-func (l *Library) GetThumb1(p *Photo) (data []byte, err error) {
-	if v, ok := l.cache.Get(p.Thumb1); ok {
-		return v.(*cacheVal).data, nil
-	}
-
-	thumb1, err := l.Db.Get(path.Join(l.thumbDir, p.Thumb1))
-	if err != nil {
-		return nil, err
-	}
-
-	l.cache.Set(p.Thumb1, CacheData(thumb1))
-	return thumb1, nil
-}
-
-func (l *Library) GetThumb2(p *Photo) (data []byte, err error) {
-	if v, ok := l.cache.Get(p.Thumb2); ok {
-		return v.(*cacheVal).data, nil
-	}
-
-	thumb2, err := l.Db.Get(path.Join(l.thumbDir, p.Thumb2))
-	if err != nil {
-		return nil, err
-	}
-
-	l.cache.Set(p.Thumb2, CacheData(thumb2))
-	return thumb2, nil
-}
-
-func (l *Library) getIndex(name string, v interface{}) error {
-	data, err := l.Db.Get(path.Join(l.indDir, name))
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(data, v)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func dateFrom(buf io.Reader) (string, time.Time) {
