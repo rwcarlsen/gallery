@@ -16,7 +16,7 @@ const (
 
 const infinity = 500000
 
-func SyncOneWay(path string, config int, from, to Backend) (results []string, err error) {
+func SyncOneWay(path string, config int, from, to Interface) (results []string, err error) {
 	names, err := from.ListN(path, infinity)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func SyncOneWay(path string, config int, from, to Backend) (results []string, er
 }
 
 type dbInfo struct {
-	db      Backend
+	db      Interface
 	objects map[string]bool
 }
 

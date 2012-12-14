@@ -78,7 +78,7 @@ func testAmzGet() {
 
 func testLocal() {
 	// setup storage and piclib
-	db := &localhd.Interface{Root: root}
+	db := &localhd.Backend{Root: root}
 	lib := piclib.New(libName, db, 100 * piclib.Mb)
 
 	f, err := os.Open(sample)

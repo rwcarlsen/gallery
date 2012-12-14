@@ -6,8 +6,8 @@ import (
 	"log"
 	"bytes"
 
+	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/backend/amz"
-	"github.com/rwcarlsen/gallery/piclib"
 	"github.com/rwcarlsen/goamz/aws"
 )
 

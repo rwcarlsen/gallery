@@ -3,8 +3,12 @@ package backend
 
 import (
 	"io"
+	"fmt"
+	"errors"
+
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/backend/amz"
+	"github.com/rwcarlsen/goamz/aws"
 )
 
 type Interface interface {
@@ -16,48 +20,69 @@ type Interface interface {
 	ListN(path string, n int) ([]string, error)
 }
 
-func FromCache(name string) Backend {
+type Params map[string]string
 
-}
+type TypeFunc func(Params) (Interface, error)
 
-type Type interface {
-	Get(params map[string]string) (Backend, error)
-}
+var types = map[Type]TypeFunc{}
 
-var types map[Type]//?????
+type Type string
 
 const (
 	Amazon Type = "Amazon-S3"
 	Local = "Local-HD"
 )
 
-func (t Type) Get(params map[string]string) (Backend, error) {
-	switch t {
-	case Amazon:
-		return amzBack(params)
-	case Local:
-		return localBack(params)
-	default:
-		return nil, fmt.Errorf("backend: Invalid type %v", s.Type)
-	}
+func init() {
+	types[Amazon] = amzBack
+	types[Local] = localBack
 }
 
-func localBack() (Backend, error) {
-	root, ok := s.Params["Root"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Root' from Spec")
-	}
-	name, ok := s.Params["Name"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Name' from Spec")
-	}
-	return &localhd.Backend{Root: root, Name: s.Name
+func Register(t Type, fn TypeFunc) {
+	types[t] = fn
 }
 
-func amzBack() (Backend, error) {
-	root, ok := s.Params[""]
+func localBack(params Params) (Interface, error) {
+	root, ok := params["Root"]
 	if !ok {
-		return nil, errors.New("backend: missing 'Root' from Spec")
+		return nil, errors.New("backend: missing 'Root' from Params")
 	}
-	return &localhd.Backend{Root: root, Name: s.Name
+	name, ok := params["Name"]
+	if !ok {
+		return nil, errors.New("backend: missing 'Name' from Params")
+	}
+	return &localhd.Backend{Root: root, DbName: name}, nil
 }
+
+func amzBack(params Params) (Interface, error) {
+	keyid, ok := params["AccessKeyId"]
+	if !ok {
+		return nil, errors.New("backend: missing 'AccessKeyId' from Params")
+	}
+	key, ok := params["SecretAccessKey"]
+	if !ok {
+		return nil, errors.New("backend: missing 'SecretAccessKey' from Params")
+	}
+	name, ok := params["Name"]
+	if !ok {
+		return nil, errors.New("backend: missing 'Name' from Params")
+	}
+
+	auth := aws.Auth{AccessKey: keyid, SecretKey: key}
+	db := amz.New(auth, aws.USEast)
+	db.DbName = name
+	return db, nil
+}
+
+type Spec struct {
+	Btype Type
+	Bparams Params
+}
+
+func (s *Spec) Make() (Interface, error) {
+	if fn, ok := types[s.Btype]; ok {
+		return fn(s.Bparams)
+	}
+	return nil, fmt.Errorf("backend: Invalid type %v", s.Btype)
+}
+

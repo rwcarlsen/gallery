@@ -3,39 +3,51 @@ package main
 import (
 	"flag"
 	"log"
-	"strings"
+	"encoding/json"
+	"io/ioutil"
 
 	"github.com/rwcarlsen/gallery/backend"
-	"github.com/rwcarlsen/gallery/backend/amz"
-	"github.com/rwcarlsen/gallery/backend/localhd"
-	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/goamz/aws"
 )
 
-var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
-var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
-var from = flag.String("flow", "toamz", "")
-var to = flag.String("flow", "toamz", "")
-
+var from = flag.String("from", "", "source backend")
+var to = flag.String("to", "", "destination backend")
 var syncPath = flag.String("path", "", "name of library to create/access")
-
 
 var dry = flag.Bool("dry", false, "true to just print output of command and not sync anything")
 var del = flag.Bool("del", false, "delete files at dst that don't exist at src")
 
+const confPath = "/home/robert/.backends"
+
+func must(b backend.Interface, err error) backend.Interface {
+	if err != nil {
+		log.Fatal(err)
+	}
+	return b
+}
+
 func main() {
 	flag.Parse()
 
-	var dbs []backend.Interface
-	if strings.Index(*amazonS3, "[") == -1 {
-		dbs = append(dbs, amzLib())
-	}
-	if strings.Index(*local, "[") == -1 {
-		dbs = append(dbs, localLib())
+	data, err := ioutil.ReadFile(confPath)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if len(dbs) < 2 {
-		log.Fatal("not enough backends")
+	dblist := map[string]*backend.Spec{}
+	if err := json.Unmarshal(data, &dblist); err != nil {
+		log.Fatal(err)
+	}
+
+	var fromDb, toDb backend.Interface
+	if spec, ok := dblist[*from]; ok {
+		fromDb = must(spec.Make())
+	}
+	if spec, ok := dblist[*to]; ok {
+		toDb = must(spec.Make())
+	}
+
+	if fromDb == nil || toDb == nil {
+		log.Fatal("named db(s) not found")
 	}
 
 	config := 0
@@ -46,19 +58,7 @@ func main() {
 		config = config | backend.Sdel
 	}
 
-	var err error
-	var results []string
-	switch *flow {
-	case "toamz":
-		results, err = backend.OneWay(*syncPath, config, dbs[1], dbs[0])
-	case "fromamz":
-		results, err = backend.OneWay(*syncPath, config, dbs[0], dbs[1])
-	case "allway":
-		results, err = backend.AllWay(*syncPath, config, dbs...)
-	default:
-		log.Fatalf("invalid flow %v", *flow)
-	}
-
+	results, err := backend.SyncOneWay(*syncPath, config, fromDb, toDb)
 	if err != nil {
 		log.Println(err)
 	}
@@ -67,17 +67,3 @@ func main() {
 	}
 }
 
-func amzLib() backend.Interface {
-	keys := strings.Split(*amazonS3, ",")
-	if len(keys) != 2 {
-		log.Fatalf("invalid amazon aws keyset '%v'", *amazonS3)
-	}
-	auth := aws.Auth{AccessKey: keys[0], SecretKey: keys[1]}
-	db := amz.New(auth, aws.USEast)
-	db.DbName = "amz"
-	return db
-}
-
-func localLib() backend.Interface {
-	return &localhd.Interface{Root: *local, DbName: "localhd"}
-}

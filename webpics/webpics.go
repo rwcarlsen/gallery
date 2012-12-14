@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"path/filepath"
 
+	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -77,7 +78,7 @@ func main() {
 }
 
 func localBackend() backend.Interface {
-	return &localhd.Interface{Root: "/media/spare"}
+	return &localhd.Backend{Root: "/media/spare"}
 }
 
 func amzBackend() backend.Interface {
