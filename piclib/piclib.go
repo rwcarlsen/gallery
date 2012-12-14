@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"io"
+	"crypto"
+	_ "crypto/sha1"
 
 	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
@@ -144,16 +146,22 @@ func (l *Library) ListPhotos(n int) ([]*Photo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	errString := ""
 	pics := make([]*Photo, 0, len(names))
 	for _, name := range names {
 		base := path.Base(name)
 		p, err := l.GetPhoto(base)
 		if err != nil {
-			return nil, err
+			errString += "\n" + err.Error()
+			continue
 		}
 		pics = append(pics, p)
 	}
 
+	if len(errString) > 0 {
+		return pics, errors.New("piclib: " + errString)
+	}
 	return pics, nil
 }
 
@@ -311,24 +319,25 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 	return &p, nil
 }
 
-func dateFrom(buf io.Reader) (string, time.Time) {
+func dateFrom(buf io.ReadSeeker) (string, time.Time) {
 	now := time.Now()
 	x, err := exif.Decode(buf)
+	hashSum := hash(buf)
 	if err != nil {
-		return now.Format(nameTimeFmt) + noDate, now
+		return hashSum + noDate, now
 	}
 
 	tg, err := x.Get("DateTimeOriginal")
 	if err != nil {
 		tg, err = x.Get("DateTime")
 		if err != nil {
-			return now.Format(nameTimeFmt) + noDate, now
+			return hashSum + noDate, now
 		}
 	}
 
 	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
 	if err != nil {
-		return now.Format(nameTimeFmt) + noDate, now
+		return hashSum + noDate, now
 	}
 
 	return t.Format(nameTimeFmt), t
@@ -369,3 +378,18 @@ func (cv *cacheVal) Size() int {
 	return cv.size
 }
 
+// hash returns a hex string representing the sha1 hash-sum of up to the first
+// 2 Mb of data.
+func hash(r io.ReadSeeker) string {
+	r.Seek(0, 0)
+	h := crypto.SHA1.New()
+	data := make([]byte, 2 * Mb)
+	n, err := r.Read(data)
+	if err != nil {
+		return "FailedHash"
+	}
+	if n, err := h.Write(data[:n]); n != len(data) || err != nil {
+		return "FailedHash"
+	}
+	return fmt.Sprintf("%X", h.Sum([]byte{}))
+}
