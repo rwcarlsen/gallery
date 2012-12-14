@@ -3,6 +3,8 @@ package backend
 
 import (
 	"io"
+	"io/ioutil"
+	"encoding/json"
 	"fmt"
 	"errors"
 
@@ -84,5 +86,30 @@ func (s *Spec) Make() (Interface, error) {
 		return fn(s.Bparams)
 	}
 	return nil, fmt.Errorf("backend: Invalid type %v", s.Btype)
+}
+
+type SpecSet struct {
+	set map[string]*Spec
+}
+
+func LoadSpecSet(path string) (*SpecSet, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	specs := map[string]*Spec{}
+	if err := json.Unmarshal(data, &specs); err != nil {
+		return nil, err
+	}
+
+	return &SpecSet{set: specs}, nil
+}
+
+func (s *SpecSet) Make(name string) (Interface, error) {
+	if spec, ok := s.set[name]; ok {
+		return spec.Make()
+	}
+	return nil, fmt.Errorf("backend: name '%v' not found in SpecSet", name)
 }
 

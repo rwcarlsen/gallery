@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"encoding/json"
-	"io/ioutil"
 
 	"github.com/rwcarlsen/gallery/backend"
 )
@@ -28,27 +26,13 @@ func must(b backend.Interface, err error) backend.Interface {
 func main() {
 	flag.Parse()
 
-	data, err := ioutil.ReadFile(confPath)
+	set, err := backend.LoadSpecSet(confPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	dblist := map[string]*backend.Spec{}
-	if err := json.Unmarshal(data, &dblist); err != nil {
-		log.Fatal(err)
-	}
-
-	var fromDb, toDb backend.Interface
-	if spec, ok := dblist[*from]; ok {
-		fromDb = must(spec.Make())
-	}
-	if spec, ok := dblist[*to]; ok {
-		toDb = must(spec.Make())
-	}
-
-	if fromDb == nil || toDb == nil {
-		log.Fatal("named db(s) not found")
-	}
+	fromDb := must(set.Make(*from))
+	toDb := must(set.Make(*to))
 
 	config := 0
 	if *dry {
