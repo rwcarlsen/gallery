@@ -11,6 +11,8 @@ import (
 	"launchpad.net/goamz/aws"
 )
 
+var del := flag.Bool("del", false, "delete instead of overwrite the specified file")
+
 func main() {
 	flag.Parse()
 	srcPath := flag.Arg(0)

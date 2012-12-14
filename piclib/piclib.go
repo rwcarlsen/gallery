@@ -52,6 +52,7 @@ type Backend interface {
 	Exists(path string) bool
 	ListN(path string, n int) ([]string, error)
 	Get(path string) ([]byte, error)
+	Del(path string) error
 	Name() string
 }
 

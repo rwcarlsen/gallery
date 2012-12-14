@@ -9,7 +9,10 @@ import (
 )
 
 const (
+	// print output without actually doing anything
 	Cdry = 1 << iota
+	// delete files at dst that don't exist at src (OneWay only)
+	Cdel
 )
 
 const infinity = 500000
