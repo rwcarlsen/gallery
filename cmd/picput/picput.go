@@ -8,18 +8,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"encoding/json"
+	"io/ioutil"
 
-	"github.com/rwcarlsen/gallery/backend/amz"
-	"github.com/rwcarlsen/gallery/backend/localhd"
+	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/goamz/aws"
 )
 
-var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
-var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
+var db = flag.String("db", "", "backend containing piclib to dump to")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
 
 const cacheSize = 300 * piclib.Mb
+const confPath = "/home/robert/.backends"
 
 var validFmt = map[string]bool{
 	".jpg":  true,
@@ -39,16 +39,27 @@ var validFmt = map[string]bool{
 }
 
 var lib *piclib.Library
-var errlog = log.New(os.Stdin, "", log.LstdFlags)
 
 func main() {
-    flag.Parse()
-	if strings.Index(*amazonS3, "[") == -1 {
-		lib = amzLib()
-	} else if strings.Index(*local, "[") == -1 {
-		lib = localLib()
+	flag.Parse()
+	data, err := ioutil.ReadFile(confPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dblist := map[string]*backend.Spec{}
+	if err := json.Unmarshal(data, &dblist); err != nil {
+		log.Fatal(err)
+	}
+
+	if spec, ok := dblist[*db]; ok {
+		if db, err := spec.Make(); err != nil {
+			log.Fatal(err)
+		} else {
+			lib = piclib.New(*libName, db, cacheSize)
+		}
 	} else {
-		log.Fatal("no library specified")
+		log.Fatalf("db %v not found", *db)
 	}
 
 	picPaths := flag.Args()
@@ -77,34 +88,19 @@ func walkFn(path string, info os.FileInfo, err error) error {
 
 func addToLib(path string) {
 	if !validFmt[strings.ToLower(filepath.Ext(path))] {
-		errlog.Printf("skipped file %v", path)
+		log.Printf("skipped file %v", path)
 		return
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		errlog.Printf("path %v: %v", path, err)
+		log.Printf("path %v: %v", path, err)
 		return
 	}
 
 	base := filepath.Base(path)
 	if _, err = lib.AddPhoto(base, f); err != nil {
-		errlog.Printf("path %v: %v", path, err)
+		log.Printf("path %v: %v", path, err)
 	}
 }
 
-func amzLib() *piclib.Library {
-	keys := strings.Split(*amazonS3, ",")
-	if len(keys) != 2 {
-		log.Fatalf("invalid amazon aws keyset '%v'", *amazonS3)
-	}
-
-	auth := aws.Auth{AccessKey: keys[0], SecretKey: keys[1]}
-	db := amz.New(auth, aws.USEast)
-	return piclib.New(*libName, db, cacheSize)
-}
-
-func localLib() *piclib.Library {
-	db := &localhd.Backend{Root: *local}
-	return piclib.New(*libName, db, cacheSize)
-}
