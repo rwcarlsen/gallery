@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"flag"
 	"log"
 
@@ -26,7 +27,11 @@ func must(b backend.Interface, err error) backend.Interface {
 func main() {
 	flag.Parse()
 
-	set, err := backend.LoadSpecSet(confPath)
+	f, err := os.Open(confPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	set, err := backend.LoadSpecSet(f)
 	if err != nil {
 		log.Fatal(err)
 	}

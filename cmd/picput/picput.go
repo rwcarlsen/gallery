@@ -40,7 +40,12 @@ var lib *piclib.Library
 
 func main() {
 	flag.Parse()
-	set, err := backend.LoadSpecSet(confPath)
+
+	f, err := os.Open(confPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	set, err := backend.LoadSpecSet(f)
 	if err != nil {
 		log.Fatal(err)
 	}

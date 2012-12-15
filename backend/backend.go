@@ -92,8 +92,8 @@ type SpecSet struct {
 	set map[string]*Spec
 }
 
-func LoadSpecSet(path string) (*SpecSet, error) {
-	data, err := ioutil.ReadFile(path)
+func LoadSpecSet(r io.Reader) (*SpecSet, error) {
+	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
