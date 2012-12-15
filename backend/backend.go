@@ -140,17 +140,17 @@ func LoadSpecList(r io.Reader) (*SpecList, error) {
 		return nil, err
 	}
 
-	specs := map[string]*Spec{}
-	if err := json.Unmarshal(data, &specs); err != nil {
+	list := map[string]*Spec{}
+	if err := json.Unmarshal(data, &list); err != nil {
 		return nil, err
 	}
 
-	return &SpecList{list: specs}, nil
+	return &SpecList{list: list}, nil
 }
 
 // Save writes the SpecList in JSON format to w.
 func (s *SpecList) Save(w io.Writer) error {
-	data, err := json.Marshal(s)
+	data, err := json.Marshal(s.list)
 	if err != nil {
 		return err
 	}
@@ -163,21 +163,30 @@ func (s *SpecList) Save(w io.Writer) error {
 
 // Get retrieves the named Spec. It returns nil if name is not found.
 func (s *SpecList) Get(name string) *Spec {
+	s.init()
 	return s.list[name]
 }
 
 // Set adds a new Spec with the given name to the specset. If name is
 // already in the specset, it is overwritten.
 func (s *SpecList) Set(name string, spec *Spec) {
+	s.init()
 	s.list[name] = spec
 }
 
 // Make creates a backend from Spec identified by name. This is a shortcut
 // for ".Get(...).Make(...)".
 func (s *SpecList) Make(name string) (Interface, error) {
+	s.init()
 	if spec, ok := s.list[name]; ok {
 		return spec.Make()
 	}
 	return nil, fmt.Errorf("backend: name '%v' not found in SpecList", name)
+}
+
+func (s *SpecList) init() {
+	if s.list == nil {
+		s.list = make(map[string]*Spec)
+	}
 }
 

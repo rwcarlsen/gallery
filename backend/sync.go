@@ -47,7 +47,7 @@ func SyncOneWay(path string, config int, from, to Interface) (results []string, 
 	for objName, _ := range fromObj {
 		if !toObj[objName] {
 			results = append(results, fmt.Sprintf("sync from %v to %v: %v", from.Name(), to.Name(), objName))
-			if config&Sdry != 0 {
+			if config&SyncDry != 0 {
 				continue
 			}
 			data, err := from.Get(objName)
@@ -63,10 +63,10 @@ func SyncOneWay(path string, config int, from, to Interface) (results []string, 
 		}
 	}
 
-	if config&Sdel != 0 {
+	if config&SyncDel != 0 {
 		for objName, _ := range toObj {
 			results = append(results, fmt.Sprintf("del at dst %v: %v", to.Name(), objName))
-			if config&Sdry != 0 {
+			if config&SyncDry != 0 {
 				continue
 			}
 			if !fromObj[objName] {
@@ -112,7 +112,7 @@ func SyncAllWay(path string, config int, dbs ...Interface) (results []string, er
 			for name, _ := range info1.objects {
 				if !info2.objects[name] {
 					results = append(results, fmt.Sprintf("sync from %v to %v: %v", n1, n2, name))
-					if config&Sdry != 0 {
+					if config&SyncDry != 0 {
 						continue
 					}
 					data, err := info1.db.Get(name)
@@ -134,3 +134,4 @@ func SyncAllWay(path string, config int, dbs ...Interface) (results []string, er
 	}
 	return results, nil
 }
+
