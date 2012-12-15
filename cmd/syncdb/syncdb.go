@@ -1,6 +1,6 @@
 
 
-// syncdb performs a uni-directional sync between to databases.
+// syncdb performs a uni-directional sync between two databases.
 package main
 
 import (

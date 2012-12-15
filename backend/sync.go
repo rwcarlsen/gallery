@@ -8,14 +8,20 @@ import (
 )
 
 const (
-	// print output without actually doing anything
-	Sdry = 1 << iota
-	// delete files at dst that don't exist at src (OneWay only)
-	Sdel
+	// SyncStd is the default syncing configuration
+	SyncStd = 0
+	// SyncDry causes output to be printed without actually doing anything.
+	SyncDry = 1 << iota
+	// SyncDel causes files at dst that don't exist at src to be deleted
+	// (OneWay only).
+	SyncDel
 )
 
 const infinity = 500000
 
+// SyncOneWay syncs path recursively between backends 'from' and 'to' according
+// to specified config.  Returned results contains an entry for each sync
+// operation (including errors if any).
 func SyncOneWay(path string, config int, from, to Interface) (results []string, err error) {
 	names, err := from.ListN(path, infinity)
 	if err != nil {
@@ -83,6 +89,9 @@ type dbInfo struct {
 	objects map[string]bool
 }
 
+// SyncAllWay syncs all dbs between eachother write-only (no deletions)
+// according to specified config.  Returned results contains an entry for each
+// sync operation (including errors if any).
 func SyncAllWay(path string, config int, dbs ...Interface) (results []string, err error) {
 	infos := map[string]*dbInfo{}
 	for _, db := range dbs {

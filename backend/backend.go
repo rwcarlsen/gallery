@@ -1,4 +1,6 @@
 
+// Package backend contains a standard interface and tools for working with
+// simple databases.
 package backend
 
 import (
@@ -13,12 +15,22 @@ import (
 	"github.com/rwcarlsen/goamz/aws"
 )
 
+// Interface specifies the methods that each backend database
+// implementation must satisfy.
 type Interface interface {
+	// Name returns the name of the backend (not Type).
 	Name() string
+	// Exists returns whether or not a file/object exists at path.
 	Exists(path string) bool
+	// Get returns the file/object at path.
 	Get(path string) ([]byte, error)
+	// Put writes all data in r to path - overwriting any existing
+	// file/object.
 	Put(path string, r io.ReadSeeker) error
+	// Del removes the file/object at path.
 	Del(path string) error
+	// ListN returns a list of n full, absolute paths for every file/object
+	// recursively under path.
 	ListN(path string, n int) ([]string, error)
 }
 
