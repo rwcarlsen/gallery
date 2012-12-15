@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	set, err := backend.LoadSpecSet(f)
+	set, err := backend.LoadSpecList(f)
 	if err != nil {
 		log.Fatal(err)
 	}

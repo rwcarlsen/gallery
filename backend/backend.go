@@ -22,26 +22,45 @@ type Interface interface {
 	ListN(path string, n int) ([]string, error)
 }
 
+// Params is used to hold/specify details required for the initialization
+// of standard and custom backends.
 type Params map[string]string
 
+// TypeFunc is an abstraction allowing package-external backends to be
+// handled by this package.
 type TypeFunc func(Params) (Interface, error)
 
-var types = map[Type]TypeFunc{}
-
+// Type specifies a unique kind of backend
 type Type string
 
 const (
 	Amazon Type = "Amazon-S3"
 	Local = "Local-HD"
+	dummy = "dummy" // used for testing
 )
 
+var types = map[Type]TypeFunc{}
+
 func init() {
-	types[Amazon] = amzBack
-	types[Local] = localBack
+	Register(Amazon, amzBack)
+	Register(Local, localBack)
+	Register(dummy, dummyBack)
 }
 
+// Register enables backends of type t to be created by Make functions and
+// methods in this package.
 func Register(t Type, fn TypeFunc) {
 	types[t] = fn
+}
+
+// Make creates a backend of type t, initialized with the given params.
+// params must contain required information for the specified backend type.
+// An error is returned if t is an unregistered type.
+func Make(t Type, params Params) (Interface, error) {
+	if fn, ok := types[t]; ok {
+		return fn(params)
+	}
+	return nil, fmt.Errorf("backend: Invalid type %v", t)
 }
 
 func localBack(params Params) (Interface, error) {
@@ -76,23 +95,30 @@ func amzBack(params Params) (Interface, error) {
 	return db, nil
 }
 
+func dummyBack(params Params) (Interface, error) {
+	return nil, nil
+}
+
+// Spec is a convenient way to group a specific set of config Params for a
+// backend together with its corresponding Type.
 type Spec struct {
 	Btype Type
 	Bparams Params
 }
 
+// Make creates a backend from the Spec.
 func (s *Spec) Make() (Interface, error) {
-	if fn, ok := types[s.Btype]; ok {
-		return fn(s.Bparams)
-	}
-	return nil, fmt.Errorf("backend: Invalid type %v", s.Btype)
+	return Make(s.Btype, s.Bparams)
 }
 
-type SpecSet struct {
-	set map[string]*Spec
+// SpecList is a convenient way to manage multiple backend Spec's together
+// as a group (e.g. saving to/from a config file, etc).
+type SpecList struct {
+	list map[string]*Spec
 }
 
-func LoadSpecSet(r io.Reader) (*SpecSet, error) {
+// LoadSpecList creates a SpecList by decoding JSON data from r.
+func LoadSpecList(r io.Reader) (*SpecList, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -103,13 +129,39 @@ func LoadSpecSet(r io.Reader) (*SpecSet, error) {
 		return nil, err
 	}
 
-	return &SpecSet{set: specs}, nil
+	return &SpecList{list: specs}, nil
 }
 
-func (s *SpecSet) Make(name string) (Interface, error) {
-	if spec, ok := s.set[name]; ok {
+// Save writes the SpecList in JSON format to w.
+func (s *SpecList) Save(w io.Writer) error {
+	data, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Get retrieves the named Spec. It returns nil if name is not found.
+func (s *SpecList) Get(name string) *Spec {
+	return s.list[name]
+}
+
+// Set adds a new Spec with the given name to the specset. If name is
+// already in the specset, it is overwritten.
+func (s *SpecList) Set(name string, spec *Spec) {
+	s.list[name] = spec
+}
+
+// Make creates a backend from Spec identified by name. This is a shortcut
+// for ".Get(...).Make(...)".
+func (s *SpecList) Make(name string) (Interface, error) {
+	if spec, ok := s.list[name]; ok {
 		return spec.Make()
 	}
-	return nil, fmt.Errorf("backend: name '%v' not found in SpecSet", name)
+	return nil, fmt.Errorf("backend: name '%v' not found in SpecList", name)
 }
 
