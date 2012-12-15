@@ -17,6 +17,23 @@ func (lb *Backend) Name() string {
 	return lb.DbName
 }
 
+func (lb *Backend) Exists(path string) bool {
+	fullPath := filepath.Join(lb.Root, path)
+	_, err := os.Stat(fullPath)
+	return err == nil
+}
+
+func (lb *Backend) Get(path string) ([]byte, error) {
+	fullPath := filepath.Join(lb.Root, path)
+
+	data, err := ioutil.ReadFile(fullPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
 func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 	fullPath := filepath.Join(lb.Root, path)
 	err := os.MkdirAll(filepath.Dir(fullPath), 0755)
@@ -40,12 +57,6 @@ func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 func (lb *Backend) Del(path string) error {
 	fullPath := filepath.Join(lb.Root, path)
 	return os.Remove(fullPath)
-}
-
-func (lb *Backend) Exists(path string) bool {
-	fullPath := filepath.Join(lb.Root, path)
-	_, err := os.Stat(fullPath)
-	return err == nil
 }
 
 func (lb *Backend) ListN(path string, n int) ([]string, error) {
@@ -95,13 +106,3 @@ func getWalker(ch chan string, done chan bool, base string) func(string, os.File
 	}
 }
 
-func (lb *Backend) Get(path string) ([]byte, error) {
-	fullPath := filepath.Join(lb.Root, path)
-
-	data, err := ioutil.ReadFile(fullPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
