@@ -6,8 +6,6 @@ import (
 	"testing/iotest"
 )
 
-func sample
-
 func TestGetPut(t testing.T) {
 }
 

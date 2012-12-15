@@ -1,3 +1,6 @@
+
+// Package localhd provides a local filesystem based backend/db implementation
+// of github.com/rwcarlsen/gallery/backend.Interface
 package localhd
 
 import (
@@ -8,6 +11,7 @@ import (
 	"path/filepath"
 )
 
+// Backend implements github.com/rwcarlsen/gallery/backend.Interface
 type Backend struct {
 	Root   string
 	DbName string

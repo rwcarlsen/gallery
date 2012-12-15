@@ -44,10 +44,10 @@ func main() {
 
 	config := 0
 	if *dry {
-		config = backend.Sdry
+		config = backend.SyncDry
 	}
 	if *del {
-		config = config | backend.Sdel
+		config = config | backend.SyncDel
 	}
 
 	results, err := backend.SyncOneWay(*syncPath, config, fromDb, toDb)
