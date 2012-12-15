@@ -1,5 +1,5 @@
 
-// picput recursively walks passed dirs and photos and adds them to a library
+// picput recursively walks passed dirs and photos and adds them to a library.
 package main
 
 import (
