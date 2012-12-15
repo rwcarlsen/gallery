@@ -1,31 +1,31 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"time"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
-	"sort"
-	"bytes"
 	"path/filepath"
+	"sort"
+	"time"
 
+	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
 	"github.com/rwcarlsen/goamz/aws"
-	"github.com/gorilla/sessions"
-	"github.com/gorilla/mux"
 )
 
 const (
-	libName = "rwc-piclib"
-	cacheSize = 300 * piclib.Mb
+	libName     = "rwc-piclib"
+	cacheSize   = 300 * piclib.Mb
 	picsPerPage = 28
-	addr    = "0.0.0.0:7777"
+	addr        = "0.0.0.0:7777"
 )
 
 const (
@@ -36,11 +36,11 @@ const (
 )
 
 var (
-	lib    *piclib.Library
+	lib       *piclib.Library
 	allPhotos []*piclib.Photo
-	contexts = make(map[string]*context)
-	store = sessions.NewCookieStore([]byte("my-secret"))
-	home []byte // index.html
+	contexts  = make(map[string]*context)
+	store     = sessions.NewCookieStore([]byte("my-secret"))
+	home      []byte // index.html
 )
 
 func main() {
@@ -103,13 +103,13 @@ func updateLib() {
 		go func() {
 			for {
 				select {
-				case name := <- nameCh:
+				case name := <-nameCh:
 					p, err := lib.GetPhoto(name)
 					if err != nil {
 						log.Printf("err on %v: %v", name, err)
 					}
 					picCh <- p
-				case <- done:
+				case <-done:
 					return
 				}
 			}
@@ -123,7 +123,7 @@ func updateLib() {
 	}()
 
 	for _ = range names {
-		if p := <- picCh; p != nil {
+		if p := <-picCh; p != nil {
 			allPhotos = append(allPhotos, p)
 		}
 	}
@@ -324,4 +324,3 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 	vars := mux.Vars(r)
 	return c, vars
 }
-

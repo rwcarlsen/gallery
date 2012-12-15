@@ -1,4 +1,3 @@
-
 package backend
 
 import (
@@ -18,7 +17,7 @@ func TestRegister(t *testing.T) {
 	if _, err := Make("floopy", Params{}); err == nil {
 		t.Error("Expected error for Make non-existing type, got nil.")
 	}
-	Register("floopy", func(p Params) (Interface, error) {return nil, nil})
+	Register("floopy", func(p Params) (Interface, error) { return nil, nil })
 	if _, err := Make("floopy", Params{}); err != nil {
 		t.Errorf("Make for newly registered type failed: %v", err)
 	}
@@ -26,7 +25,7 @@ func TestRegister(t *testing.T) {
 
 func TestSpec(t *testing.T) {
 	s := &Spec{
-		Btype: dummy,
+		Btype:   dummy,
 		Bparams: Params{},
 	}
 

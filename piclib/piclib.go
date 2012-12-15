@@ -1,34 +1,33 @@
-
 // Package piclib provides tools backend-agnostic management of large photo collections.
 package piclib
 
 import (
 	"bytes"
-	"errors"
+	"crypto"
+	_ "crypto/sha1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
-	"image/jpeg"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/png"
+	"io"
 	"path"
 	"strings"
 	"time"
-	"io"
-	"crypto"
-	_ "crypto/sha1"
 
 	"github.com/nfnt/resize"
-	"github.com/rwcarlsen/goexif/exif"
 	"github.com/rwcarlsen/gallery/backend"
 	cache "github.com/rwcarlsen/gocache"
+	"github.com/rwcarlsen/goexif/exif"
 )
 
 const (
 	Byte = 1
-	Kb = 1000 * Byte
-	Mb = 1000 * Kb
-	Gb = 1000 * Mb
+	Kb   = 1000 * Byte
+	Mb   = 1000 * Kb
+	Gb   = 1000 * Mb
 )
 
 // The library stores images and data in the listed categories with each used
@@ -37,27 +36,27 @@ const (
 // path.Join(MetaDir, metafile-name).
 const (
 	// ImageDir is the path to original image files.
-	ImageDir       = "originals"
+	ImageDir = "originals"
 	// MetaDir is the path to image metadata files.
-	MetaDir        = "metadata"
+	MetaDir = "metadata"
 	// ThumbDir is the path to reduced-size thumbnail images.
-	ThumbDir       = "thumbnails"
+	ThumbDir = "thumbnails"
 	// IndexDir is the path to indexes maintained for library performance.
-	IndexDir       = "index"
+	IndexDir = "index"
 	// UnsupportedDir is the path to files of unrecognized type that were added
 	// to the Library.
 	UnsupportedDir = "unsupported"
 )
 
 const (
-	noDate = "-NoDate"
-	oldMeta = "OldMeta"
+	noDate       = "-NoDate"
+	oldMeta      = "OldMeta"
 	revSepMarker = "\n---revsepmarker---\n"
 )
 
 const (
 	nameTimeFmt = "2006-01-02-15-04-05"
-	Version = "0.1"
+	Version     = "0.1"
 )
 
 // Photo is the object-type managed by the library.  It provides methods for
@@ -75,7 +74,7 @@ type Photo struct {
 	Taken      time.Time
 	Tags       map[string]string
 	LibVersion string
-	lib *Library
+	lib        *Library
 }
 
 // LegitTaken returns true only if this photo's Taken date was retrieved from
@@ -150,7 +149,7 @@ type Library struct {
 	indDir         string
 	metaDir        string
 	unsupportedDir string
-	cache		   *cache.LRUCache
+	cache          *cache.LRUCache
 }
 
 // New creates and initializes a new library.  All library data is namespaced
@@ -166,7 +165,7 @@ func New(name string, db backend.Interface, cacheSize uint64) *Library {
 		indDir:         path.Join(name, IndexDir),
 		metaDir:        path.Join(name, MetaDir),
 		unsupportedDir: path.Join(name, UnsupportedDir),
-		cache: cache.NewLRUCache(cacheSize),
+		cache:          cache.NewLRUCache(cacheSize),
 	}
 }
 
@@ -249,7 +248,7 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 		Taken:      date,
 		Tags:       make(map[string]string),
 		LibVersion: Version,
-		lib: l,
+		lib:        l,
 	}
 
 	if _, err := buf.Seek(0, 0); err != nil {
@@ -406,13 +405,13 @@ func thumb(w, h uint, img image.Image) (io.ReadSeeker, error) {
 type cacheVal struct {
 	size int
 	data []byte
-	p *Photo
+	p    *Photo
 }
 
 // cachePic creates a cacheable value from a Photo (meta-data).
 func cachePic(p *Photo) cache.Value {
 	return &cacheVal{
-		p: p,
+		p:    p,
 		size: 2000,
 	}
 }
@@ -434,7 +433,7 @@ func (cv *cacheVal) Size() int {
 func hash(r io.ReadSeeker) string {
 	r.Seek(0, 0)
 	h := crypto.SHA1.New()
-	data := make([]byte, 2 * Mb)
+	data := make([]byte, 2*Mb)
 	n, err := r.Read(data)
 	if err != nil {
 		return "FailedHash"

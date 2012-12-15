@@ -1,17 +1,16 @@
-
 // Package backend contains a standard interface and tools for working with
 // simple databases.
 package backend
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
-	"encoding/json"
-	"fmt"
-	"errors"
 
-	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/backend/amz"
+	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/goamz/aws"
 )
 
@@ -49,8 +48,8 @@ type Type string
 
 const (
 	Amazon Type = "Amazon-S3"
-	Local = "Local-HD"
-	dummy = "dummy" // used for testing
+	Local       = "Local-HD"
+	dummy       = "dummy" // used for testing
 )
 
 var types = map[Type]TypeFunc{}
@@ -117,7 +116,7 @@ func dummyBack(params Params) (Interface, error) {
 // Spec is a convenient way to group a specific set of config Params for a
 // backend together with its corresponding Type.
 type Spec struct {
-	Btype Type
+	Btype   Type
 	Bparams Params
 }
 
@@ -189,4 +188,3 @@ func (s *SpecList) init() {
 		s.list = make(map[string]*Spec)
 	}
 }
-

@@ -1,11 +1,10 @@
-
 // Package localhd provides a local filesystem based backend/db implementation
 // of github.com/rwcarlsen/gallery/backend.Interface
 package localhd
 
 import (
-	"io"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -109,4 +108,3 @@ func getWalker(ch chan string, done chan bool, base string) func(string, os.File
 		return nil
 	}
 }
-

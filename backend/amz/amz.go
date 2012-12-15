@@ -7,11 +7,11 @@ import (
 	pth "path"
 	"strings"
 	//"github.com/rwcarlsen/goamz/s3"
-	"github.com/rwcarlsen/goamz/s3"
 	"github.com/rwcarlsen/goamz/aws"
-	"net/http"
+	"github.com/rwcarlsen/goamz/s3"
 	"io"
 	"io/ioutil"
+	"net/http"
 )
 
 const (

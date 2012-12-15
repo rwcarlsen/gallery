@@ -1,10 +1,9 @@
-
 package backend
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"bytes"
 )
 
 const (
@@ -134,4 +133,3 @@ func SyncAllWay(path string, config int, dbs ...Interface) (results []string, er
 	}
 	return results, nil
 }
-

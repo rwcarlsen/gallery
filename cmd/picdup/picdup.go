@@ -1,16 +1,15 @@
-
 // picdup identifies and removes duplicate pictures (meta, orig, and
 // thumbs) from a library using crypto hashing.
 package main
 
 import (
-	"os"
-	"log"
-	"fmt"
-	"flag"
-	pth "path"
 	"crypto"
 	_ "crypto/sha1"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	pth "path"
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -103,4 +102,3 @@ func removeDup(p *piclib.Photo, sum string) {
 		log.Print(err)
 	}
 }
-

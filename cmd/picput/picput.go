@@ -1,4 +1,3 @@
-
 // picput recursively walks passed dirs and photos and adds them to a library.
 package main
 
@@ -97,4 +96,3 @@ func addToLib(path string) {
 		log.Printf("path %v: %v", path, err)
 	}
 }
-

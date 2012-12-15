@@ -1,12 +1,10 @@
-
-
 // syncdb performs a uni-directional sync between two databases.
 package main
 
 import (
-	"os"
 	"flag"
 	"log"
+	"os"
 
 	"github.com/rwcarlsen/gallery/backend"
 )
@@ -58,4 +56,3 @@ func main() {
 		log.Println(r)
 	}
 }
-
