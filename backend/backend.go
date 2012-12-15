@@ -67,7 +67,8 @@ func Register(t Type, fn TypeFunc) {
 
 // Make creates a backend of type t, initialized with the given params.
 // params must contain required information for the specified backend type.
-// An error is returned if t is an unregistered type.
+// An error is returned if t is an unregistered type or if params do not
+// contain all pertinent information to initialize a backend of type t.
 func Make(t Type, params Params) (Interface, error) {
 	if fn, ok := types[t]; ok {
 		return fn(params)
@@ -118,7 +119,8 @@ type Spec struct {
 	Bparams Params
 }
 
-// Make creates a backend from the Spec.
+// Make creates a backend from the Spec. This is a shortcut for the Make
+// function.
 func (s *Spec) Make() (Interface, error) {
 	return Make(s.Btype, s.Bparams)
 }
