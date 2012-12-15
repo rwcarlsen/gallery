@@ -31,10 +31,10 @@ const (
 	Gb = 1000 * Mb
 )
 
-// The library stores images and data in the below categories each used as the
-// first part of the path when storing/retrieving from a backend.  Example, the
-// path to a meta-data file for an image would be path.Join(MetaDir,
-// metafile-name).
+// The library stores images and data in the listed categories with each used
+// as the first part of the path when storing/retrieving such data from a
+// backend.  Example, the path to a meta-data file for an image would be
+// path.Join(MetaDir, metafile-name).
 const (
 	// ImageDir is the path to original image files.
 	ImageDir       = "originals"
@@ -63,7 +63,6 @@ const (
 // Photo is the object-type managed by the library.  It provides methods for
 // retrieving photo-related information from the Library as well as defines the
 // photo metadata schema.
-//
 // Photos usually should not be created manually - rather they should be
 // created through the Library's AddPhoto method.
 type Photo struct {
