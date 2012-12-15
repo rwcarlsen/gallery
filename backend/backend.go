@@ -39,10 +39,12 @@ type Interface interface {
 type Params map[string]string
 
 // TypeFunc is an abstraction allowing package-external backends to be
-// handled by this package.
+// handled by this package. A TypeFunc instance should return a
+// ready-to-use backend initialized with Params.
 type TypeFunc func(Params) (Interface, error)
 
-// Type specifies a unique kind of backend
+// Type specifies a unique kind of backend. There is a one-to-one
+// correspondence between backend Types and TypeFunc's.
 type Type string
 
 const (
