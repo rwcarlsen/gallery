@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -45,4 +44,3 @@ func (pl newFirst) Len() int {
 func (pl newFirst) Swap(i, j int) {
 	pl[i], pl[j] = pl[j], pl[i]
 }
-

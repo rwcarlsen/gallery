@@ -1,72 +1,58 @@
+// syncdb performs a uni-directional sync between two databases.
 package main
 
 import (
 	"flag"
 	"log"
-	"strings"
+	"os"
 
-	"github.com/rwcarlsen/gallery/backend/amz"
-	"github.com/rwcarlsen/gallery/backend/dbsync"
-	"github.com/rwcarlsen/gallery/backend/localhd"
-	"github.com/rwcarlsen/gallery/piclib"
-	"launchpad.net/goamz/aws"
+	"github.com/rwcarlsen/gallery/backend"
 )
 
-var amazonS3 = flag.String("amz", "[key-id],[key]", "access piclib on amazon s3")
-var local = flag.String("localhd", "[root-dir]", "access piclib on local hd")
+var from = flag.String("from", "", "source backend")
+var to = flag.String("to", "", "destination backend")
 var syncPath = flag.String("path", "", "name of library to create/access")
+
 var dry = flag.Bool("dry", false, "true to just print output of command and not sync anything")
-var flow = flag.String("flow", "toamz", "")
+var del = flag.Bool("del", false, "delete files at dst that don't exist at src")
+
+const confPath = "/home/robert/.backends"
+
+func must(b backend.Interface, err error) backend.Interface {
+	if err != nil {
+		log.Fatal(err)
+	}
+	return b
+}
 
 func main() {
 	flag.Parse()
 
-	var dbs []piclib.Backend
-	if strings.Index(*amazonS3, "[") == -1 {
-		dbs = append(dbs, amzLib())
+	f, err := os.Open(confPath)
+	if err != nil {
+		log.Fatal(err)
 	}
-	if strings.Index(*local, "[") == -1 {
-		dbs = append(dbs, localLib())
+	set, err := backend.LoadSpecList(f)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if len(dbs) < 2 {
-		log.Fatal("not enough backends")
-	}
+	fromDb := must(set.Make(*from))
+	toDb := must(set.Make(*to))
 
 	config := 0
 	if *dry {
-		config = dbsync.Cdry
+		config = backend.SyncDry
+	}
+	if *del {
+		config = config | backend.SyncDel
 	}
 
-	var err error
-	var results []string
-	if *flow == "toamz" {
-		results, err = dbsync.OneWay(*syncPath, config, dbs[1], dbs[0])
-	} else if *flow == "allway" {
-		results, err = dbsync.AllWay(*syncPath, config, dbs...)
-	} else {
-		log.Fatalf("invalid flow %v", *flow)
-	}
-
+	results, err := backend.SyncOneWay(*syncPath, config, fromDb, toDb)
 	if err != nil {
 		log.Println(err)
 	}
 	for _, r := range results {
 		log.Println(r)
 	}
-}
-
-func amzLib() piclib.Backend {
-	keys := strings.Split(*amazonS3, ",")
-	if len(keys) != 2 {
-		log.Fatalf("invalid amazon aws keyset '%v'", *amazonS3)
-	}
-	auth := aws.Auth{AccessKey: keys[0], SecretKey: keys[1]}
-	db := amz.New(auth, aws.USEast)
-	db.DbName = "amz"
-	return db
-}
-
-func localLib() piclib.Backend {
-	return &localhd.Backend{Root: *local, DbName: "localhd"}
 }

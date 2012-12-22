@@ -1,60 +1,69 @@
+// Package piclib provides tools backend-agnostic management of large photo collections.
 package piclib
 
 import (
 	"bytes"
-	"errors"
+	"crypto"
+	_ "crypto/sha1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
-	"image/jpeg"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/png"
+	"io"
 	"path"
 	"strings"
 	"time"
-	"io"
-	"crypto"
-	_ "crypto/sha1"
 
 	"github.com/nfnt/resize"
-	"github.com/rwcarlsen/goexif/exif"
+	"github.com/rwcarlsen/gallery/backend"
 	cache "github.com/rwcarlsen/gocache"
+	"github.com/rwcarlsen/goexif/exif"
 )
 
 const (
 	Byte = 1
-	Kb = 1000 * Byte
-	Mb = 1000 * Kb
-	Gb = 1000 * Mb
+	Kb   = 1000 * Byte
+	Mb   = 1000 * Kb
+	Gb   = 1000 * Mb
 )
 
+// The library stores images and data in the listed categories with each used
+// as the first part of the path when storing/retrieving such data from a
+// backend.  Example, the path to a meta-data file for an image would be
+// path.Join(MetaDir, metafile-name).
 const (
-	ImageDir       = "originals"
-	MetaDir        = "metadata"
-	ThumbDir       = "thumbnails"
-	IndexDir       = "index"
+	// ImageDir is the path to original image files.
+	ImageDir = "originals"
+	// MetaDir is the path to image metadata files.
+	MetaDir = "metadata"
+	// ThumbDir is the path to reduced-size thumbnail images.
+	ThumbDir = "thumbnails"
+	// IndexDir is the path to indexes maintained for library performance.
+	IndexDir = "index"
+	// UnsupportedDir is the path to files of unrecognized type that were added
+	// to the Library.
 	UnsupportedDir = "unsupported"
 )
 
 const (
-	noDate = "-NoDate"
-	oldMeta = "OldMeta"
+	noDate       = "-NoDate"
+	oldMeta      = "OldMeta"
 	revSepMarker = "\n---revsepmarker---\n"
 )
 
 const (
 	nameTimeFmt = "2006-01-02-15-04-05"
-	currVersion = "0.1"
+	Version     = "0.1"
 )
 
-type Backend interface {
-	Put(path string, r io.ReadSeeker) error
-	Exists(path string) bool
-	ListN(path string, n int) ([]string, error)
-	Get(path string) ([]byte, error)
-	Name() string
-}
-
+// Photo is the object-type managed by the library.  It provides methods for
+// retrieving photo-related information from the Library as well as defines the
+// photo metadata schema.
+// Photos usually should not be created manually - rather they should be
+// created through the Library's AddPhoto method.
 type Photo struct {
 	Meta       string
 	Orig       string
@@ -65,13 +74,18 @@ type Photo struct {
 	Taken      time.Time
 	Tags       map[string]string
 	LibVersion string
-	lib *Library
+	lib        *Library
 }
 
+// LegitTaken returns true only if this photo's Taken date was retrieved from
+// existing EXIF data embedded in the image.
 func (p *Photo) LegitTaken() bool {
 	return !strings.Contains(p.Meta, noDate)
 }
 
+// GetOriginal retrieves the data for the photo's original, full-resolution
+// image.  Returns an error if the photo was neither created nor retrieved from
+// a Library. Other retrieval errors may be returned.
 func (p *Photo) GetOriginal() (data []byte, err error) {
 	if p.lib == nil {
 		return nil, errors.New("piclib: photo not initialized with library")
@@ -83,6 +97,9 @@ func (p *Photo) GetOriginal() (data []byte, err error) {
 	return orig, nil
 }
 
+// GetThumb1 retrieves the data for the photo's large thumbnail image (suitable
+// for online sharing).  Returns an error if the photo was neither created nor
+// retrieved from a Library. Other retrieval errors may be returned.
 func (p *Photo) GetThumb1() (data []byte, err error) {
 	if p.lib == nil {
 		return nil, errors.New("piclib: photo not initialized with library")
@@ -96,10 +113,13 @@ func (p *Photo) GetThumb1() (data []byte, err error) {
 		return nil, err
 	}
 
-	p.lib.cache.Set(p.Thumb1, CacheData(thumb1))
+	p.lib.cache.Set(p.Thumb1, cacheData(thumb1))
 	return thumb1, nil
 }
 
+// GetThumb2 retrieves the data for the photo's small thumbnail image (suitable
+// for grid-views, etc).  Returns an error if the photo was neither created nor
+// retrieved from a Library. Other retrieval errors may be returned.
 func (p *Photo) GetThumb2() (data []byte, err error) {
 	if p.lib == nil {
 		return nil, errors.New("piclib: photo not initialized with library")
@@ -113,22 +133,30 @@ func (p *Photo) GetThumb2() (data []byte, err error) {
 		return nil, err
 	}
 
-	p.lib.cache.Set(p.Thumb2, CacheData(thumb2))
+	p.lib.cache.Set(p.Thumb2, cacheData(thumb2))
 	return thumb2, nil
 }
 
+// Library manages and organizes collections of Photos stored in the desired
+// backend database.  Allowed image formats are those supported by Go's
+// standard library image package.  Unrecognized formats of any kind (even
+// non-image based) are stored in UnsupportedDir.
 type Library struct {
-	Db             Backend
+	Db             backend.Interface
 	name           string
 	imgDir         string
 	thumbDir       string
 	indDir         string
 	metaDir        string
 	unsupportedDir string
-	cache		   *cache.LRUCache
+	cache          *cache.LRUCache
 }
 
-func New(name string, db Backend, cacheSize uint64) *Library {
+// New creates and initializes a new library.  All library data is namespaced
+// under name in the backend db.  A cache of previously retrieved data is
+// maintained up to cacheSize bytes in order to reduce pressure on the db
+// backend.
+func New(name string, db backend.Interface, cacheSize uint64) *Library {
 	return &Library{
 		Db:             db,
 		name:           name,
@@ -137,12 +165,30 @@ func New(name string, db Backend, cacheSize uint64) *Library {
 		indDir:         path.Join(name, IndexDir),
 		metaDir:        path.Join(name, MetaDir),
 		unsupportedDir: path.Join(name, UnsupportedDir),
-		cache: cache.NewLRUCache(cacheSize),
+		cache:          cache.NewLRUCache(cacheSize),
 	}
 }
 
-func (l *Library) ListPhotos(n int) ([]*Photo, error) {
+// ListNames the names of up to n library Photos in no particular order. The
+// names can be used with the GetPhoto method for retrieving actual photo
+// objects.
+func (l *Library) ListNames(n int) ([]string, error) {
 	names, err := l.Db.ListN(l.metaDir, n)
+	if err != nil {
+		return nil, err
+	}
+	bases := make([]string, len(names))
+	for i, name := range names {
+		bases[i] = path.Base(name)
+	}
+	return bases, nil
+}
+
+// ListPhotos is a convenience for retrieving up to n library Photos (no order
+// guaruntees).  This is a convenience method covering functionality of
+// ListNames and GetPhoto methods.
+func (l *Library) ListPhotos(n int) ([]*Photo, error) {
+	names, err := l.ListNames(n)
 	if err != nil {
 		return nil, err
 	}
@@ -150,8 +196,7 @@ func (l *Library) ListPhotos(n int) ([]*Photo, error) {
 	errString := ""
 	pics := make([]*Photo, 0, len(names))
 	for _, name := range names {
-		base := path.Base(name)
-		p, err := l.GetPhoto(base)
+		p, err := l.GetPhoto(name)
 		if err != nil {
 			errString += "\n" + err.Error()
 			continue
@@ -165,18 +210,10 @@ func (l *Library) ListPhotos(n int) ([]*Photo, error) {
 	return pics, nil
 }
 
-func (l *Library) ListNames(n int) ([]string, error) {
-	names, err := l.Db.ListN(l.metaDir, n)
-	if err != nil {
-		return nil, err
-	}
-	bases := make([]string, len(names))
-	for i, name := range names {
-		bases[i] = path.Base(name)
-	}
-	return bases, nil
-}
-
+// AddPhoto addes a photo to the library where name is the photo's original
+// name and buf contains the entirety of the image data.  If buf contains an
+// unsupported file type, the data will be stored in UnsupportedDir and an
+// error returned.
 func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -210,8 +247,8 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 		Uploaded:   time.Now(),
 		Taken:      date,
 		Tags:       make(map[string]string),
-		LibVersion: currVersion,
-		lib: l,
+		LibVersion: Version,
+		lib:        l,
 	}
 
 	if _, err := buf.Seek(0, 0); err != nil {
@@ -268,24 +305,8 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 	return p, err2
 }
 
-func (l *Library) UpdatePhoto(picName, key, val string) error {
-	p, err := l.GetPhoto(picName)
-	if err != nil {
-		return err
-	}
-
-	if v, ok := p.Tags[key]; ok {
-		p.Tags[oldMeta] = p.Tags[oldMeta] + revSepMarker + v
-	}
-	p.Tags[key] = val
-
-	data, err := json.Marshal(p)
-	if err != nil {
-		return err
-	}
-	return l.Db.Put(path.Join(l.metaDir, p.Meta), bytes.NewReader(data))
-}
-
+// put does a safe Put into the backend database (e.g. ensures buf read is set
+// to beginning).
 func (l *Library) put(pth, name string, buf io.ReadSeeker) (err error) {
 	fullPath := path.Join(pth, name)
 	if l.Db.Exists(fullPath) {
@@ -298,6 +319,7 @@ func (l *Library) put(pth, name string, buf io.ReadSeeker) (err error) {
 	return l.Db.Put(fullPath, buf)
 }
 
+// GetPhoto returns the named Photo from the library.
 func (l *Library) GetPhoto(name string) (*Photo, error) {
 	if v, ok := l.cache.Get(name); ok {
 		return v.(*cacheVal).p, nil
@@ -315,10 +337,34 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 	}
 	p.lib = l
 
-	l.cache.Set(name, CachePic(&p))
+	l.cache.Set(name, cachePic(&p))
 	return &p, nil
 }
 
+// UpdatePhoto safely updates Tags metadata in photo picName. If key already
+// exists in the photo's Tags, it's current contents will be moved to an
+// overwritten data tag before being overwritten.
+func (l *Library) UpdatePhoto(picName, key, val string) error {
+	p, err := l.GetPhoto(picName)
+	if err != nil {
+		return err
+	}
+
+	if v, ok := p.Tags[key]; ok {
+		p.Tags[oldMeta] = fmt.Sprint(p.Tags[oldMeta], revSepMarker, "key:", key, ":::", v)
+	}
+	p.Tags[key] = val
+
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	return l.Db.Put(path.Join(l.metaDir, p.Meta), bytes.NewReader(data))
+}
+
+// dateFrom returns a date-string from photo's EXIF data to be used as the
+// photo's database path.  In order to prevent duplicates, if the EXIF data is
+// not found, a SHA1 hash of the data is used instead of a (current) date/time.
 func dateFrom(buf io.ReadSeeker) (string, time.Time) {
 	now := time.Now()
 	x, err := exif.Decode(buf)
@@ -343,6 +389,7 @@ func dateFrom(buf io.ReadSeeker) (string, time.Time) {
 	return t.Format(nameTimeFmt), t
 }
 
+// thumb returns a shrunken version of an image.
 func thumb(w, h uint, img image.Image) (io.ReadSeeker, error) {
 	m := resize.Resize(w, h, img, resize.Bilinear)
 
@@ -354,20 +401,23 @@ func thumb(w, h uint, img image.Image) (io.ReadSeeker, error) {
 	return bytes.NewReader(buf.Bytes()), nil
 }
 
+// cacheVal allows Library-related data to be placed in a size-limited cache.
 type cacheVal struct {
 	size int
 	data []byte
-	p *Photo
+	p    *Photo
 }
 
-func CachePic(p *Photo) cache.Value {
+// cachePic creates a cacheable value from a Photo (meta-data).
+func cachePic(p *Photo) cache.Value {
 	return &cacheVal{
-		p: p,
+		p:    p,
 		size: 2000,
 	}
 }
 
-func CacheData(data []byte) cache.Value {
+// cacheData creates a cacheable value from a byte-slice.
+func cacheData(data []byte) cache.Value {
 	return &cacheVal{
 		data: data,
 		size: len(data),
@@ -383,7 +433,7 @@ func (cv *cacheVal) Size() int {
 func hash(r io.ReadSeeker) string {
 	r.Seek(0, 0)
 	h := crypto.SHA1.New()
-	data := make([]byte, 2 * Mb)
+	data := make([]byte, 2*Mb)
 	n, err := r.Read(data)
 	if err != nil {
 		return "FailedHash"

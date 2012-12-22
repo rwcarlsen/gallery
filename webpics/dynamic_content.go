@@ -1,32 +1,31 @@
-
 package main
 
 import (
-	"log"
 	"fmt"
-	"time"
-	"strconv"
-	"io/ioutil"
-	"net/http"
 	"html/template"
+	"io/ioutil"
+	"log"
 	"math/rand"
+	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
 var (
-	zoomTmpl = template.Must(template.ParseFiles("templates/zoompic.tmpl"))
-	picsTmpl = template.Must(template.ParseFiles("templates/browsepics.tmpl"))
+	zoomTmpl    = template.Must(template.ParseFiles("templates/zoompic.tmpl"))
+	picsTmpl    = template.Must(template.ParseFiles("templates/browsepics.tmpl"))
 	pagenavTmpl = template.Must(template.ParseFiles("templates/pagination.tmpl"))
 	timenavTmpl = template.Must(template.ParseFiles("templates/timenav.tmpl"))
 )
 
 type context struct {
-	photos []*piclib.Photo
+	photos       []*piclib.Photo
 	HideDateless bool
-	CurrPage string
-	random []int
-	currIndex int
+	CurrPage     string
+	random       []int
+	currIndex    int
 }
 
 const noteField = "LibNotes"
@@ -126,7 +125,7 @@ func (c *context) servePage(w http.ResponseWriter, pg string) {
 }
 
 func (c *context) serveZoom(w http.ResponseWriter, index string) {
-	i , _ := strconv.Atoi(index)
+	i, _ := strconv.Atoi(index)
 	p := c.photos[i]
 	pData := &thumbData{
 		Path:  p.Meta,

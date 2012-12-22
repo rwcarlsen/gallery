@@ -1,13 +1,16 @@
+// Package localhd provides a local filesystem based backend/db implementation
+// of github.com/rwcarlsen/gallery/backend.Interface
 package localhd
 
 import (
-	"io"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 )
 
+// Backend implements github.com/rwcarlsen/gallery/backend.Interface
 type Backend struct {
 	Root   string
 	DbName string
@@ -15,6 +18,23 @@ type Backend struct {
 
 func (lb *Backend) Name() string {
 	return lb.DbName
+}
+
+func (lb *Backend) Exists(path string) bool {
+	fullPath := filepath.Join(lb.Root, path)
+	_, err := os.Stat(fullPath)
+	return err == nil
+}
+
+func (lb *Backend) Get(path string) ([]byte, error) {
+	fullPath := filepath.Join(lb.Root, path)
+
+	data, err := ioutil.ReadFile(fullPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (lb *Backend) Put(path string, r io.ReadSeeker) error {
@@ -37,10 +57,9 @@ func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 	return nil
 }
 
-func (lb *Backend) Exists(path string) bool {
+func (lb *Backend) Del(path string) error {
 	fullPath := filepath.Join(lb.Root, path)
-	_, err := os.Stat(fullPath)
-	return err == nil
+	return os.Remove(fullPath)
 }
 
 func (lb *Backend) ListN(path string, n int) ([]string, error) {
@@ -88,15 +107,4 @@ func getWalker(ch chan string, done chan bool, base string) func(string, os.File
 		}
 		return nil
 	}
-}
-
-func (lb *Backend) Get(path string) ([]byte, error) {
-	fullPath := filepath.Join(lb.Root, path)
-
-	data, err := ioutil.ReadFile(fullPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }

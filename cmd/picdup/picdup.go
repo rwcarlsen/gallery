@@ -1,24 +1,25 @@
-
 // picdup identifies and removes duplicate pictures (meta, orig, and
 // thumbs) from a library using crypto hashing.
 package main
 
 import (
-	"log"
-	"fmt"
-	"os"
-	"flag"
-	"path/filepath"
 	"crypto"
 	_ "crypto/sha1"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	pth "path"
+
+	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/gallery/backend/localhd"
 )
 
+const cacheSize = 300 * piclib.Mb
+const confPath = "/home/robert/.backends"
 
-const backendPath = "/media/spare"
-const libName = "rwc-piclib"
-
+var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
+var db = flag.String("db", "", "name of db")
 var dry = flag.Bool("dry", true, "just print output")
 
 var h = crypto.SHA1.New()
@@ -28,15 +29,25 @@ var lib *piclib.Library
 func main() {
 	flag.Parse()
 
-	db := &localhd.Backend{Root: backendPath}
-	lib = piclib.New(libName, db, 100 * piclib.Mb)
+	f, err := os.Open(confPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	set, err := backend.LoadSpecList(f)
+	if err != nil {
+		log.Fatal(err)
+	}
+	back, err := set.Make(*db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	lib = piclib.New(*libName, back, cacheSize)
 
 	pics, err := lib.ListPhotos(50000)
 	if err != nil {
 		log.Print(err)
 	}
 
-	log.Printf("len(pics)=%v", len(pics))
 	for _, p := range pics {
 		data, err := p.GetOriginal()
 		if err != nil {
@@ -58,7 +69,8 @@ func main() {
 		}
 		hashExists[hashSum] = true
 	}
-	log.Printf("len(hashExists)=%v", len(hashExists))
+	log.Printf("%v original pics", len(pics))
+	log.Printf("%v unique pics", len(hashExists))
 }
 
 func removeDup(p *piclib.Photo, sum string) {
@@ -66,28 +78,27 @@ func removeDup(p *piclib.Photo, sum string) {
 	if *dry {
 		return
 	}
-	root := filepath.Join(backendPath, libName)
 
-	path := filepath.Join(root, piclib.ImageDir, p.Orig)
-	if err := os.Remove(path); err != nil {
+	path := pth.Join(*libName, piclib.ImageDir, p.Orig)
+	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = filepath.Join(root, piclib.ThumbDir, p.Thumb2)
-	if err := os.Remove(path); err != nil {
+	path = pth.Join(*libName, piclib.ThumbDir, p.Thumb2)
+	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = filepath.Join(root, piclib.ThumbDir, p.Thumb1)
-	if err := os.Remove(path); err != nil {
+	path = pth.Join(*libName, piclib.ThumbDir, p.Thumb1)
+	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = filepath.Join(root, piclib.MetaDir, p.Meta)
-	if err := os.Remove(path); err != nil {
+	path = pth.Join(*libName, piclib.MetaDir, p.Meta)
+	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 	}
 }

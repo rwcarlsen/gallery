@@ -4,7 +4,7 @@ import (
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
-	"launchpad.net/goamz/aws"
+	"github.com/rwcarlsen/goamz/aws"
 	"log"
 	"os"
 )
@@ -29,7 +29,7 @@ func testAmzPut() {
 		log.Fatal(err)
 	}
 	db := amz.New(auth, aws.USEast)
-	lib := piclib.New(libName, db, 100 * piclib.Mb)
+	lib := piclib.New(libName, db, 100*piclib.Mb)
 
 	f, err := os.Open(sample)
 	if err != nil {
@@ -66,7 +66,7 @@ func testAmzGet() {
 		log.Fatal(err)
 	}
 	db := amz.New(auth, aws.USEast)
-	lib := piclib.New(libName, db, 100 * piclib.Mb)
+	lib := piclib.New(libName, db, 100*piclib.Mb)
 
 	// retrieve file
 	p, err := lib.GetPhoto("2012-04-01-22-13-55-sample.json")
@@ -79,7 +79,7 @@ func testAmzGet() {
 func testLocal() {
 	// setup storage and piclib
 	db := &localhd.Backend{Root: root}
-	lib := piclib.New(libName, db, 100 * piclib.Mb)
+	lib := piclib.New(libName, db, 100*piclib.Mb)
 
 	f, err := os.Open(sample)
 	if err != nil {

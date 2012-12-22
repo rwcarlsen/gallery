@@ -1,20 +1,27 @@
-package dbsync
+package backend
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"bytes"
-
-	"github.com/rwcarlsen/gallery/piclib"
 )
 
 const (
-	Cdry = 1 << iota
+	// SyncStd is the default syncing configuration
+	SyncStd = 0
+	// SyncDry causes output to be printed without actually doing anything.
+	SyncDry = 1 << iota
+	// SyncDel causes files at dst that don't exist at src to be deleted
+	// (OneWay only).
+	SyncDel
 )
 
 const infinity = 500000
 
-func OneWay(path string, config int, from, to piclib.Backend) (results []string, err error) {
+// SyncOneWay syncs path recursively between backends 'from' and 'to' according
+// to specified config.  Returned results contains an entry for each sync
+// operation (including errors if any).
+func SyncOneWay(path string, config int, from, to Interface) (results []string, err error) {
 	names, err := from.ListN(path, infinity)
 	if err != nil {
 		return nil, err
@@ -39,7 +46,7 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 	for objName, _ := range fromObj {
 		if !toObj[objName] {
 			results = append(results, fmt.Sprintf("sync from %v to %v: %v", from.Name(), to.Name(), objName))
-			if config&Cdry != 0 {
+			if config&SyncDry != 0 {
 				continue
 			}
 			data, err := from.Get(objName)
@@ -54,6 +61,22 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 			}
 		}
 	}
+
+	if config&SyncDel != 0 {
+		for objName, _ := range toObj {
+			results = append(results, fmt.Sprintf("del at dst %v: %v", to.Name(), objName))
+			if config&SyncDry != 0 {
+				continue
+			}
+			if !fromObj[objName] {
+				if err := to.Del(objName); err != nil {
+					results = append(results, err.Error())
+					errs = true
+				}
+			}
+		}
+	}
+
 	if errs {
 		return results, errors.New("dbsync: errors occurred during sync")
 	}
@@ -61,11 +84,14 @@ func OneWay(path string, config int, from, to piclib.Backend) (results []string,
 }
 
 type dbInfo struct {
-	db      piclib.Backend
+	db      Interface
 	objects map[string]bool
 }
 
-func AllWay(path string, config int, dbs ...piclib.Backend) (results []string, err error) {
+// SyncAllWay syncs all dbs between eachother write-only (no deletions)
+// according to specified config.  Returned results contains an entry for each
+// sync operation (including errors if any).
+func SyncAllWay(path string, config int, dbs ...Interface) (results []string, err error) {
 	infos := map[string]*dbInfo{}
 	for _, db := range dbs {
 		names, err := db.ListN(path, infinity)
@@ -85,7 +111,7 @@ func AllWay(path string, config int, dbs ...piclib.Backend) (results []string, e
 			for name, _ := range info1.objects {
 				if !info2.objects[name] {
 					results = append(results, fmt.Sprintf("sync from %v to %v: %v", n1, n2, name))
-					if config&Cdry != 0 {
+					if config&SyncDry != 0 {
 						continue
 					}
 					data, err := info1.db.Get(name)

@@ -1,14 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"io/ioutil"
 	"log"
-	"bytes"
 
+	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/backend/amz"
-	"github.com/rwcarlsen/gallery/piclib"
-	"launchpad.net/goamz/aws"
+	"github.com/rwcarlsen/goamz/aws"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func main() {
 	log.Println("success")
 }
 
-func amzLib() piclib.Backend {
+func amzLib() backend.Interface {
 	auth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatal(err)
