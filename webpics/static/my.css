@@ -2,23 +2,24 @@
 /* zoom view modal total size */
 .modal.large{
     position: fixed;
-    height: 90% !important; 
+    height: auto !important; 
     margin-top: -45% !important;
     width: 980px;
     margin-left: -490px;
     max-width: 90%;
+    max-height: 90%;
 }
 
 #uploadermodal{
-  width: 720px;
-  margin-left: -360px;
+  width: 800px;
+  margin-left: -400px;
   margin-top: -30%;
 }
 
 /* for the zoom view image size */
 .zoom-img {
-  height: 85%;
-  width: auto !important;
+  height: auto;
+  width: 100% !important;
 }
 
 /* for the zoom view modal body size */
