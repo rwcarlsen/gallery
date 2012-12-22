@@ -19,6 +19,7 @@ function pageTo(page) {
   setAttr = function() {
     $(".pglink").removeClass("active")
     $("#pg" + currPage.toString()).addClass("active")
+    configEvents()
   }
 
   $("#pic-gallery").load("/dynamic/pg" + currPage.toString(), setAttr)
@@ -120,12 +121,15 @@ function keydown() {
 }
 
 function configEvents() {
-  $(".zoomview").on("hide", function(ev){mode = "gallery-view"})
+  $(document).keydown(keydown)
+  $(".zoomview").on("hide", function(ev){
+    mode = "gallery-view"
+  })
   $(".zoomview").on("show", function(ev){
     mode = "zoom-view"
-    //currZoom = this.
+    currZoom = ev.target.id.substring(4)
+    //hide curr zoom and show next zoom
   })
-  $(window).keydown(keydown)
 }
 
 // configurable
@@ -144,6 +148,5 @@ var keys = new Object()
 keys.left = 37
 keys.right = 39
 
-configEvents()
 updateNav()
 
