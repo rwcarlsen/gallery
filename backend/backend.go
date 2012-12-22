@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
@@ -141,7 +142,7 @@ func LoadSpecList(r io.Reader) (*SpecList, error) {
 
 	list := map[string]*Spec{}
 	if err := json.Unmarshal(data, &list); err != nil {
-		return nil, err
+		return nil, prettySyntaxError(string(data), err)
 	}
 
 	return &SpecList{list: list}, nil
@@ -187,4 +188,29 @@ func (s *SpecList) init() {
 	if s.list == nil {
 		s.list = make(map[string]*Spec)
 	}
+}
+
+func prettySyntaxError(js string, err error) error {
+	syntax, ok := err.(*json.SyntaxError)
+	if !ok {
+		return err
+	}
+
+	start, end := strings.LastIndex(js[:syntax.Offset],
+		"\n")+1, len(js)
+	if idx := strings.Index(js[start:], "\n"); idx >= 0 {
+		end = start + idx
+	}
+
+	line, pos := strings.Count(js[:start], "\n"), int(syntax.Offset)-start-1
+
+	msg := fmt.Sprintf("Error in line %d: %s\n", line+1, err)
+	msg += fmt.Sprintf("%s\n%s^", js[start:end], strings.Repeat("", pos))
+	return pretty(msg)
+}
+
+type pretty string
+
+func (p pretty) Error() string {
+	return string(p)
 }
