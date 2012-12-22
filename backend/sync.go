@@ -64,11 +64,11 @@ func SyncOneWay(path string, config int, from, to Interface) (results []string, 
 
 	if config&SyncDel != 0 {
 		for objName, _ := range toObj {
-			results = append(results, fmt.Sprintf("del at dst %v: %v", to.Name(), objName))
-			if config&SyncDry != 0 {
-				continue
-			}
 			if !fromObj[objName] {
+				results = append(results, fmt.Sprintf("del at dst %v: %v", to.Name(), objName))
+				if config&SyncDry != 0 {
+					continue
+				}
 				if err := to.Del(objName); err != nil {
 					results = append(results, err.Error())
 					errs = true
