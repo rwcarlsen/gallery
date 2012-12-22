@@ -102,16 +102,48 @@ function saveNotes(index) {
   $.post("/dynamic/save-notes/" + ind, data)
 }
 
+function keydown() {
+  if (event.charCode) {
+    var charCode = event.charCode;
+  } else {
+    var charCode = event.keyCode;
+  }
+
+  if (mode == "zoom-view") {
+  } else if (mode == "gallery-view") {
+    if (charCode == keys.left) {
+      pagePrev()
+    } else if (charCode == keys.right) {
+      pageNext()
+    }
+  }
+}
+
+function configEvents() {
+  $(".zoomview").on("hide", function(ev){mode = "gallery-view"})
+  $(".zoomview").on("show", function(ev){
+    mode = "zoom-view"
+    //currZoom = this.
+  })
+  $(window).keydown(keydown)
+}
+
 // configurable
-var maxDisplayPages = 25
+var maxDisplayPages = 20
 // end configurable
 
-// order matters
 var startPage = 1
 var endPage = maxDisplayPages
 var currPage = 0
 var numPages = 0
 var numPhotos = 0
+var mode = "gallery-view"
 
+// key codes
+var keys = new Object()
+keys.left = 37
+keys.right = 39
+
+configEvents()
 updateNav()
 
