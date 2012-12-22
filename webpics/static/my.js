@@ -19,7 +19,7 @@ function pageTo(page) {
   setAttr = function() {
     $(".pglink").removeClass("active")
     $("#pg" + currPage.toString()).addClass("active")
-    configEvents()
+    bindArrowEvents()
   }
 
   $("#pic-gallery").load("/dynamic/pg" + currPage.toString(), setAttr)
@@ -72,6 +72,7 @@ function getStats() {
 }
 
 function updateNav() {
+  currPage = 0
   loadPageNav()
   loadTimeNav()
   $.get("/dynamic/pg", function(pg) {
@@ -92,7 +93,6 @@ function updateDatelessToggle() {
 
 function toggleDateless() {
     $.post("/dynamic/toggle-dateless", function(data) {
-      currPage = 0 // forces a refresh despite potentially being on pg 1 already
       updateNav()
     })
 }
@@ -104,23 +104,17 @@ function saveNotes(index) {
 }
 
 function keydown() {
-  if (event.charCode) {
-    var charCode = event.charCode;
-  } else {
-    var charCode = event.keyCode;
-  }
-
   if (mode == "zoom-view") {
   } else if (mode == "gallery-view") {
-    if (charCode == keys.left) {
+    if (event.which == keys.left) {
       pagePrev()
-    } else if (charCode == keys.right) {
+    } else if (event.which == keys.right) {
       pageNext()
     }
   }
 }
 
-function configEvents() {
+function bindArrowEvents() {
   $(document).keydown(keydown)
   $(".zoomview").on("hide", function(ev){
     mode = "gallery-view"
@@ -132,13 +126,22 @@ function configEvents() {
   })
 }
 
+function bindNavEvents() {
+  $("#search-form").submit(function(){
+    // post instead of form submit allows callback on server response
+    $.post($(this).attr('action'), $(this).serialize(), function(json) {
+      updateNav()
+    }, 'json');
+    return false; // prevent form submission and page reload
+  });
+}
+
 // configurable
 var maxDisplayPages = 20
 // end configurable
 
 var startPage = 1
 var endPage = maxDisplayPages
-var currPage = 0
 var numPages = 0
 var numPhotos = 0
 var mode = "gallery-view"
@@ -147,6 +150,9 @@ var mode = "gallery-view"
 var keys = new Object()
 keys.left = 37
 keys.right = 39
+keys.enter = 13
 
+bindArrowEvents()
+bindNavEvents()
 updateNav()
 

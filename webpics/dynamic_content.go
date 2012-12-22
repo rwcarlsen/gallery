@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rwcarlsen/gallery/piclib"
@@ -26,12 +27,23 @@ type context struct {
 	CurrPage     string
 	random       []int
 	currIndex    int
+	query []string
 }
 
 const noteField = "LibNotes"
 
 func (c *context) toggleDateless() {
 	c.HideDateless = !c.HideDateless
+	c.updateFilter()
+}
+
+func (c *context) setSearchFilter(query []string) {
+	if c.query != nil {
+		// reset if photos are already filtered
+		c.query = nil
+		c.updateFilter()
+	}
+	c.query = query
 	c.updateFilter()
 }
 
@@ -48,6 +60,26 @@ func (c *context) updateFilter() {
 func (c *context) passFilter(p *piclib.Photo) bool {
 	if c.HideDateless && !p.LegitTaken() {
 		return false
+	}
+	if !c.passesSearch(p) {
+		return false
+	}
+	return true
+}
+
+func (c *context) passesSearch(p *piclib.Photo) bool {
+	if len(c.query) == 0 {
+		return true
+	}
+
+	notes := strings.ToLower(p.Tags[noteField])
+	for _, val := range c.query {
+		val = strings.ToLower(val)
+		for _, s := range strings.Fields(val) {
+			if !strings.Contains(notes, s) {
+				return false
+			}
+		}
 	}
 	return true
 }
@@ -166,6 +198,9 @@ func (c *context) serveStat(w http.ResponseWriter, stat string) {
 }
 
 func (c *context) serveTimeNav(w http.ResponseWriter) {
+	if len(c.photos) == 0 {
+		return
+	}
 	years := make([]*year, 0)
 	maxYear := c.photos[0].Taken.Year()
 	minYear := c.photos[len(c.photos)-1].Taken.Year()
@@ -198,6 +233,9 @@ func (c *context) serveTimeNav(w http.ResponseWriter) {
 }
 
 func (c *context) pageOf(start int, t time.Time) (page, last int) {
+	if len(c.photos) == 0 {
+		return
+	}
 	for i, p := range c.photos[start:] {
 		pg := (i+start)/picsPerPage + 1
 

@@ -28,10 +28,17 @@
               </a>
               <ul class="dropdown-menu" id="time-nav"></ul>
             </li>
+
+            <li class="divider-vertical"></li>
+            
             <li class="data-toggle">
               <a href="#" id="dateless-toggle" onclick="toggleDateless()">Hide Dateless</a>
             </li>
           </ul>
+
+          <form id="search-form" class="navbar-search pull-left" action="/dynamic/search-query">
+            <input id="search-box" type="text" name="search-query" class="search-query" placeholder="search">
+          </form>
 
           <ul class="nav pull-right">
             <li class="dropdown" id="stats-menu">

@@ -69,6 +69,7 @@ func main() {
 	r.HandleFunc("/dynamic/stat/{stat}", StatHandler)
 	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
 	r.HandleFunc("/dynamic/slideshow", SlideshowHandler)
+	r.HandleFunc("/dynamic/search-query", SearchHandler)
 
 	http.Handle("/", r)
 	log.Printf("listening on %v", addr)
@@ -275,6 +276,12 @@ func NotesHandler(w http.ResponseWriter, r *http.Request) {
 func SlideshowHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
 	c.serveRandom(w)
+}
+
+func SearchHandler(w http.ResponseWriter, r *http.Request) {
+	c, _ := getContext(w, r)
+	r.ParseForm()
+	c.setSearchFilter(r.Form["search-query"])
 }
 
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
