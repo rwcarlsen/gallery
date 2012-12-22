@@ -3,7 +3,7 @@
 .modal.large{
     position: fixed;
     height: auto !important; 
-    margin-top: -45% !important;
+    margin-top: -50% !important;
     width: 980px;
     margin-left: -490px;
     max-width: 90%;
@@ -19,7 +19,8 @@
 /* for the zoom view image size */
 .zoom-img {
   height: auto;
-  width: 100% !important;
+  width: auto;
+  max-height: 85%
 }
 
 /* for the zoom view modal body size */
