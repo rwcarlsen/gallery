@@ -24,7 +24,7 @@ import (
 const (
 	libName     = "rwc-piclib"
 	cacheSize   = 300 * piclib.Mb
-	picsPerPage = 28
+	picsPerPage = 20
 	addr        = "0.0.0.0:7777"
 )
 
