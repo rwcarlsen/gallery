@@ -123,7 +123,6 @@ function keydown() {
 }
 
 function bindZoomEvents() {
-  $(document).keydown(keydown)
   $(".zoomview").on("hide", function(ev){
     mode = "gallery-view"
   })
@@ -160,6 +159,7 @@ keys.left = 37
 keys.right = 39
 keys.enter = 13
 
+$(document).keydown(keydown)
 bindNavEvents()
 updateNav()
 
