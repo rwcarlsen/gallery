@@ -6,18 +6,44 @@ import (
 	"log"
 	pth "path"
 	"strings"
-	//"github.com/rwcarlsen/goamz/s3"
-	"github.com/rwcarlsen/goamz/aws"
-	"github.com/rwcarlsen/goamz/s3"
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/rwcarlsen/gallery/backend"
+	"github.com/rwcarlsen/goamz/aws"
+	"github.com/rwcarlsen/goamz/s3"
 )
 
 const (
+	Type = "Local-HD"
 	NoSuchBucket = "NoSuchBucket"
 	maxRetries   = 4
 )
+
+func init() {
+	backend.Register(Type, makeAmz)
+}
+
+func makeAmz(params backend.Params) (backend.Interface, error) {
+	keyid, ok := params["AccessKeyId"]
+	if !ok {
+		return nil, errors.New("backend: missing 'AccessKeyId' from Params")
+	}
+	key, ok := params["SecretAccessKey"]
+	if !ok {
+		return nil, errors.New("backend: missing 'SecretAccessKey' from Params")
+	}
+	name, ok := params["Name"]
+	if !ok {
+		return nil, errors.New("backend: missing 'Name' from Params")
+	}
+
+	auth := aws.Auth{AccessKey: keyid, SecretKey: key}
+	db := New(auth, aws.USEast)
+	db.DbName = name
+	return db, nil
+}
 
 type Backend struct {
 	s3link  *s3.S3

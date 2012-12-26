@@ -3,6 +3,9 @@ package backend
 import (
 	"bytes"
 	"testing"
+
+	"github.com/rwcarlsen/gallery/backend/amz"
+	"github.com/rwcarlsen/gallery/backend/localhd"
 )
 
 // Note that test order helps failed test feedback more meaningful
@@ -40,14 +43,14 @@ func TestSpecList_GetSet(t *testing.T) {
 		t.Fatal("Get did not return nil for non-existent spec.")
 	}
 
-	s.Set("foo1", &Spec{Btype: Amazon, Bparams: Params{"Name": "foo1name"}})
+	s.Set("foo1", &Spec{Btype: amz.Type, Bparams: Params{"Name": "foo1name"}})
 	if spec := s.Get("foo1"); spec == nil {
 		t.Fatal("Get return nil for existing spec.")
 	} else if nm := spec.Bparams["Name"]; nm != "foo1name" {
 		t.Errorf("spec name: expected foo1name, got %v", nm)
 	}
 
-	s.Set("foo1", &Spec{Btype: Amazon, Bparams: Params{"Name": "foo2name"}})
+	s.Set("foo1", &Spec{Btype: amz.Type, Bparams: Params{"Name": "foo2name"}})
 	if nm := s.Get("foo1").Bparams["Name"]; nm != "foo2name" {
 		t.Error("Spec was not overwritten with duplicate name usage")
 	}
@@ -55,8 +58,8 @@ func TestSpecList_GetSet(t *testing.T) {
 
 func TestSpecList_SaveLoad(t *testing.T) {
 	s := SpecList{}
-	s.Set("foo1", &Spec{Btype: Amazon, Bparams: Params{"Name": "foo1name"}})
-	s.Set("foo2", &Spec{Btype: Local, Bparams: Params{"Name": "foo2name"}})
+	s.Set("foo1", &Spec{Btype: amz.Type, Bparams: Params{"Name": "foo1name"}})
+	s.Set("foo2", &Spec{Btype: localhd.Type, Bparams: Params{"Name": "foo2name"}})
 	var w bytes.Buffer
 	if err := s.Save(&w); err != nil {
 		t.Fatal(err)
@@ -67,15 +70,15 @@ func TestSpecList_SaveLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if tp := list.Get("foo1").Btype; tp != Amazon {
-		t.Errorf("foo1's type (%v) is not %v", tp, Amazon)
+	if tp := list.Get("foo1").Btype; tp != amz.Type {
+		t.Errorf("foo1's type (%v) is not %v", tp, amz.Type)
 	}
 	if list.Get("foo1").Bparams["Name"] != "foo1name" {
 		t.Error("foo1's Name param is not foo1name")
 	}
 
-	if tp := list.Get("foo2").Btype; tp != Local {
-		t.Errorf("foo2's type (%v) is not %v", tp, Local)
+	if tp := list.Get("foo2").Btype; tp != localhd.Type {
+		t.Errorf("foo2's type (%v) is not %v", tp, localhd.Type)
 	}
 	if list.Get("foo2").Bparams["Name"] != "foo2name" {
 		t.Error("foo2's Name param is not foo2name")

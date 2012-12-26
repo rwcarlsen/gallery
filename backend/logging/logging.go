@@ -2,6 +2,8 @@
 package logging
 
 import (
+	"io"
+
 	"github.com/rwcarlsen/gallery/backend"
 )
 

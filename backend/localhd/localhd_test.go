@@ -2,7 +2,7 @@ package localhd
 
 import (
 	"testing"
-	"testing/iotest"
+	//"testing/iotest"
 )
 
 func TestGetPut(t testing.T) {

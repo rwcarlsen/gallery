@@ -8,7 +8,27 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/rwcarlsen/gallery/backend"
 )
+
+const Type = "Amazon-S3"
+
+func init() {
+	backend.Register(Type, makeLocal)
+}
+
+func makeLocal(params backend.Params) (backend.Interface, error) {
+	root, ok := params["Root"]
+	if !ok {
+		return nil, errors.New("backend: missing 'Root' from Params")
+	}
+	name, ok := params["Name"]
+	if !ok {
+		return nil, errors.New("backend: missing 'Name' from Params")
+	}
+	return &Backend{Root: root, DbName: name}, nil
+}
 
 // Backend implements github.com/rwcarlsen/gallery/backend.Interface
 type Backend struct {

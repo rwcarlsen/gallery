@@ -4,15 +4,10 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
-
-	"github.com/rwcarlsen/gallery/backend/amz"
-	"github.com/rwcarlsen/gallery/backend/localhd"
-	"github.com/rwcarlsen/goamz/aws"
 )
 
 // Interface specifies the methods that each backend database
@@ -47,18 +42,17 @@ type TypeFunc func(Params) (Interface, error)
 // correspondence between backend Types and TypeFunc's.
 type Type string
 
-const (
-	Amazon Type = "Amazon-S3"
-	Local       = "Local-HD"
-	dummy       = "dummy" // used for testing
-)
+// dummy is used for testing
+const dummy Type = "dummy"
 
 var types = map[Type]TypeFunc{}
 
 func init() {
-	Register(Amazon, amzBack)
-	Register(Local, localBack)
 	Register(dummy, dummyBack)
+}
+
+func dummyBack(params Params) (Interface, error) {
+	return nil, nil
 }
 
 // Register enables backends of type t to be created by Make functions and
@@ -76,42 +70,6 @@ func Make(t Type, params Params) (Interface, error) {
 		return fn(params)
 	}
 	return nil, fmt.Errorf("backend: Invalid type %v", t)
-}
-
-func localBack(params Params) (Interface, error) {
-	root, ok := params["Root"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Root' from Params")
-	}
-	name, ok := params["Name"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Name' from Params")
-	}
-	return &localhd.Backend{Root: root, DbName: name}, nil
-}
-
-func amzBack(params Params) (Interface, error) {
-	keyid, ok := params["AccessKeyId"]
-	if !ok {
-		return nil, errors.New("backend: missing 'AccessKeyId' from Params")
-	}
-	key, ok := params["SecretAccessKey"]
-	if !ok {
-		return nil, errors.New("backend: missing 'SecretAccessKey' from Params")
-	}
-	name, ok := params["Name"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Name' from Params")
-	}
-
-	auth := aws.Auth{AccessKey: keyid, SecretKey: key}
-	db := amz.New(auth, aws.USEast)
-	db.DbName = name
-	return db, nil
-}
-
-func dummyBack(params Params) (Interface, error) {
-	return nil, nil
 }
 
 // Spec is a convenient way to group a specific set of config Params for a
