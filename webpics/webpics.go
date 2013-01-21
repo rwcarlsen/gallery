@@ -79,7 +79,7 @@ func main() {
 }
 
 func localBackend() backend.Interface {
-	return &localhd.Backend{Root: "/media/spare"}
+	return &localhd.Backend{Root: "/home/robert/Pictures"}
 }
 
 func amzBackend() backend.Interface {
