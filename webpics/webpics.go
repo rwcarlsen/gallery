@@ -8,6 +8,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -36,6 +37,7 @@ const (
 )
 
 var (
+	resPath   = os.Getenv("WEBPICS")
 	lib       *piclib.Library
 	allPhotos []*piclib.Photo
 	contexts  = make(map[string]*context)
@@ -45,7 +47,7 @@ var (
 
 func main() {
 	var err error
-	home, err = ioutil.ReadFile("index.html")
+	home, err = ioutil.ReadFile(filepath.Join(resPath, "index.html"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -148,7 +150,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 func StaticHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	http.ServeFile(w, r, filepath.Join("static", vars["path"]))
+	http.ServeFile(w, r, filepath.Join(resPath, "static", vars["path"]))
 }
 
 func AddPhotoHandler(w http.ResponseWriter, r *http.Request) {

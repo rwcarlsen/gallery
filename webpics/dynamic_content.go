@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -15,10 +16,10 @@ import (
 )
 
 var (
-	zoomTmpl    = template.Must(template.ParseFiles("templates/zoompic.tmpl"))
-	picsTmpl    = template.Must(template.ParseFiles("templates/browsepics.tmpl"))
-	pagenavTmpl = template.Must(template.ParseFiles("templates/pagination.tmpl"))
-	timenavTmpl = template.Must(template.ParseFiles("templates/timenav.tmpl"))
+	zoomTmpl    = template.Must(template.ParseFiles(filepath.Join(resPath, "templates/zoompic.tmpl")))
+	picsTmpl    = template.Must(template.ParseFiles(filepath.Join(resPath, "templates/browsepics.tmpl")))
+	pagenavTmpl = template.Must(template.ParseFiles(filepath.Join(resPath, "templates/pagination.tmpl")))
+	timenavTmpl = template.Must(template.ParseFiles(filepath.Join(resPath, "templates/timenav.tmpl")))
 )
 
 type context struct {
@@ -27,7 +28,7 @@ type context struct {
 	CurrPage     string
 	random       []int
 	currIndex    int
-	query []string
+	query        []string
 }
 
 const noteField = "LibNotes"
