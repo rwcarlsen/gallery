@@ -33,6 +33,7 @@ var validFmt = map[string]bool{
 	".mpg":  true,
 	".mp4":  true,
 	".mov":  true,
+	".m4v":  true,
 }
 
 var lib *piclib.Library
