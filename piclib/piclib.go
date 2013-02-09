@@ -65,16 +65,17 @@ const (
 // Photos usually should not be created manually - rather they should be
 // created through the Library's AddPhoto method.
 type Photo struct {
-	Meta       string
-	Orig       string
-	Thumb1     string
-	Thumb2     string
-	Size       int
-	Uploaded   time.Time
-	Taken      time.Time
-	Tags       map[string]string
-	LibVersion string
-	lib        *Library
+	Meta        string
+	Orig        string
+	Thumb1      string
+	Thumb2      string
+	Size        int
+	Uploaded    time.Time
+	Taken       time.Time
+	Orientation int
+	Tags        map[string]string
+	LibVersion  string
+	lib         *Library
 }
 
 // LegitTaken returns true only if this photo's Taken date was retrieved from
@@ -235,7 +236,7 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 	// construct photo name
 	ext := path.Ext(name)
 	base := path.Base(name)
-	strDate, date := dateFrom(buf)
+	strDate, date, orientation := exifFrom(buf)
 	fname := strDate + "-sep-" + base[:len(base)-len(ext)]
 
 	// create photo meta object
@@ -246,6 +247,7 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 		Thumb2:     fname + "_thumb2.jpg",
 		Uploaded:   time.Now(),
 		Taken:      date,
+		Orientation: orientation,
 		Tags:       make(map[string]string),
 		LibVersion: Version,
 		lib:        l,
@@ -362,31 +364,60 @@ func (l *Library) UpdatePhoto(picName, key, val string) error {
 	return l.Db.Put(path.Join(l.metaDir, p.Meta), bytes.NewReader(data))
 }
 
-// dateFrom returns a date-string from photo's EXIF data to be used as the
-// photo's database path.  In order to prevent duplicates, if the EXIF data is
-// not found, a SHA1 hash of the data is used instead of a (current) date/time.
-func dateFrom(buf io.ReadSeeker) (string, time.Time) {
-	now := time.Now()
-	x, err := exif.Decode(buf)
-	hashSum := hash(buf)
+// UpdatePhotoUnsafe overwrites any/all of a photo p's metadata to whatever
+// new state is has been changed to.
+func (l *Library) UpdatePhotoUnsafe(p *Photo) error {
+	pic, err := l.GetPhoto(p.Meta)
 	if err != nil {
-		return hashSum + noDate, now
+		return err
+	}
+
+	data, err := json.Marshal(pic)
+	if err != nil {
+		return err
+	}
+	return l.Db.Put(path.Join(l.metaDir, pic.Meta), bytes.NewReader(data))
+}
+
+// exifFrom returns a date-string from photo's EXIF data to be used as the
+// photo's database path, the parsed date, and orientation data.  In order
+// to prevent duplicates, if the EXIF data is not found, a SHA1 hash of the
+// data is used instead of a (current) date/time.
+func exifFrom(buf io.ReadSeeker) (string, time.Time, int) {
+	dateStr := ""
+	tm := time.Now()
+	orientation := 1
+
+	hashSum := hash(buf)
+	if _, err := buf.Seek(0, 0); err != nil {
+		return hashSum + noDate, tm, orientation
+	}
+
+	x, err := exif.Decode(buf)
+	if err != nil {
+		return hashSum + noDate, tm, orientation
 	}
 
 	tg, err := x.Get("DateTimeOriginal")
 	if err != nil {
-		tg, err = x.Get("DateTime")
-		if err != nil {
-			return hashSum + noDate, now
+		if tg, err = x.Get("DateTime"); err != nil {
+			dateStr = hashSum + noDate
 		}
 	}
 
-	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
-	if err != nil {
-		return hashSum + noDate, now
+	if tg != nil {
+		tm, err = time.Parse("2006:01:02 15:04:05", tg.StringVal())
+		if err != nil {
+			dateStr = hashSum + noDate
+		}
 	}
 
-	return t.Format(nameTimeFmt), t
+	if tg, err := x.Get("Orientation"); err == nil {
+		orientation = int(tg.Int(0))
+	}
+
+	dateStr = tm.Format(nameTimeFmt)
+	return dateStr, tm, orientation
 }
 
 // thumb returns a shrunken version of an image.
