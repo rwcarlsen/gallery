@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"text/template"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -10,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/rwcarlsen/gallery/piclib"
@@ -260,7 +260,6 @@ func min(x, y int) int {
 // clockwise.
 func imgRotJS(deg int) string {
 	t := fmt.Sprintf("transform:rotate(%vdeg)", deg)
-	fmt.Println(t)
-    //Cross-browser
-	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;",t, t, t, t, t)
+	//Cross-browser
+	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
 }
