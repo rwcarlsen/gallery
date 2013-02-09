@@ -43,7 +43,7 @@ func main() {
 	// retrieve all pics
 	pics, err := lib.ListPhotos(50000)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 
 	for _, p := range pics {
