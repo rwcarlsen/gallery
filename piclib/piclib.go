@@ -59,6 +59,18 @@ const (
 	Version     = "0.1"
 )
 
+// rots holds mappings from exif oritnation tag to degrees clockwise needed
+var rots = map[int]int{
+	1: 0,
+	2: 0,
+	3: 180,
+	4: 180,
+	5: 90,
+	6: 90,
+	7: 270,
+	8: 270,
+}
+
 // Photo is the object-type managed by the library.  It provides methods for
 // retrieving photo-related information from the Library as well as defines the
 // photo metadata schema.
@@ -137,6 +149,13 @@ func (p *Photo) GetThumb2() (data []byte, err error) {
 	p.lib.cache.Set(p.Thumb2, cacheData(thumb2))
 	return thumb2, nil
 }
+
+// Rotation returns the number of degrees clockwise the photo must be
+// rotated to be right-side-up.
+func (p *Photo) Rotation() int {
+	return rots[p.Orientation]
+}
+
 
 // Library manages and organizes collections of Photos stored in the desired
 // backend database.  Allowed image formats are those supported by Go's

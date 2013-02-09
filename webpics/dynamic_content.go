@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"html/template"
+	"text/template"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -148,6 +148,7 @@ func (c *context) servePage(w http.ResponseWriter, pg string) {
 			Date:  p.Taken.Format("Jan 2, 2006"),
 			Index: i + start,
 			Notes: p.Tags[noteField],
+			Style: imgRotJS(p.Rotation()),
 		}
 	}
 
@@ -165,6 +166,7 @@ func (c *context) serveZoom(w http.ResponseWriter, index string) {
 		Date:  p.Taken.Format("Jan 2, 2006"),
 		Index: i,
 		Notes: p.Tags[noteField],
+		Style: imgRotJS(p.Rotation()),
 	}
 
 	if err := zoomTmpl.Execute(w, pData); err != nil {
@@ -252,4 +254,13 @@ func min(x, y int) int {
 		return x
 	}
 	return y
+}
+
+// imgRotJS returns the css3 style text required to rotate an element deg
+// clockwise.
+func imgRotJS(deg int) string {
+	t := fmt.Sprintf("transform:rotate(%vdeg)", deg)
+	fmt.Println(t)
+    //Cross-browser
+	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;",t, t, t, t, t)
 }

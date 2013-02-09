@@ -27,6 +27,7 @@ type thumbData struct {
 	Notes string
 	Date  string
 	Index int
+	Style string
 }
 
 type newFirst []*piclib.Photo
