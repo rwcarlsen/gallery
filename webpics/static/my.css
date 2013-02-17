@@ -1,13 +1,18 @@
 
-/* zoom view modal total size */
-.modal.large{
-    position: fixed;
-    margin-top: -50% !important;
-    width: 980px;
-    margin-left: -490px;
-    max-width: 90%;
-    height: 90%; 
-    max-height: 90%;
+/* stuff for the thumbnail gallery to look right */
+ul.thumb-grid {
+  list-style-type: none;
+}
+ul.thumb-grid>li {
+	float: left;
+	width: 15%;
+	margin: 0 5% 5% 0;
+}
+ul.thumb-grid>li:nth-child(5n) {
+	margin-right: 0;
+}
+ul.thumb-grid>li>a>img {
+	width: 100%;
 }
 
 #uploadermodal{
@@ -16,24 +21,36 @@
   margin-top: -30%;
 }
 
-/* for the zoom view image size */
-.zoom-img {
-  height: auto;
-  width: auto;
-  max-height: 85%
+/* zoom view modal total size */
+.modal.large{
+    position: fixed;
+    margin-top: -45% !important;
+    width: 980px;
+    margin-left: -490px;
+    max-width: 90%;
+    height: auto !important; 
+    max-height: 90%;
 }
 
 /* for the zoom view modal body size */
 .modal-body {
-  height: 85%;
+  height: auto !important;
   max-height: 85%;
+  overflow: auto;
+}
+.zoom-img{
+  transform-origin:60% 60%;
+  -ms-transform-origin:60% 60%; /* IE 9 */
+  -webkit-transform-origin:60% 60%; /* Safari and Chrome */
+  -moz-transform-origin:60% 60%; /* Firefox */
+  -o-transform-origin:60% 60%; /* Opera */
 }
 
+/* for the pate number nav buttons (make fixed-width) */
 .pga {
   padding: 0px 0px;
   margin: 0px 0px;
 }
-
 .pgp {
   height: 0.72em;
   width: 1.5em;

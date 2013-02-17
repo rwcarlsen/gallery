@@ -1,12 +1,16 @@
 
 {{define "browsepics"}}
-  <ul class="thumbnails">
+  <ul class="thumb-grid group">
   {{range $index, $photo := .}}
-    <li class="span2">
-      <a href="/dynamic/zoom/{{$photo.Index}}" data-target="#zoom{{$photo.Index}}" data-toggle="modal">
-        <img class="thumbnail img-rounded" src="/piclib/thumb1/{{$photo.Path}}" style="{{$photo.Style}}">
-      </a>
-      <p class="pagination-centered">{{$photo.Date}}</p>
+    <li>
+      <div style="{{$photo.Style}}">
+        <a href="/dynamic/zoom/{{$photo.Index}}" data-target="#zoom{{$photo.Index}}" data-toggle="modal">
+          <img class="img-rounded" src="/piclib/thumb1/{{$photo.Path}}">
+        </a>
+        <div class="caption">
+          <p class="pagination-centered">{{$photo.Date}}</p>
+        </div>
+      </div>
 
       <div id="zoom{{$photo.Index}}" class="modal zoomview large hide fade" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-header"></div>
