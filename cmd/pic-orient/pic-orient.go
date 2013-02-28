@@ -58,7 +58,7 @@ func main() {
 			}
 		}
 
-		if err := lib.UpdatePhotoUnsafe(p); err != nil {
+		if err := lib.UpdatePhoto(p); err != nil {
 			log.Print(err)
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+	"flag"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -26,14 +27,7 @@ const (
 	libName     = "rwc-piclib"
 	cacheSize   = 300 * piclib.Mb
 	picsPerPage = 20
-	addr        = "0.0.0.0:7777"
-)
-
-const (
-	MetaFile  = "meta"
-	OrigImg   = "orig"
-	Thumb1Img = "thumb1"
-	Thumb2Img = "thumb2"
+	addr        = "0.0.0.0:8888"
 )
 
 var (
@@ -46,6 +40,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	var err error
 	home, err = ioutil.ReadFile(filepath.Join(resPath, "index.html"))
 	if err != nil {
@@ -63,6 +58,7 @@ func main() {
 	r.HandleFunc("/static/{path:.*}", StaticHandler)
 	r.HandleFunc("/addphotos", AddPhotoHandler)
 	r.HandleFunc("/piclib/{imgType}/{picName}", PhotoHandler)
+	r.HandleFunc("/tagit/{tag}/{pic}", TagHandler)
 	r.HandleFunc("/dynamic/pg{pg:[0-9]*}", PageHandler)
 	r.HandleFunc("/dynamic/zoom/{index:[0-9]+}", ZoomHandler)
 	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
@@ -93,7 +89,11 @@ func amzBackend() backend.Interface {
 }
 
 func updateLib() {
+	if len(flag.Args()) != 0 {
+		//lib.Restrict(r)
+	}
 	names, err := lib.ListNames(20000)
+
 	if err != nil {
 		log.Println(err)
 	}
@@ -230,6 +230,13 @@ func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+const (
+	MetaFile  = "meta"
+	OrigImg   = "orig"
+	Thumb1Img = "thumb1"
+	Thumb2Img = "thumb2"
+)
+
 func fetchImg(imgType, picName string) ([]byte, error) {
 	p, err := lib.GetPhoto(picName)
 	if err != nil {
@@ -286,6 +293,21 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 	c.setSearchFilter(r.Form["search-query"])
 }
 
+func TagHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	p, err := lib.GetPhoto(vars["pic"])
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	p.Tags[noteField] += string("\n" + vars["tag"])
+	if err := lib.UpdatePhoto(p); err != nil {
+		log.Print(err)
+	}
+}
+
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
 	c, vars := getContext(w, r)
 	c.serveZoom(w, vars["index"])
@@ -333,3 +355,4 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 	vars := mux.Vars(r)
 	return c, vars
 }
+

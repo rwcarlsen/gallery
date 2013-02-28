@@ -142,6 +142,16 @@ function bindNavEvents() {
   });
 }
 
+function tagPut(pic) {
+  tag = $("#search-box").val()
+  if (tag == "") {
+    return
+  }
+  event.preventDefault()
+  path = "/tagit/" + tag + "/" + pic
+  $.post(path, function(){})
+}
+
 // configurable
 var maxDisplayPages = 20
 // end configurable
