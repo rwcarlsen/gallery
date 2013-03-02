@@ -362,30 +362,9 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 	return &p, nil
 }
 
-// UpdatePhoto safely updates Tags metadata in photo picName. If key already
-// exists in the photo's Tags, it's current contents will be moved to an
-// overwritten data tag before being overwritten.
-func (l *Library) UpdatePhoto(picName, key, val string) error {
-	p, err := l.GetPhoto(picName)
-	if err != nil {
-		return err
-	}
-
-	if v, ok := p.Tags[key]; ok {
-		p.Tags[oldMeta] = fmt.Sprint(p.Tags[oldMeta], revSepMarker, "key:", key, ":::", v)
-	}
-	p.Tags[key] = val
-
-	data, err := json.Marshal(p)
-	if err != nil {
-		return err
-	}
-	return l.Db.Put(path.Join(l.metaDir, p.Meta), bytes.NewReader(data))
-}
-
-// UpdatePhotoUnsafe overwrites any/all of a photo p's metadata to whatever
+// UpdatePhoto overwrites any/all of a photo p's metadata to whatever
 // new state is has been changed to.
-func (l *Library) UpdatePhotoUnsafe(p *Photo) error {
+func (l *Library) UpdatePhoto(p *Photo) error {
 	pic, err := l.GetPhoto(p.Meta)
 	if err != nil {
 		return err

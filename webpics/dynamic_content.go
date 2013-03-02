@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
@@ -16,10 +15,10 @@ import (
 )
 
 var (
-	zoomTmpl    = template.Must(template.ParseFiles(filepath.Join(resPath, "templates/zoompic.tmpl")))
-	picsTmpl    = template.Must(template.ParseFiles(filepath.Join(resPath, "templates/browsepics.tmpl")))
-	pagenavTmpl = template.Must(template.ParseFiles(filepath.Join(resPath, "templates/pagination.tmpl")))
-	timenavTmpl = template.Must(template.ParseFiles(filepath.Join(resPath, "templates/timenav.tmpl")))
+	zoomTmpl    = template.Must(template.New("zoompic").Parse(zoompic))
+	picsTmpl    = template.Must(template.New("browsepics").Parse(browsepics))
+	pagenavTmpl = template.Must(template.New("pagination").Parse(pagination))
+	timenavTmpl = template.Must(template.New("timenav").Parse(timenav))
 )
 
 type context struct {
@@ -110,11 +109,11 @@ func (c *context) saveNotes(r *http.Request, picIndex string) {
 	r.Body.Close()
 
 	p := c.photos[i]
-	if err := lib.UpdatePhoto(p.Meta, noteField, string(data)); err != nil {
+	p.Tags[noteField] = string(data)
+	if err := lib.UpdatePhoto(p); err != nil {
 		log.Print(err)
 		return
 	}
-	p.Tags[noteField] = string(data)
 }
 
 func (c *context) serveRandom(w http.ResponseWriter) {
@@ -263,3 +262,69 @@ func imgRotJS(deg int) string {
 	//Cross-browser
 	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
 }
+
+const zoompic = `
+<img class="img-rounded zoom-img" data-dismiss="modal" src="/piclib/thumb2/{{.Path}}" style="{{.Style}}">
+`
+const timenav = `
+{{range $i, $year := .}}
+<li>
+  <div class="pagination pagination-centered">
+    <ul class="dropdown-wide">
+      <li class="dropdown-page"><a class="dropdown-link" href="#" onclick="pageTo({{$year.StartPage}})">{{$year.Year}}</a></li>
+      {{range $j, $month := $year.Months}}
+      <li class="dropdown-page"><a class="dropdown-link float-left" href="#" onclick="pageTo({{$month.Page}})">{{$month.Name}}</a></li>
+      {{end}}
+    </ul>
+  </div>
+</li>
+{{end}}
+`
+const pagination = `
+<div class="pagination pagination-centered">
+<ul>
+  <li id="pgprev" ><a href="#" onclick="pagePrev()">Newer</a></li>
+	{{range $i, $pgNum := .}}
+	<li id="pg{{$pgNum}}" class="pglink"><a class="pga" href="#"
+	onclick="pageTo({{$pgNum}})"><p class="pgp">{{$pgNum}}</p></a></li>
+	{{end}}
+  <li id="pgnext"><a href="#" onclick="pageNext()">Older</a></li>
+</ul>
+</div>
+`
+const browsepics = `
+<ul class="thumb-grid group">
+{{range $index, $photo := .}}
+<li>
+  <div style="{{$photo.Style}}">
+	<a href="/dynamic/zoom/{{$photo.Index}}" data-target="#zoom{{$photo.Index}}" data-toggle="modal">
+	  <img class="img-rounded" src="/piclib/thumb1/{{$photo.Path}}" oncontextmenu="tagPut('{{$photo.Path}}')">
+	</a>
+	<div class="caption">
+	  <p class="pagination-centered">{{$photo.Date}}</p>
+	</div>
+  </div>
+
+  <div id="zoom{{$photo.Index}}" class="modal zoomview large hide fade" tabindex="-1" role="dialog" aria-hidden="true">
+	<div class="modal-header"></div>
+	<div class="modal-body pagination-centered"></div>
+	<div class="modal-footer">
+
+	  <div class="navbar">
+		  <ul class="nav">
+			<li><textarea id="pic-notes{{$photo.Index}}">{{$photo.Notes}}</textarea></li>
+			<li><div><a href="#" class="btn" style="margin-left: 10px" onclick="saveNotes({{$photo.Index}})">Save Notes</a></div></li>
+		  </ul>
+		  <ul class="nav pull-right">
+			<li><a href="#" disabled>Taken {{$photo.Date}}</a></li>
+			<li><div><a class="btn" href="/piclib/orig/{{$photo.Path}}">Original</a></div></li>
+	  </ul>
+	  </div>
+
+	</div>
+  </div>
+
+</li>
+{{end}}
+</ul>
+`
