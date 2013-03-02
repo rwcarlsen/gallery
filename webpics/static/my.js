@@ -137,7 +137,7 @@ function bindNavEvents() {
     // post instead of form submit allows callback on server response
     $.post($(this).attr('action'), $(this).serialize(), function(json) {
       updateNav()
-    }, 'json');
+    });
     return false; // prevent form submission and page reload
   });
 }
