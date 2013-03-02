@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
-	"flag"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -40,7 +39,6 @@ var (
 )
 
 func main() {
-	flag.Parse()
 	var err error
 	home, err = ioutil.ReadFile(filepath.Join(resPath, "index.html"))
 	if err != nil {
@@ -89,11 +87,7 @@ func amzBackend() backend.Interface {
 }
 
 func updateLib() {
-	if len(flag.Args()) != 0 {
-		//lib.Restrict(r)
-	}
 	names, err := lib.ListNames(20000)
-
 	if err != nil {
 		log.Println(err)
 	}
