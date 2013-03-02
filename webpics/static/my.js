@@ -143,13 +143,27 @@ function bindNavEvents() {
 }
 
 function tagPut(pic) {
+  event.preventDefault()
+
   tag = $("#search-box").val()
   if (tag == "") {
+    downloadURL("/piclib/thumb2/" + pic)
     return
   }
-  event.preventDefault()
   path = "/tagit/" + tag + "/" + pic
   $.post(path, function(){})
+}
+
+function downloadURL(url) {
+    var hiddenIFrameID = 'hiddenDownloader',
+        iframe = document.getElementById(hiddenIFrameID);
+    if (iframe === null) {
+        iframe = document.createElement('iframe');
+        iframe.id = hiddenIFrameID;
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+    }
+    iframe.src = url;
 }
 
 // configurable

@@ -27,7 +27,7 @@ const (
 	libName     = "rwc-piclib"
 	cacheSize   = 300 * piclib.Mb
 	picsPerPage = 20
-	addr        = "0.0.0.0:8888"
+	addr        = "127.0.0.1:7777"
 )
 
 var (
@@ -222,11 +222,14 @@ func AddPhotoHandler(w http.ResponseWriter, r *http.Request) {
 
 func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	data, err := fetchImg(vars["imgType"], vars["picName"])
+	data, p, err := fetchImg(vars["imgType"], vars["picName"])
 	if err != nil {
 		log.Print(err)
 		return
 	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	disp := "attachment; filename=\"" + p.Orig + ".jpg\""
+	w.Header().Set("Content-Disposition", disp)
 	w.Write(data)
 }
 
@@ -237,11 +240,11 @@ const (
 	Thumb2Img = "thumb2"
 )
 
-func fetchImg(imgType, picName string) ([]byte, error) {
+func fetchImg(imgType, picName string) ([]byte, *piclib.Photo, error) {
 	p, err := lib.GetPhoto(picName)
 	if err != nil {
 		log.Println("pName: ", picName)
-		return nil, err
+		return nil, nil, err
 	}
 
 	var data []byte
@@ -255,13 +258,13 @@ func fetchImg(imgType, picName string) ([]byte, error) {
 	case Thumb2Img:
 		data, err = p.GetThumb2()
 	default:
-		return nil, fmt.Errorf("invalid image type '%v'", imgType)
+		return nil, nil, fmt.Errorf("invalid image type '%v'", imgType)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return data, nil
+	return data, p, nil
 }
 
 ///////////////////////////////////////////////////////////

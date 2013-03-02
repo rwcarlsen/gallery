@@ -283,12 +283,12 @@ const timenav = `
 const pagination = `
 <div class="pagination pagination-centered">
 <ul>
-  <li id="pgprev" ><a href="#" onclick="pagePrev()">Prev</a></li>
+  <li id="pgprev" ><a href="#" onclick="pagePrev()">Newer</a></li>
 	{{range $i, $pgNum := .}}
 	<li id="pg{{$pgNum}}" class="pglink"><a class="pga" href="#"
 	onclick="pageTo({{$pgNum}})"><p class="pgp">{{$pgNum}}</p></a></li>
 	{{end}}
-  <li id="pgnext"><a href="#" onclick="pageNext()">Next</a></li>
+  <li id="pgnext"><a href="#" onclick="pageNext()">Older</a></li>
 </ul>
 </div>
 `
