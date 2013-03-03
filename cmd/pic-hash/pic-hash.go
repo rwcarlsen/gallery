@@ -1,8 +1,11 @@
 
-// Adds exif orientation data to all pics in an existing piclib
+// adds sha1 and size data to all pics in an existing piclib
 package main
 
 import (
+	"io"
+	"crypto/sha1"
+	"fmt"
 	"os"
 	"log"
 	"bytes"
@@ -10,7 +13,6 @@ import (
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/goexif/exif"
 )
 
 var db = flag.String("db", "", "backend containing piclib to dump to")
@@ -48,19 +50,26 @@ func main() {
 	}
 
 	for _, p := range pics {
-		p.Orientation = 1
 		if data, err := p.GetOriginal(); err != nil {
 			log.Print(err)
 		} else {
-			if x, err := exif.Decode(bytes.NewBuffer(data)); err == nil {
-				if tg, err := x.Get("Orientation"); err == nil {
-					p.Orientation = int(tg.Int(0))
-				}
-			}
+			sum, n := hash(bytes.NewReader(data))
+			p.Size = int(n)
+			p.Sha1 = sum
 		}
 
 		if err := lib.UpdatePhoto(p); err != nil {
 			log.Print(err)
 		}
 	}
+}
+
+func hash(r io.ReadSeeker) (sum string, n int64) {
+	r.Seek(0, 0)
+	h := sha1.New()
+	var err error
+	if n, err = io.Copy(h, r); err != nil {
+		return "FailedHash", n
+	}
+	return fmt.Sprintf("%X", h.Sum(nil)), n
 }
