@@ -48,6 +48,7 @@ func (c *context) setSearchFilter(query []string) {
 }
 
 func (c *context) updateFilter() {
+	c.CurrPage = "1"
 	newlist := make([]*piclib.Photo, 0, len(c.photos))
 	for _, p := range allPhotos {
 		if c.passFilter(p) {
