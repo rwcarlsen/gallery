@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+	"flag"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -26,10 +27,10 @@ const (
 	libName     = "rwc-piclib"
 	cacheSize   = 300 * piclib.Mb
 	picsPerPage = 20
-	addr        = "127.0.0.1:7777"
 )
 
 var (
+	addr        = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
 	resPath   = os.Getenv("WEBPICS")
 	lib       *piclib.Library
 	allPhotos []*piclib.Photo
@@ -39,6 +40,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	var err error
 	home, err = ioutil.ReadFile(filepath.Join(resPath, "index.html"))
 	if err != nil {
@@ -68,8 +70,8 @@ func main() {
 	r.HandleFunc("/dynamic/search-query", SearchHandler)
 
 	http.Handle("/", r)
-	log.Printf("listening on %v", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	log.Printf("listening on %v", *addr)
+	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal(err)
 	}
 }
