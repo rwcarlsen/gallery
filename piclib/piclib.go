@@ -3,8 +3,7 @@ package piclib
 
 import (
 	"bytes"
-	"crypto"
-	_ "crypto/sha1"
+	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -87,6 +86,7 @@ type Photo struct {
 	Orientation int
 	Tags        map[string]string
 	LibVersion  string
+	Sha1	    string
 	lib         *Library
 }
 
@@ -235,42 +235,18 @@ func (l *Library) ListPhotos(n int) ([]*Photo, error) {
 // unsupported file type, the data will be stored in UnsupportedDir and an
 // error returned.
 func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			base := path.Base(name)
-			nm := base[:len(base)-len(path.Ext(name))]
-			if s, ok := r.(string); ok && s == "unsupported" {
-				full := fmt.Sprintf("%v-sep-unsupported-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
-				l.put(l.unsupportedDir, full, buf)
-				err = fmt.Errorf("unsupported file type %v", name)
-			} else {
-				panic(r)
-				full := fmt.Sprintf("%v-sep-badfile-%v%v", time.Now().Format(nameTimeFmt), nm, path.Ext(name))
-				l.put(l.unsupportedDir, full, buf)
-				err = fmt.Errorf("corrupt file %v: %v", name, r)
-			}
-		}
-	}()
-
-	// construct photo name
-	ext := path.Ext(name)
-	base := path.Base(name)
-	strDate, date, orientation := exifFrom(buf)
-	fname := strDate + "-sep-" + base[:len(base)-len(ext)]
+	sum, n := hash(buf)
 
 	// create photo meta object
 	p = &Photo{
-		Meta:       fname + ".json",
-		Orig:       fname + strings.ToLower(ext),
-		Thumb1:     fname + "_thumb1.jpg",
-		Thumb2:     fname + "_thumb2.jpg",
 		Uploaded:   time.Now(),
-		Taken:      date,
-		Orientation: orientation,
 		Tags:       make(map[string]string),
 		LibVersion: Version,
+		Sha1:       sum,
+		Size:       int(n),
 		lib:        l,
 	}
+	addExifBased(buf, p, name)
 
 	if _, err := buf.Seek(0, 0); err != nil {
 		return nil, err
@@ -279,8 +255,11 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 	// decode image bytes and construct thumbnails
 	img, _, err := image.Decode(buf)
 	if err != nil {
-		fmt.Println("--------------------------------- ", err)
-		panic("unsupported")
+		// unsupported file type
+		if err := l.put(l.unsupportedDir, p.Orig, buf); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("unsupported file type %v", name)
 	}
 
 	var thumb1, thumb2 io.ReadSeeker
@@ -377,45 +356,57 @@ func (l *Library) UpdatePhoto(p *Photo) error {
 	return l.Db.Put(path.Join(l.metaDir, pic.Meta), bytes.NewReader(data))
 }
 
-// exifFrom returns a date-string from photo's EXIF data to be used as the
-// photo's database path, the parsed date, and orientation data.  In order
-// to prevent duplicates, if the EXIF data is not found, a SHA1 hash of the
-// data is used instead of a (current) date/time.
-func exifFrom(buf io.ReadSeeker) (string, time.Time, int) {
-	dateStr := ""
-	tm := time.Now()
-	orientation := 1
+func addExifBased(buf io.ReadSeeker, p *Photo, origName string) {
+	name := ""
 
-	hashSum := hash(buf)
+	date, orient := exifFrom(buf)
+
+	t, err := time.Parse("2006:01:02 15:04:05", date)
+	if err != nil {
+		t = time.Now()
+		name += p.Sha1 + noDate
+	} else {
+		name += t.Format(nameTimeFmt)
+	}
+
+	p.Orientation = orient
+	p.Taken = t
+
+	ext := strings.ToLower(path.Ext(origName))
+	base := path.Base(origName)
+	name += "-sep-" + base[:len(base)-len(ext)]
+
+	p.Meta = name + ".json"
+	p.Orig = name + ext
+	p.Thumb1 = name + "_thumb1.jpg"
+	p.Thumb2 = name + "_thumb2.jpg"
+}
+
+func exifFrom(buf io.ReadSeeker) (date string, orient int) {
+	orient = 1
 	if _, err := buf.Seek(0, 0); err != nil {
-		return hashSum + noDate, tm, orientation
+		return noDate, orient
 	}
 
 	x, err := exif.Decode(buf)
 	if err != nil {
-		return hashSum + noDate, tm, orientation
+		return noDate, orient
 	}
 
-	tg, err := x.Get("DateTimeOriginal")
+	tg, err := x.Get(exif.DateTimeOriginal)
 	if err != nil {
-		if tg, err = x.Get("DateTime"); err != nil {
-			dateStr = hashSum + noDate
+		if tg, err = x.Get(exif.DateTime); err != nil {
+			date = noDate
 		}
 	}
-
 	if tg != nil {
-		tm, err = time.Parse("2006:01:02 15:04:05", tg.StringVal())
-		if err != nil {
-			dateStr = hashSum + noDate
-		}
+		date = tg.StringVal()
 	}
 
-	if tg, err := x.Get("Orientation"); err == nil {
-		orientation = int(tg.Int(0))
+	if tg, err := x.Get(exif.Orientation); err == nil {
+		orient = int(tg.Int(0))
 	}
-
-	dateStr = tm.Format(nameTimeFmt)
-	return dateStr, tm, orientation
+	return date, orient
 }
 
 // thumb returns a shrunken version of an image.
@@ -457,18 +448,14 @@ func (cv *cacheVal) Size() int {
 	return cv.size
 }
 
-// hash returns a hex string representing the sha1 hash-sum of up to the first
-// 2 Mb of data.
-func hash(r io.ReadSeeker) string {
+// hash returns a hex string representing the sha1 hash-sum of the file and
+// the number of bytes hashed.
+func hash(r io.ReadSeeker) (sum string, n int64) {
 	r.Seek(0, 0)
-	h := crypto.SHA1.New()
-	data := make([]byte, 2*Mb)
-	n, err := r.Read(data)
-	if err != nil {
-		return "FailedHash"
+	h := sha1.New()
+	var err error
+	if n, err = io.Copy(h, r); err != nil {
+		return "FailedHash", n
 	}
-	if n, err := h.Write(data[:n]); n != len(data) || err != nil {
-		return "FailedHash"
-	}
-	return fmt.Sprintf("%X", h.Sum([]byte{}))
+	return fmt.Sprintf("%X", h.Sum(nil)), n
 }
