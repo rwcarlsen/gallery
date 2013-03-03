@@ -222,7 +222,7 @@ func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	disp := "attachment; filename=\"" + p.Orig + ".jpg\""
+	disp := "attachment; filename=\"" + p.Orig + "\""
 	w.Header().Set("Content-Disposition", disp)
 	w.Write(data)
 }
