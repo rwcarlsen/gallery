@@ -120,6 +120,7 @@ func (c *context) saveNotes(r *http.Request, picIndex string) {
 func (c *context) serveSlide(w http.ResponseWriter) {
 	if c.random == nil || len(c.random) > len(c.photos) {
 		c.random = rand.Perm(len(c.photos))
+		c.currIndex = 0
 	}
 
 	data, err := c.photos[c.random[c.currIndex]].GetOriginal()
