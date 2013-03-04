@@ -49,6 +49,7 @@ const (
 
 const (
 	noDate       = "-NoDate"
+	NameSep       = "-sep-"
 	oldMeta      = "OldMeta"
 	revSepMarker = "\n---revsepmarker---\n"
 )
@@ -374,7 +375,7 @@ func addExifBased(buf io.ReadSeeker, p *Photo, origName string) {
 
 	ext := strings.ToLower(path.Ext(origName))
 	base := path.Base(origName)
-	name += "-sep-" + base[:len(base)-len(ext)]
+	name += NameSep + base[:len(base)-len(ext)]
 
 	p.Meta = name + ".json"
 	p.Orig = name + ext

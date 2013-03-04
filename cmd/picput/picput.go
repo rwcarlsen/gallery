@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,10 +74,13 @@ func walkFn(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		log.Print(err)
 		return nil
+	} else if info.IsDir() {
+		return nil
+	} else if strings.Index(path, piclib.NameSep) != -1 {
+		return fmt.Errorf("%v is in a piclib already. Aborting.", path)
 	}
-	if !info.IsDir() {
-		addToLib(path)
-	}
+
+	addToLib(path)
 	return nil
 }
 
