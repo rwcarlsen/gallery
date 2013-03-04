@@ -324,6 +324,11 @@ const zoompic = `
 		.zoom-img {
 			max-width: 80%;
 			max-height: 80%;
+			transform-origin:60% 60%;
+			-ms-transform-origin:60% 60%; /* IE 9 */
+			-webkit-transform-origin:60% 60%; /* Safari and Chrome */
+			-moz-transform-origin:60% 60%; /* Firefox */
+			-o-transform-origin:60% 60%; /* Opera */
 		}
     </style>
 	</head>
