@@ -252,18 +252,18 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 		return nil, err
 	}
 
-	// decode image bytes and construct thumbnails
-	img, _, err := image.Decode(buf)
-	if err != nil {
-		// unsupported file type
-		if err := l.put(l.unsupportedDir, p.Orig, buf); err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf("unsupported file type %v", name)
-	}
-
 	var thumb1, thumb2 io.ReadSeeker
 	if !l.Db.Exists(path.Join(l.thumbDir, p.Thumb1)) || !l.Db.Exists(path.Join(l.thumbDir, p.Thumb2)) {
+		// decode image bytes and construct thumbnails
+		img, _, err := image.Decode(buf)
+		if err != nil {
+			// unsupported file type
+			if err := l.put(l.unsupportedDir, p.Orig, buf); err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("unsupported file type %v", name)
+		}
+
 		thumb1, err = thumb(144, 0, img)
 		if err != nil {
 			return nil, err
