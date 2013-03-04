@@ -19,11 +19,8 @@
 	</head>
 
 	<body>
-    <div class="container black">
-      <div class="row" style="text-align: center;">
-				<br><br>
+    <div style="text-align: center;">
         <a href="/"><img src="/dynamic/next-slide" name="slide"></a>
-      </div>
     </div>
 	</body>
 
@@ -35,10 +32,9 @@
       return
     }
 
-    document.images.slide.src=eval("nextImg.src")
-
     //call function "slideit()" every 4 seconds
     setTimeout("slideit()",4000)
+    document.images.slide.src=eval("nextImg.src")
   }
 
   var nextImg = new Image()
