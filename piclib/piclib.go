@@ -40,8 +40,6 @@ const (
 	MetaDir = "metadata"
 	// ThumbDir is the path to reduced-size thumbnail images.
 	ThumbDir = "thumbnails"
-	// IndexDir is the path to indexes maintained for library performance.
-	IndexDir = "index"
 	// UnsupportedDir is the path to files of unrecognized type that were added
 	// to the Library.
 	UnsupportedDir = "unsupported"
@@ -167,7 +165,6 @@ type Library struct {
 	name           string
 	imgDir         string
 	thumbDir       string
-	indDir         string
 	metaDir        string
 	unsupportedDir string
 	cache          *cache.LRUCache
@@ -183,7 +180,6 @@ func New(name string, db backend.Interface, cacheSize uint64) *Library {
 		name:           name,
 		imgDir:         path.Join(name, ImageDir),
 		thumbDir:       path.Join(name, ThumbDir),
-		indDir:         path.Join(name, IndexDir),
 		metaDir:        path.Join(name, MetaDir),
 		unsupportedDir: path.Join(name, UnsupportedDir),
 		cache:          cache.NewLRUCache(cacheSize),
@@ -429,6 +425,10 @@ type cacheVal struct {
 	p    *Photo
 }
 
+func (cv *cacheVal) Size() int {
+	return cv.size
+}
+
 // cachePic creates a cacheable value from a Photo (meta-data).
 func cachePic(p *Photo) cache.Value {
 	return &cacheVal{
@@ -445,10 +445,6 @@ func cacheData(data []byte) cache.Value {
 	}
 }
 
-func (cv *cacheVal) Size() int {
-	return cv.size
-}
-
 // hash returns a hex string representing the sha1 hash-sum of the file and
 // the number of bytes hashed.
 func hash(r io.ReadSeeker) (sum string, n int64) {
@@ -460,3 +456,4 @@ func hash(r io.ReadSeeker) (sum string, n int64) {
 	}
 	return fmt.Sprintf("%X", h.Sum(nil)), n
 }
+

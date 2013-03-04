@@ -3,10 +3,7 @@
 package main
 
 import (
-	"crypto"
-	_ "crypto/sha1"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	pth "path"
@@ -22,7 +19,6 @@ var libName = flag.String("lib", "rwc-piclib", "name of library to create/access
 var db = flag.String("db", "", "name of db")
 var dry = flag.Bool("dry", true, "just print output")
 
-var h = crypto.SHA1.New()
 var hashExists = map[string]bool{}
 var lib *piclib.Library
 
@@ -49,25 +45,10 @@ func main() {
 	}
 
 	for _, p := range pics {
-		data, err := p.GetOriginal()
-		if err != nil {
-			log.Print(err)
-			continue
+		if hashExists[p.Sha1] {
+			removeDup(p, p.Sha1)
 		}
-
-		if n, err := h.Write(data); n < len(data) || err != nil {
-			log.Printf("n=%v, len(data)=%v, err=%v", n, len(data), err)
-			h.Reset()
-			continue
-		}
-
-		hashSum := fmt.Sprintf("%X", h.Sum([]byte{}))
-		h.Reset()
-
-		if hashExists[hashSum] {
-			removeDup(p, hashSum)
-		}
-		hashExists[hashSum] = true
+		hashExists[p.Sha1] = true
 	}
 	log.Printf("%v original pics", len(pics))
 	log.Printf("%v unique pics", len(hashExists))
