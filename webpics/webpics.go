@@ -37,12 +37,18 @@ var (
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
 	home      []byte // index.html
+	slidepage []byte // slideshow.html
 )
 
 func main() {
 	flag.Parse()
 	var err error
 	home, err = ioutil.ReadFile(filepath.Join(resPath, "index.html"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	slidepage, err = ioutil.ReadFile(filepath.Join(resPath, "slideshow.html"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,6 +73,7 @@ func main() {
 	r.HandleFunc("/dynamic/stat/{stat}", StatHandler)
 	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
 	r.HandleFunc("/dynamic/slideshow", SlideshowHandler)
+	r.HandleFunc("/dynamic/next-slide", NextSlideHandler)
 	r.HandleFunc("/dynamic/search-query", SearchHandler)
 
 	http.Handle("/", r)
@@ -77,7 +84,7 @@ func main() {
 }
 
 func localBackend() backend.Interface {
-	return &localhd.Backend{Root: "/home/robert/Pictures"}
+	return &localhd.Backend{Root: "test-db"}
 }
 
 func amzBackend() backend.Interface {
@@ -281,9 +288,13 @@ func NotesHandler(w http.ResponseWriter, r *http.Request) {
 	c.saveNotes(r, vars["picIndex"])
 }
 
-func SlideshowHandler(w http.ResponseWriter, r *http.Request) {
+func NextSlideHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
-	c.serveRandom(w)
+	c.serveSlide(w)
+}
+
+func SlideshowHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write(slidepage)
 }
 
 func SearchHandler(w http.ResponseWriter, r *http.Request) {

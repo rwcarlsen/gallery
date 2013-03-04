@@ -117,10 +117,11 @@ func (c *context) saveNotes(r *http.Request, picIndex string) {
 	}
 }
 
-func (c *context) serveRandom(w http.ResponseWriter) {
-	if c.random == nil {
+func (c *context) serveSlide(w http.ResponseWriter) {
+	if c.random == nil || len(c.random) > len(c.photos) {
 		c.random = rand.Perm(len(c.photos))
 	}
+
 	data, err := c.photos[c.random[c.currIndex]].GetOriginal()
 	if err != nil {
 		log.Print(err)
