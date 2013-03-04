@@ -19,7 +19,6 @@ function pageTo(page) {
   setAttr = function() {
     $(".pglink").removeClass("active")
     $("#pg" + currPage.toString()).addClass("active")
-    bindZoomEvents()
   }
 
   $("#pic-gallery").load("/dynamic/pg" + currPage.toString(), setAttr)
@@ -97,39 +96,12 @@ function toggleDateless() {
     })
 }
 
-function saveNotes(index) {
-  ind = index.toString()
-  data = $("#pic-notes" + ind).val()
-  $.post("/dynamic/save-notes/" + ind, data)
-}
-
 function keydown() {
-  if (mode == "zoom-view") {
-    //$("#zoom" + currZoom.toString()).modal("toggle")
-    //if (event.which == keys.left) {
-    //  currZoom -= 1
-    //  $("#zoom" + currZoom.toString()).modal("toggle")
-    //} else if (event.which == keys.right) {
-    //  currZoom += 1
-    //  $("#zoom" + currZoom.toString()).modal("toggle")
-    //}
-  } else if (mode == "gallery-view") {
-    if (event.which == keys.left) {
-      pagePrev()
-    } else if (event.which == keys.right) {
-      pageNext()
-    }
+  if (event.which == keys.left) {
+    pagePrev()
+  } else if (event.which == keys.right) {
+    pageNext()
   }
-}
-
-function bindZoomEvents() {
-  $(".zoomview").on("hide", function(ev){
-    mode = "gallery-view"
-  })
-  $(".zoomview").on("show", function(ev){
-    mode = "zoom-view"
-    currZoom = parseInt(ev.target.id.substring(4))
-  })
 }
 
 function bindNavEvents() {
@@ -174,8 +146,6 @@ var startPage = 1
 var endPage = maxDisplayPages
 var numPages = 0
 var numPhotos = 0
-var currZoom = 0
-var mode = "gallery-view"
 
 // key codes
 var keys = new Object()

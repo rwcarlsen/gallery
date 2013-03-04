@@ -265,9 +265,6 @@ func imgRotJS(deg int) string {
 	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
 }
 
-const zoompic = `
-<img class="img-rounded zoom-img" data-dismiss="modal" src="/piclib/thumb2/{{.Path}}" style="{{.Style}}">
-`
 const timenav = `
 {{range $i, $year := .}}
 <li>
@@ -298,35 +295,72 @@ const browsepics = `
 <ul class="thumb-grid group">
 {{range $index, $photo := .}}
 <li>
-  <div style="{{$photo.Style}}">
-	<a href="/dynamic/zoom/{{$photo.Index}}" data-target="#zoom{{$photo.Index}}" data-toggle="modal">
-	  <img class="img-rounded" src="/piclib/thumb1/{{$photo.Path}}" oncontextmenu="tagPut('{{$photo.Path}}')">
-	</a>
-	<div class="caption">
-	  <p class="pagination-centered">{{$photo.Date}}</p>
+	<div style="{{$photo.Style}}">
+		<a href="/dynamic/zoom/{{$photo.Index}}">
+			<img class="img-rounded" src="/piclib/thumb1/{{$photo.Path}}" oncontextmenu="tagPut('{{$photo.Path}}')">
+		</a>
+		<div class="caption">
+			<p class="pagination-centered">{{$photo.Date}}</p>
+		</div>
 	</div>
-  </div>
-
-  <div id="zoom{{$photo.Index}}" class="modal zoomview large hide fade" tabindex="-1" role="dialog" aria-hidden="true">
-	<div class="modal-header"></div>
-	<div class="modal-body pagination-centered"></div>
-	<div class="modal-footer">
-
-	  <div class="navbar">
-		  <ul class="nav">
-			<li><textarea id="pic-notes{{$photo.Index}}">{{$photo.Notes}}</textarea></li>
-			<li><div><a href="#" class="btn" style="margin-left: 10px" onclick="saveNotes({{$photo.Index}})">Save Notes</a></div></li>
-		  </ul>
-		  <ul class="nav pull-right">
-			<li><a href="#" disabled>Taken {{$photo.Date}}</a></li>
-			<li><div><a class="btn" href="/piclib/orig/{{$photo.Path}}">Original</a></div></li>
-	  </ul>
-	  </div>
-
-	</div>
-  </div>
-
 </li>
 {{end}}
 </ul>
 `
+const zoompic = `
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>RWC Photos</title>
+		<link href="/static/bootstrap/css/bootstrap.css" rel="stylesheet" media="screen">
+		<link rel="shortcut icon" href="/static/favicon.ico" />
+
+    <style>
+		html, body {
+			height: 100%;
+			min-height: 100%;
+			background-color: black;
+		}
+		.zoom-img {
+			max-width: 80%;
+			max-height: 80%;
+		}
+    </style>
+	</head>
+
+	<body>
+		<div class="container black">
+			<div class="row" style="text-align: center;">
+				<br><br><br>
+				<a href="/"><img class="zoom-img" data-dismiss="modal" src="/piclib/thumb2/{{.Path}}" style="{{.Style}}"></a>
+			</div>
+		</div>
+
+		<div class="navbar navbar-fixed-bottom">
+			<div class="navbar-inner">
+				<div class="container">
+					<ul class="nav">
+						<li><textarea id="pic-notes{{.Index}}">{{.Notes}}</textarea></li>
+						<li><div><a href="#" class="btn" style="margin-left: 10px" onclick="saveNotes({{.Index}})">Save Notes</a></div></li>
+					</ul>
+					<ul class="nav pull-right">
+						<li><a href="#" disabled>Taken {{.Date}}</a></li>
+						<li><div><a class="btn" href="/piclib/orig/{{.Path}}">Original</a></div></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		<script src="http://code.jquery.com/jquery-latest.js"></script>
+		<script type="text/javascript">
+			function saveNotes(index) {
+			  ind = index.toString()
+			  data = $("#pic-notes" + ind).val()
+			  $.post("/dynamic/save-notes/" + ind, data)
+			}
+		</script>
+
+	</body>
+</html>
+`
+
