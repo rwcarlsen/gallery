@@ -11,8 +11,12 @@ ul.thumb-grid>li {
 ul.thumb-grid>li:nth-child(5n) {
 	margin-right: 0;
 }
-ul.thumb-grid>li>a>img {
-	width: 100%;
+
+.galpic {
+	width: auto;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 #uploadermodal{

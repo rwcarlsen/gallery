@@ -13,6 +13,10 @@ import (
 	"sort"
 	"time"
 	"flag"
+	"image"
+	_ "image/gif"
+	"image/jpeg"
+	_ "image/png"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -21,6 +25,7 @@ import (
 	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
 	"github.com/rwcarlsen/goamz/aws"
+	"github.com/disintegration/imaging"
 )
 
 const (
@@ -74,7 +79,6 @@ func main() {
 	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
 	r.HandleFunc("/dynamic/slideshow", SlideshowHandler)
 	r.HandleFunc("/dynamic/next-slide", NextSlideHandler)
-	r.HandleFunc("/dynamic/slide-style", SlideStyleHandler)
 	r.HandleFunc("/dynamic/search-query", SearchHandler)
 
 	http.Handle("/", r)
@@ -264,11 +268,33 @@ func fetchImg(imgType, picName string) ([]byte, *piclib.Photo, error) {
 	default:
 		return nil, nil, fmt.Errorf("invalid image type '%v'", imgType)
 	}
-
 	if err != nil {
 		return nil, nil, err
+	} else if p.Rotation() == 0 {
+		return data, p, nil
 	}
-	return data, p, nil
+
+	orig, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return data, p, nil
+	}
+
+	dst := orig
+	switch p.Rotation() {
+	case 90:
+		dst = imaging.Rotate90(orig)
+	case 180:
+		dst = imaging.Rotate90(orig)
+	case 270:
+		dst = imaging.Rotate90(orig)
+	}
+
+	var buf bytes.Buffer
+
+	if err := jpeg.Encode(&buf, dst, nil); err != nil {
+		return data, p, nil
+	}
+	return buf.Bytes(), p, nil
 }
 
 ///////////////////////////////////////////////////////////
@@ -292,13 +318,6 @@ func NotesHandler(w http.ResponseWriter, r *http.Request) {
 func NextSlideHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
 	c.serveSlide(w)
-}
-
-func SlideStyleHandler(w http.ResponseWriter, r *http.Request) {
-	c, _ := getContext(w, r)
-	c.initRand()
-	p := c.photos[c.random[c.randIndex]]
-	w.Write([]byte(imgRotJS(p.Rotation())))
 }
 
 func SlideshowHandler(w http.ResponseWriter, r *http.Request) {

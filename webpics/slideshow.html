@@ -14,11 +14,6 @@
       img {
         max-width: 100%;
         max-height: 100%;
-        transform-origin:60% 60%;
-        -ms-transform-origin:60% 60%; /* IE 9 */
-        -webkit-transform-origin:60% 60%; /* Safari and Chrome */
-        -moz-transform-origin:60% 60%; /* Firefox */
-        -o-transform-origin:60% 60%; /* Opera */
       }
       .hidden {
         display: none;
@@ -53,10 +48,7 @@
 
     oldPic.toggleClass('hidden')
     newPic.toggleClass('hidden')
-    $.post('/dynamic/slide-style', function(data) {
-      oldPic.attr('style', data)
-      oldPic.attr('src', '/dynamic/next-slide')
-    })
+    oldPic.attr('src', '/dynamic/next-slide')
 
     //call function "slideit()" in 5.2 seconds
     setTimeout("slideit()", 5200)
@@ -64,9 +56,6 @@
 
   var vis1 = false
   $('#pic2').hide()
-
-  var nextImg = new Image()
-  nextImg.src = "/dynamic/next-slide"
   slideit()
 </script>
 

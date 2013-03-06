@@ -154,7 +154,6 @@ func (c *context) servePage(w http.ResponseWriter, pg string) {
 			Date:  p.Taken.Format("Jan 2, 2006"),
 			Index: i + start,
 			Notes: p.Tags[noteField],
-			Style: imgRotJS(p.Rotation()),
 		}
 	}
 
@@ -172,7 +171,6 @@ func (c *context) serveZoom(w http.ResponseWriter, index string) {
 		Date:  p.Taken.Format("Jan 2, 2006"),
 		Index: i,
 		Notes: p.Tags[noteField],
-		Style: imgRotJS(p.Rotation()),
 	}
 
 	if err := zoomTmpl.Execute(w, pData); err != nil {
@@ -262,14 +260,6 @@ func min(x, y int) int {
 	return y
 }
 
-// imgRotJS returns the css3 style text required to rotate an element deg
-// clockwise.
-func imgRotJS(deg int) string {
-	t := fmt.Sprintf("transform:rotate(%vdeg)", deg)
-	//Cross-browser
-	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
-}
-
 const timenav = `
 {{range $i, $year := .}}
 <li>
@@ -300,9 +290,9 @@ const browsepics = `
 <ul class="thumb-grid group">
 {{range $index, $photo := .}}
 <li>
-	<div style="{{$photo.Style}}">
+	<div>
 		<a href="/dynamic/zoom/{{$photo.Index}}">
-			<img class="img-rounded" src="/piclib/thumb1/{{$photo.Path}}" oncontextmenu="tagPut('{{$photo.Path}}')">
+			<img class="img-rounded galpic" src="/piclib/thumb1/{{$photo.Path}}" oncontextmenu="tagPut('{{$photo.Path}}')">
 		</a>
 		<div class="caption">
 			<p class="pagination-centered">{{$photo.Date}}</p>
@@ -342,7 +332,7 @@ const zoompic = `
 		<div class="container black">
 			<div class="row" style="text-align: center;">
 				<br><br><br>
-				<a href="/"><img class="zoom-img" data-dismiss="modal" src="/piclib/thumb2/{{.Path}}" style="{{.Style}}"></a>
+				<a href="/"><img class="zoom-img" data-dismiss="modal" src="/piclib/thumb2/{{.Path}}"></a>
 			</div>
 		</div>
 

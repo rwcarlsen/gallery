@@ -155,7 +155,6 @@ func (p *Photo) Rotation() int {
 	return rots[p.Orientation]
 }
 
-
 // Library manages and organizes collections of Photos stored in the desired
 // backend database.  Allowed image formats are those supported by Go's
 // standard library image package.  Unrecognized formats of any kind (even
