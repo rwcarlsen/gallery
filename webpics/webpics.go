@@ -74,6 +74,7 @@ func main() {
 	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
 	r.HandleFunc("/dynamic/slideshow", SlideshowHandler)
 	r.HandleFunc("/dynamic/next-slide", NextSlideHandler)
+	r.HandleFunc("/dynamic/slide-style", SlideStyleHandler)
 	r.HandleFunc("/dynamic/search-query", SearchHandler)
 
 	http.Handle("/", r)
@@ -291,6 +292,13 @@ func NotesHandler(w http.ResponseWriter, r *http.Request) {
 func NextSlideHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
 	c.serveSlide(w)
+}
+
+func SlideStyleHandler(w http.ResponseWriter, r *http.Request) {
+	c, _ := getContext(w, r)
+	c.initRand()
+	p := c.photos[c.random[c.randIndex]]
+	w.Write([]byte(imgRotJS(p.Rotation())))
 }
 
 func SlideshowHandler(w http.ResponseWriter, r *http.Request) {

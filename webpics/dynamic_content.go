@@ -25,9 +25,9 @@ type context struct {
 	photos       []*piclib.Photo
 	HideDateless bool
 	CurrPage     string
-	random       []int
-	currIndex    int
 	query        []string
+	random       []int
+	randIndex    int
 }
 
 const noteField = "LibNotes"
@@ -117,20 +117,24 @@ func (c *context) saveNotes(r *http.Request, picIndex string) {
 	}
 }
 
-func (c *context) serveSlide(w http.ResponseWriter) {
+func (c *context) initRand() {
 	if c.random == nil || len(c.random) > len(c.photos) {
 		c.random = rand.Perm(len(c.photos))
-		c.currIndex = 0
+		c.randIndex = 0
 	}
+}
+func (c *context) serveSlide(w http.ResponseWriter) {
+	c.initRand()
 
-	data, err := c.photos[c.random[c.currIndex]].GetOriginal()
+	p := c.photos[c.random[c.randIndex]]
+	data, err := p.GetOriginal()
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	w.Write(data)
-	if c.currIndex++; c.currIndex == len(c.photos) {
-		c.currIndex = 0
+	if c.randIndex++; c.randIndex == len(c.photos) {
+		c.randIndex = 0
 	}
 }
 
