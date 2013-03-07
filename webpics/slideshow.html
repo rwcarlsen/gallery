@@ -37,22 +37,23 @@
       return
     }
 
-    if (vis1) {
-      oldPic = $('#pic1')
-      newPic = $('#pic2')
-    } else {
-      oldPic = $('#pic2')
-      newPic = $('#pic1')
-    }
-    vis1 = !vis1
-
-    oldPic.toggleClass('hidden')
-    newPic.toggleClass('hidden')
-    oldPic.attr('src', '/dynamic/next-slide')
+    $('#pic1').toggleClass('hidden')
+    $('#pic2').toggleClass('hidden')
 
     //call function "slideit()" in 5.2 seconds
     setTimeout("slideit()", 5200)
+
+
+    if (vis1) {
+      document.images.slide1.src=eval("nextImg.src")
+    } else {
+      document.images.slide2.src=eval("nextImg.src")
+    }
+    vis1 = !vis1
   }
+
+  var nextImg = new Image()
+  nextImg.src = "/dynamic/next-slide"
 
   var vis1 = false
   $('#pic2').hide()
