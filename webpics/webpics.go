@@ -32,7 +32,7 @@ const (
 
 var addr = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
 var filter = flag.String("filter", "", "only serve pics with notes that match filter text")
-var disableEdit = flag.Bool("noedit", false, "don't allow editing of pic notes")
+var disableEdit = flag.Bool("noedit", false, "don't allow editing of anything in library")
 
 var (
 	resPath   = os.Getenv("WEBPICS")
@@ -165,6 +165,8 @@ func AddPhotoHandler(w http.ResponseWriter, r *http.Request) {
 	mr, err := r.MultipartReader()
 	if err != nil {
 		log.Println(err)
+		return
+	} else if *disableEdit {
 		return
 	}
 
