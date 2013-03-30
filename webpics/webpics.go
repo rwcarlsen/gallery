@@ -325,6 +325,9 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func TagHandler(w http.ResponseWriter, r *http.Request) {
+	if *disableEdit {
+		return
+	}
 	vars := mux.Vars(r)
 
 	p, err := lib.GetPhoto(vars["pic"])
