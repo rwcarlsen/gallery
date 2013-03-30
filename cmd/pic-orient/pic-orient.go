@@ -1,12 +1,11 @@
-
 // Adds exif orientation data to all pics in an existing piclib
 package main
 
 import (
-	"os"
-	"log"
 	"bytes"
 	"flag"
+	"log"
+	"os"
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"

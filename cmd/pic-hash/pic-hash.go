@@ -1,15 +1,14 @@
-
 // adds sha1 and size data to all pics in an existing piclib
 package main
 
 import (
-	"io"
-	"crypto/sha1"
-	"fmt"
-	"os"
-	"log"
 	"bytes"
+	"crypto/sha1"
 	"flag"
+	"fmt"
+	"io"
+	"log"
+	"os"
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"

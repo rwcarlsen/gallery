@@ -214,4 +214,3 @@ type pretty string
 func (p pretty) Error() string {
 	return string(p)
 }
-

@@ -1,11 +1,10 @@
-
 package logging
 
 import (
-	"fmt"
-	"time"
-	"io"
 	"crypto/sha1"
+	"fmt"
+	"io"
+	"time"
 
 	"github.com/rwcarlsen/gallery/backend"
 )
@@ -13,12 +12,12 @@ import (
 type Operation string
 
 const (
-	OpPut Operation = "PUT"
-	OpGet = "GET"
-	OpName = "NAME"
-	OpExists = "EXISTS"
-	OpDel = "DEL"
-	OpListN = "LIST"
+	OpPut    Operation = "PUT"
+	OpGet              = "GET"
+	OpName             = "NAME"
+	OpExists           = "EXISTS"
+	OpDel              = "DEL"
+	OpListN            = "LIST"
 )
 
 const logFmt = "[%v] %v %v"
@@ -28,7 +27,7 @@ const logFmt = "[%v] %v %v"
 // and saves them to the underlying database.  All operations are forwarded
 // unmodified to the wrapped backend.
 type Backend struct {
-	Back backend.Interface
+	Back   backend.Interface
 	Stream io.Writer
 }
 
@@ -36,7 +35,7 @@ type Backend struct {
 // activity log to w.
 func New(b backend.Interface, w io.Writer) backend.Interface {
 	return &Backend{
-		Back: b,
+		Back:   b,
 		Stream: w,
 	}
 }
@@ -108,4 +107,3 @@ func (b *Backend) ListN(path string, n int) ([]string, error) {
 	}
 	return items, err
 }
-

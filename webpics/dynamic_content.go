@@ -27,7 +27,7 @@ type context struct {
 	photos       []*piclib.Photo
 	HideDateless bool
 	CurrPage     string
-	filter		 string // manual, forced pic pre-filter - trumps other filters
+	filter       string // manual, forced pic pre-filter - trumps other filters
 	query        []string
 	random       []int
 	randIndex    int
@@ -36,9 +36,9 @@ type context struct {
 func newContext(pics []*piclib.Photo, filter string) *context {
 	c := &context{
 		allPhotos: pics,
-		photos: pics,
-		CurrPage: "1",
-		filter: filter,
+		photos:    pics,
+		CurrPage:  "1",
+		filter:    filter,
 	}
 	c.updateFilter() // initialize pic list
 	return c
@@ -379,4 +379,3 @@ const zoompic = `
 	</body>
 </html>
 `
-

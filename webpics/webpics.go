@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,9 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"time"
-	"flag"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -31,13 +31,13 @@ const (
 )
 
 var (
-	addr = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
-	filter = flag.String("filter", "", "only serve pics with notes that match filter text")
+	addr        = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
+	filter      = flag.String("filter", "", "only serve pics with notes that match filter text")
 	disableEdit = flag.Bool("noedit", false, "don't allow editing of anything in library")
 )
 
 var (
-	logger	  = log.New(os.Stdout, "", log.Ldate | log.Ltime | log.Lshortfile)
+	logger    = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 	resPath   = os.Getenv("WEBPICS")
 	lib       *piclib.Library
 	allPhotos []*piclib.Photo
@@ -402,4 +402,3 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 	vars := mux.Vars(r)
 	return c, vars
 }
-
