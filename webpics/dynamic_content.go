@@ -21,16 +21,29 @@ var (
 	timenavTmpl = template.Must(template.New("timenav").Parse(timenav))
 )
 
+const noteField = "LibNotes"
+
 type context struct {
+	allPhotos    []*piclib.Photo
 	photos       []*piclib.Photo
 	HideDateless bool
 	CurrPage     string
+	filter		 string // manual, forced pic pre-filter - trumps other filters
 	query        []string
 	random       []int
 	randIndex    int
 }
 
-const noteField = "LibNotes"
+func newContext(pics []*piclib.Photo, filter string) *context {
+	c := &context{
+		allPhotos: pics,
+		photos: pics,
+		CurrPage: "1",
+		filter: filter,
+	}
+	c.updateFilter() // initialize pic list
+	return c
+}
 
 func (c *context) toggleDateless() {
 	c.HideDateless = !c.HideDateless
@@ -50,7 +63,7 @@ func (c *context) setSearchFilter(query []string) {
 func (c *context) updateFilter() {
 	c.CurrPage = "1"
 	newlist := make([]*piclib.Photo, 0, len(c.photos))
-	for _, p := range allPhotos {
+	for _, p := range c.allPhotos {
 		if c.passFilter(p) {
 			newlist = append(newlist, p)
 		}
@@ -61,8 +74,9 @@ func (c *context) updateFilter() {
 func (c *context) passFilter(p *piclib.Photo) bool {
 	if c.HideDateless && !p.LegitTaken() {
 		return false
-	}
-	if !c.passesSearch(p) {
+	} else if !c.passesSearch(p) {
+		return false
+	} else if !strings.Contains(p.Tags[noteField], c.filter) {
 		return false
 	}
 	return true

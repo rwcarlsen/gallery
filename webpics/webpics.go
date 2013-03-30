@@ -13,6 +13,7 @@ import (
 	"sort"
 	"time"
 	"flag"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -29,8 +30,10 @@ const (
 	picsPerPage = 20
 )
 
+var addr = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
+var filter = flag.String("filter", "", "only serve pics with notes that match filter text")
+
 var (
-	addr        = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
 	resPath   = os.Getenv("WEBPICS")
 	lib       *piclib.Library
 	allPhotos []*piclib.Photo
@@ -230,7 +233,11 @@ func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		return
+	} else if !strings.Contains(p.Tags[noteField], *filter) {
+		log.Printf("Unauthorized access attempt to pic %v", vars["picName"])
+		return
 	}
+
 	w.Header().Set("Content-Type", "application/octet-stream")
 	disp := "attachment; filename=\"" + p.Orig + "\""
 	w.Header().Set("Content-Disposition", disp)
@@ -361,11 +368,11 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 	if !ok {
 		v = time.Now().String()
 		s.Values["context-id"] = v
-		contexts[v.(string)] = &context{photos: allPhotos, CurrPage: "1"}
+		contexts[v.(string)] = newContext(allPhotos, *filter)
 	} else if _, ok := contexts[v.(string)]; !ok {
 		v = time.Now().String()
 		s.Values["context-id"] = v
-		contexts[v.(string)] = &context{photos: allPhotos, CurrPage: "1"}
+		contexts[v.(string)] = newContext(allPhotos, *filter)
 	}
 	s.Save(r, w)
 	c := contexts[v.(string)]
