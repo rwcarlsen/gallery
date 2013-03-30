@@ -73,14 +73,6 @@ func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 		return err
 	}
 
-	tmp := make([]byte, 1024)
-	if _, err := r.Read(tmp); err != nil {
-		return err
-	}
-	if _, err := r.Seek(0, 0); err != nil {
-		return err
-	}
-
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
