@@ -32,6 +32,7 @@ const (
 
 var addr = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
 var filter = flag.String("filter", "", "only serve pics with notes that match filter text")
+var disableEdit = flag.Bool("noedit", false, "don't allow editing of pic notes")
 
 var (
 	resPath   = os.Getenv("WEBPICS")
@@ -292,6 +293,9 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func NotesHandler(w http.ResponseWriter, r *http.Request) {
+	if *disableEdit {
+		return
+	}
 	c, vars := getContext(w, r)
 	c.saveNotes(r, vars["picIndex"])
 }
