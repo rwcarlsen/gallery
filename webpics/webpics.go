@@ -30,11 +30,14 @@ const (
 	picsPerPage = 20
 )
 
-var addr = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
-var filter = flag.String("filter", "", "only serve pics with notes that match filter text")
-var disableEdit = flag.Bool("noedit", false, "don't allow editing of anything in library")
+var (
+	addr = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
+	filter = flag.String("filter", "", "only serve pics with notes that match filter text")
+	disableEdit = flag.Bool("noedit", false, "don't allow editing of anything in library")
+)
 
 var (
+	logger	  = log.New(os.Stdout, "", log.Ldate | log.Ltime | log.Lshortfile)
 	resPath   = os.Getenv("WEBPICS")
 	lib       *piclib.Library
 	allPhotos []*piclib.Photo
@@ -49,15 +52,13 @@ func main() {
 	var err error
 	home, err = ioutil.ReadFile(filepath.Join(resPath, "index.html"))
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	slidepage, err = ioutil.ReadFile(filepath.Join(resPath, "slideshow.html"))
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
-
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	db := localBackend()
 	lib = piclib.New(libName, db, cacheSize)
@@ -82,9 +83,9 @@ func main() {
 	r.HandleFunc("/dynamic/search-query", SearchHandler)
 
 	http.Handle("/", r)
-	log.Printf("listening on %v", *addr)
+	logger.Printf("listening on %v", *addr)
 	if err := http.ListenAndServe(*addr, nil); err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 }
 
@@ -95,7 +96,7 @@ func localBackend() backend.Interface {
 func amzBackend() backend.Interface {
 	auth, err := aws.EnvAuth()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	return amz.New(auth, aws.USEast)
 }
@@ -103,7 +104,7 @@ func amzBackend() backend.Interface {
 func updateLib() {
 	names, err := lib.ListNames(20000)
 	if err != nil {
-		log.Println(err)
+		logger.Println(err)
 	}
 
 	nWorkers := 10
@@ -117,7 +118,7 @@ func updateLib() {
 				case name := <-nameCh:
 					p, err := lib.GetPhoto(name)
 					if err != nil {
-						log.Printf("err on %v: %v", name, err)
+						logger.Printf("err on %v: %v", name, err)
 					}
 					picCh <- p
 				case <-done:
@@ -164,7 +165,7 @@ func StaticHandler(w http.ResponseWriter, r *http.Request) {
 func AddPhotoHandler(w http.ResponseWriter, r *http.Request) {
 	mr, err := r.MultipartReader()
 	if err != nil {
-		log.Println(err)
+		logger.Println(err)
 		return
 	} else if *disableEdit {
 		return
@@ -196,7 +197,7 @@ func AddPhotoHandler(w http.ResponseWriter, r *http.Request) {
 		go func(data []byte, nm string, respMeta map[string]interface{}) {
 			var p *piclib.Photo
 			if err != nil {
-				log.Println(err)
+				logger.Println(err)
 				respMeta["error"] = err.Error()
 			} else {
 				p, err = lib.AddPhoto(nm, bytes.NewReader(data))
@@ -220,7 +221,7 @@ func AddPhotoHandler(w http.ResponseWriter, r *http.Request) {
 			allPhotos = append(allPhotos, p)
 		}
 	}
-	log.Println("done uploading")
+	logger.Println("done uploading")
 
 	sort.Sort(newFirst(allPhotos))
 	data, _ := json.Marshal(resps)
@@ -234,10 +235,10 @@ func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	data, p, err := fetchImg(vars["imgType"], vars["picName"])
 	if err != nil {
-		log.Print(err)
+		logger.Print(err)
 		return
 	} else if !strings.Contains(p.Tags[noteField], *filter) {
-		log.Printf("Unauthorized access attempt to pic %v", vars["picName"])
+		logger.Printf("Unauthorized access attempt to pic %v", vars["picName"])
 		return
 	}
 
@@ -257,7 +258,7 @@ const (
 func fetchImg(imgType, picName string) ([]byte, *piclib.Photo, error) {
 	p, err := lib.GetPhoto(picName)
 	if err != nil {
-		log.Println("pName: ", picName)
+		logger.Println("pName: ", picName)
 		return nil, nil, err
 	}
 
@@ -290,7 +291,9 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 	if pg := vars["pg"]; len(pg) == 0 {
 		fmt.Fprint(w, c.CurrPage)
 	} else {
-		c.servePage(w, pg)
+		if err := c.servePage(w, pg); err != nil {
+			logger.Print(err)
+		}
 	}
 }
 
@@ -299,12 +302,16 @@ func NotesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c, vars := getContext(w, r)
-	c.saveNotes(r, vars["picIndex"])
+	if err := c.saveNotes(r, vars["picIndex"]); err != nil {
+		logger.Print(err)
+	}
 }
 
 func NextSlideHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
-	c.serveSlide(w)
+	if err := c.serveSlide(w); err != nil {
+		logger.Print(err)
+	}
 }
 
 func SlideStyleHandler(w http.ResponseWriter, r *http.Request) {
@@ -332,24 +339,28 @@ func TagHandler(w http.ResponseWriter, r *http.Request) {
 
 	p, err := lib.GetPhoto(vars["pic"])
 	if err != nil {
-		log.Print(err)
+		logger.Print(err)
 		return
 	}
 
 	p.Tags[noteField] += string("\n" + vars["tag"])
 	if err := lib.UpdatePhoto(p); err != nil {
-		log.Print(err)
+		logger.Print(err)
 	}
 }
 
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
 	c, vars := getContext(w, r)
-	c.serveZoom(w, vars["index"])
+	if err := c.serveZoom(w, vars["index"]); err != nil {
+		logger.Print(err)
+	}
 }
 
 func PageNavHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
-	c.servePageNav(w)
+	if err := c.servePageNav(w); err != nil {
+		logger.Print(err)
+	}
 }
 
 func StatHandler(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +370,9 @@ func StatHandler(w http.ResponseWriter, r *http.Request) {
 
 func TimeNavHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
-	c.serveTimeNav(w)
+	if err := c.serveTimeNav(w); err != nil {
+		logger.Print(err)
+	}
 }
 
 func DateToggleHandler(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -109,26 +108,24 @@ func (c *context) addPics(pics []*piclib.Photo) {
 	c.photos = append(newlist, c.photos...)
 }
 
-func (c *context) saveNotes(r *http.Request, picIndex string) {
+func (c *context) saveNotes(r *http.Request, picIndex string) error {
 	i, err := strconv.Atoi(picIndex)
 	if err != nil {
-		log.Println("invalid gallery page view request")
-		return
+		return fmt.Errorf("invalid save notes request: %v", r.URL)
 	}
 
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Print(err)
-		return
+		return err
 	}
 	r.Body.Close()
 
 	p := c.photos[i]
 	p.Tags[noteField] = string(data)
 	if err := lib.UpdatePhoto(p); err != nil {
-		log.Print(err)
-		return
+		return err
 	}
+	return nil
 }
 
 func (c *context) initRand() {
@@ -137,26 +134,26 @@ func (c *context) initRand() {
 		c.randIndex = 0
 	}
 }
-func (c *context) serveSlide(w http.ResponseWriter) {
+
+func (c *context) serveSlide(w http.ResponseWriter) error {
 	c.initRand()
 
 	p := c.photos[c.random[c.randIndex]]
 	data, err := p.GetOriginal()
 	if err != nil {
-		log.Print(err)
-		return
+		return err
 	}
 	w.Write(data)
 	if c.randIndex++; c.randIndex == len(c.photos) {
 		c.randIndex = 0
 	}
+	return nil
 }
 
-func (c *context) servePage(w http.ResponseWriter, pg string) {
+func (c *context) servePage(w http.ResponseWriter, pg string) error {
 	pgNum, err := strconv.Atoi(pg)
 	if err != nil {
-		log.Println("invalid gallery page view request")
-		return
+		return fmt.Errorf("invalid gallery page view request: %v", pg)
 	}
 
 	start := picsPerPage * (pgNum - 1)
@@ -173,12 +170,13 @@ func (c *context) servePage(w http.ResponseWriter, pg string) {
 	}
 
 	if err = picsTmpl.Execute(w, list); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	c.CurrPage = pg
+	return nil
 }
 
-func (c *context) serveZoom(w http.ResponseWriter, index string) {
+func (c *context) serveZoom(w http.ResponseWriter, index string) error {
 	i, _ := strconv.Atoi(index)
 	p := c.photos[i]
 	pData := &thumbData{
@@ -189,21 +187,17 @@ func (c *context) serveZoom(w http.ResponseWriter, index string) {
 		Style: imgRotJS(p.Rotation()),
 	}
 
-	if err := zoomTmpl.Execute(w, pData); err != nil {
-		log.Fatal(err)
-	}
+	return zoomTmpl.Execute(w, pData)
 }
 
-func (c *context) servePageNav(w http.ResponseWriter) {
+func (c *context) servePageNav(w http.ResponseWriter) error {
 	n := len(c.photos)/picsPerPage + 1
 	pages := make([]int, n)
 	for i := range pages {
 		pages[i] = i + 1
 	}
 
-	if err := pagenavTmpl.Execute(w, pages); err != nil {
-		log.Fatal(err)
-	}
+	return pagenavTmpl.Execute(w, pages)
 }
 
 func (c *context) serveStat(w http.ResponseWriter, stat string) {
@@ -220,9 +214,9 @@ func (c *context) serveStat(w http.ResponseWriter, stat string) {
 	}
 }
 
-func (c *context) serveTimeNav(w http.ResponseWriter) {
+func (c *context) serveTimeNav(w http.ResponseWriter) error {
 	if len(c.photos) == 0 {
-		return
+		return nil
 	}
 	years := make([]*year, 0)
 	maxYear := c.photos[0].Taken.Year()
@@ -250,9 +244,7 @@ func (c *context) serveTimeNav(w http.ResponseWriter) {
 	yr.StartPage = yr.Months[0].Page
 	years = append(years, yr)
 
-	if err := timenavTmpl.Execute(w, years); err != nil {
-		log.Fatal(err)
-	}
+	return timenavTmpl.Execute(w, years)
 }
 
 func (c *context) pageOf(start int, t time.Time) (page, last int) {
