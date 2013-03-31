@@ -7,17 +7,20 @@ import (
 	"log"
 	"os"
 	pth "path"
+	"path/filepath"
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
+const confFile = ".backends"
 const cacheSize = 300 * piclib.Mb
-const confPath = "/home/robert/.backends"
 
-var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
-var db = flag.String("db", "", "name of db")
-var dry = flag.Bool("dry", true, "just print output")
+var (
+	libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
+	db      = flag.String("db", "", "name of db")
+	dry     = flag.Bool("dry", true, "just print output")
+)
 
 var hashExists = map[string]bool{}
 var lib *piclib.Library
@@ -25,6 +28,7 @@ var lib *piclib.Library
 func main() {
 	flag.Parse()
 
+	confPath := filepath.Join(os.Getenv("HOME"), confFile)
 	f, err := os.Open(confPath)
 	if err != nil {
 		log.Fatal(err)

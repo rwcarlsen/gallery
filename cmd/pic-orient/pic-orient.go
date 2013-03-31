@@ -6,6 +6,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -15,8 +16,8 @@ import (
 var db = flag.String("db", "", "backend containing piclib to dump to")
 var libName = flag.String("lib", "testlib", "name of library to create/access")
 
+const confFile = ".backends"
 const cacheSize = 300 * piclib.Mb
-const confPath = "/home/robert/.backends"
 
 var lib *piclib.Library
 
@@ -24,6 +25,7 @@ func main() {
 	flag.Parse()
 
 	// create library from backend spec
+	confPath := filepath.Join(os.Getenv("HOME"), confFile)
 	f, err := os.Open(confPath)
 	if err != nil {
 		log.Fatal(err)
