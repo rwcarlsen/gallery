@@ -18,10 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/rwcarlsen/gallery/backend"
-	"github.com/rwcarlsen/gallery/backend/amz"
-	"github.com/rwcarlsen/gallery/backend/localhd"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/goamz/aws"
 )
 
 const (
@@ -32,6 +29,7 @@ const (
 
 var (
 	addr        = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
+	db          = flag.String("db", "hd", "name of backend  described in conf file")
 	filter      = flag.String("filter", "", "only serve pics with notes that match filter text")
 	disableEdit = flag.Bool("noedit", false, "don't allow editing of anything in library")
 )
@@ -39,6 +37,7 @@ var (
 var (
 	logger    = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 	resPath   = os.Getenv("WEBPICS")
+	confPath  = filepath.Join(os.Getenv("HOME"), ".backends")
 	lib       *piclib.Library
 	allPhotos []*piclib.Photo
 	contexts  = make(map[string]*context)
@@ -60,8 +59,8 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	db := localBackend()
-	lib = piclib.New(libName, db, cacheSize)
+	back := makeBackend()
+	lib = piclib.New(libName, back, cacheSize)
 	updateLib()
 
 	r := mux.NewRouter()
@@ -89,16 +88,21 @@ func main() {
 	}
 }
 
-func localBackend() backend.Interface {
-	return &localhd.Backend{Root: "/home/robert/Pictures"}
-}
-
-func amzBackend() backend.Interface {
-	auth, err := aws.EnvAuth()
+func makeBackend() backend.Interface {
+	f, err := os.Open(confPath)
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
-	return amz.New(auth, aws.USEast)
+	set, err := backend.LoadSpecList(f)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	back, err := set.Make(*db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return back
 }
 
 func updateLib() {
