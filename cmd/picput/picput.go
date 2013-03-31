@@ -16,7 +16,8 @@ import (
 var db = flag.String("db", "", "backend containing piclib to dump to")
 var libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
 
-const confFile = ".backends"
+var confPath = filepath.Join(os.Getenv("HOME"), ".backends")
+
 const cacheSize = 300 * piclib.Mb
 
 var validFmt = map[string]bool{
@@ -42,7 +43,6 @@ var lib *piclib.Library
 func main() {
 	flag.Parse()
 
-	confPath := filepath.Join(os.Getenv("HOME"), confFile)
 	f, err := os.Open(confPath)
 	if err != nil {
 		log.Fatal(err)

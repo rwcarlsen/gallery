@@ -13,7 +13,8 @@ import (
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-const confFile = ".backends"
+var confPath = filepath.Join(os.Getenv("HOME"), ".backends")
+
 const cacheSize = 300 * piclib.Mb
 
 var (
@@ -28,7 +29,6 @@ var lib *piclib.Library
 func main() {
 	flag.Parse()
 
-	confPath := filepath.Join(os.Getenv("HOME"), confFile)
 	f, err := os.Open(confPath)
 	if err != nil {
 		log.Fatal(err)
