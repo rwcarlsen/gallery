@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"io"
@@ -20,28 +21,26 @@ const (
 	OpListN            = "LIST"
 )
 
-const logFmt = "[%v] %v %v"
+const logFmt = "[%v] %v %v\n"
 
 // Backend implements github.com/rwcarlsen/gallery/backend.Interface
 // wrapping a concrete backend implementation and logs operations performed
-// and saves them to the underlying database.  All operations are forwarded
+// and saves them to the underlying backend.  All operations are forwarded
 // unmodified to the wrapped backend.
 type Backend struct {
-	Back   backend.Interface
-	Stream io.Writer
+	// The backend to log operations for.
+	Back backend.Interface
+	// Path specifies the path+filename for the logfile
+	Path   string
+	cached []byte
 }
 
-// New creates and returns a new logging backend wrapping b writing its
-// activity log to w.
-func New(b backend.Interface, w io.Writer) backend.Interface {
-	return &Backend{
-		Back:   b,
-		Stream: w,
+func (b *Backend) logf(op Operation, msg string) error {
+	if b.cached == nil {
+		b.cached, _ = b.Back.Get(b.Path)
 	}
-}
-
-func (b *Backend) logf(op Operation, msg string) {
-	fmt.Fprintf(b.Stream, logFmt, time.Now(), op, msg)
+	b.cached = append(b.cached, []byte(fmt.Sprintf(logFmt, time.Now(), op, msg))...)
+	return b.Back.Put(b.Path, bytes.NewReader(b.cached))
 }
 
 func (b *Backend) Name() string {
