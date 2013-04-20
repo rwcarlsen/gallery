@@ -22,6 +22,7 @@ const (
 )
 
 const logFmt = "[%v] %v %v\n"
+const DefaultPath = ".dblog"
 
 // Backend implements github.com/rwcarlsen/gallery/backend.Interface
 // wrapping a concrete backend implementation and logs operations performed
@@ -36,6 +37,9 @@ type Backend struct {
 }
 
 func (b *Backend) logf(op Operation, msg string) error {
+	if b.Path == "" {
+		b.Path = DefaultPath
+	}
 	if b.cached == nil {
 		b.cached, _ = b.Back.Get(b.Path)
 	}
