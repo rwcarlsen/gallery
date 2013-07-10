@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rwcarlsen/gallery/backend"
+	"github.com/rwcarlsen/gallery/backend/logging"
 	cache "github.com/rwcarlsen/gocache"
 )
 
@@ -71,7 +72,7 @@ type Library struct {
 // backend.
 func New(name string, db backend.Interface, cacheSize uint64) *Library {
 	return &Library{
-		Db:             db,
+		Db:             &logging.Backend{Back: db, Path: path.Join(name, ".dblog")},
 		name:           name,
 		imgDir:         path.Join(name, ImageDir),
 		thumbDir:       path.Join(name, ThumbDir),

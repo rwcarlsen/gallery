@@ -21,7 +21,7 @@ const (
 	OpListN            = "LIST"
 )
 
-const logFmt = "[%v] %v %v\n"
+const logFmt = "%v [%v] %v\n"
 const DefaultPath = ".dblog"
 
 // Backend implements github.com/rwcarlsen/gallery/backend.Interface
@@ -33,15 +33,19 @@ type Backend struct {
 	Back backend.Interface
 	// Path specifies the path+filename for the logfile
 	Path   string
-	cached []byte
 }
 
-func (b *Backend) logf(op Operation, msg string) error {
+func (b *Backend) logf(op Operation, msg string) (err error) {
 	if b.Path == "" {
 		b.Path = DefaultPath
 	}
+
+	if Open
 	if b.cached == nil {
-		b.cached, _ = b.Back.Get(b.Path)
+		b.cached, err = b.Back.Get(b.Path)
+		if err != nil {
+			return err
+		}
 	}
 	b.cached = append(b.cached, []byte(fmt.Sprintf(logFmt, time.Now(), op, msg))...)
 	return b.Back.Put(b.Path, bytes.NewReader(b.cached))
