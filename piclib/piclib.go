@@ -4,7 +4,6 @@ package piclib
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -106,21 +105,18 @@ func (l *Library) ListPhotos(n int) ([]*Photo, error) {
 		return nil, err
 	}
 
-	errString := ""
+	var err2 error
 	pics := make([]*Photo, 0, len(names))
 	for _, name := range names {
 		p, err := l.GetPhoto(name)
 		if err != nil {
-			errString += "\n" + err.Error()
+			err2 = fmt.Errorf("error reading metadata file '%v'", name)
 			continue
 		}
 		pics = append(pics, p)
 	}
 
-	if len(errString) > 0 {
-		return pics, errors.New("piclib: " + errString)
-	}
-	return pics, nil
+	return pics, err2
 }
 
 // AddPhoto addes a photo to the library where name is the photo's original

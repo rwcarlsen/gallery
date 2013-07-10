@@ -119,7 +119,7 @@ function tagPut(pic) {
 
   tag = $("#search-box").val()
   if (tag == "") {
-    downloadURL("/piclib/thumb2/" + pic)
+    downloadURL("/piclib/orig/" + pic)
     return
   }
   path = "/tagit/" + tag + "/" + pic

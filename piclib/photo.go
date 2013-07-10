@@ -1,7 +1,9 @@
 package piclib
 
 import (
+	"crypto/sha1"
 	"errors"
+	"fmt"
 	"path"
 	"strings"
 	"time"
@@ -57,6 +59,27 @@ func (p *Photo) GetOriginal() (data []byte, err error) {
 		return nil, err
 	}
 	return orig, nil
+}
+
+// Verify returns true if the photo's file data is completely intact and
+// uncorrupted.  An error is returned if the photo's data could not be
+// retrieved.
+func (p *Photo) Verify() (bool, error) {
+	if p.lib == nil {
+		return false, errors.New("piclib: photo not initialized with library")
+	}
+
+	data, err := p.GetOriginal()
+	if err != nil {
+		return false, err
+	}
+
+	h := sha1.New()
+	h.Write(data)
+	if fmt.Sprintf("%X", h.Sum(nil)) != p.Sha1 {
+		return false, nil
+	}
+	return true, nil
 }
 
 // GetThumb1 retrieves the data for the photo's large thumbnail image (suitable
