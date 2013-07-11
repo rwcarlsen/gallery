@@ -18,20 +18,36 @@ import (
 // Interface specifies the methods that each backend database
 // implementation must satisfy.
 type Interface interface {
-	// Name returns the name of the backend (not Type).
-	Name() string
-	// Exists returns whether or not a file/object exists at path.
-	Exists(path string) bool
 	// Get returns the file/object at path.
-	Get(path string) ([]byte, error)
+	Get(key string) (io.ReadCloser, error)
 	// Put writes all data in r to path - overwriting any existing
 	// file/object.
-	Put(path string, r io.ReadSeeker) error
+	Put(key string, r io.Reader) (n int64, err error)
 	// Del removes the file/object at path.
-	Del(path string) error
+	Del(key string) error
 	// ListN returns a list of n full, absolute paths for every file/object
 	// recursively under path.
-	ListN(path string, n int) ([]string, error)
+	Enumerate(prefix string, limit int) ([]string, error)
+	Close() error
+}
+
+func Exists(db Interface, key string) bool {
+	rc, err := db.Get(key)
+	if err == nil {
+		rc.Close()
+		return true
+	}
+	return false
+}
+
+func GetBytes(db Interface, key string) ([]byte, error) {
+	rc, err := db.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	return ioutil.ReadAll(rc)
 }
 
 // Params is used to hold/specify details required for the initialization
@@ -83,11 +99,7 @@ func localBack(params Params) (Interface, error) {
 	if !ok {
 		return nil, errors.New("backend: missing 'Root' from Params")
 	}
-	name, ok := params["Name"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Name' from Params")
-	}
-	return &localhd.Backend{Root: root, DbName: name}, nil
+	return &localhd.Backend{Root: root}, nil
 }
 
 func amzBack(params Params) (Interface, error) {
@@ -99,14 +111,9 @@ func amzBack(params Params) (Interface, error) {
 	if !ok {
 		return nil, errors.New("backend: missing 'SecretAccessKey' from Params")
 	}
-	name, ok := params["Name"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Name' from Params")
-	}
 
 	auth := aws.Auth{AccessKey: keyid, SecretKey: key}
 	db := amz.New(auth, aws.USEast)
-	db.DbName = name
 	return db, nil
 }
 

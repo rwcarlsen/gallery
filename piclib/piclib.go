@@ -9,7 +9,9 @@ import (
 	_ "image/gif"
 	_ "image/png"
 	"io"
+	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/rwcarlsen/gallery/backend"
@@ -52,6 +54,8 @@ const (
 	Version     = "0.1"
 )
 
+var logPath = filepath.Join(os.Getenv("HOME"), ".piclib.log")
+
 // Library manages and organizes collections of Photos stored in the desired
 // backend database.  Allowed image formats are those supported by Go's
 // standard library image package.  Unrecognized formats of any kind (even
@@ -70,23 +74,33 @@ type Library struct {
 // under name in the backend db.  A cache of previously retrieved data is
 // maintained up to cacheSize bytes in order to reduce pressure on the db
 // backend.
-func New(name string, db backend.Interface, cacheSize uint64) *Library {
+func Open(name string, db backend.Interface, cacheSize uint64) (*Library, error) {
+	logdb, err := logging.New(db, logPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Library{
-		Db:             &logging.Backend{Back: db, Path: path.Join(name, ".dblog")},
+		Db:             logdb,
 		name:           name,
 		imgDir:         path.Join(name, ImageDir),
 		thumbDir:       path.Join(name, ThumbDir),
 		metaDir:        path.Join(name, MetaDir),
 		unsupportedDir: path.Join(name, UnsupportedDir),
 		cache:          cache.NewLRUCache(cacheSize),
-	}
+	}, nil
+}
+
+// Closes the library and its underlying backend database.
+func (l *Library) Close() error {
+	return l.Db.Close()
 }
 
 // ListNames the names of up to n library Photos in no particular order. The
 // names can be used with the GetPhoto method for retrieving actual photo
 // objects.
 func (l *Library) ListNames(n int) ([]string, error) {
-	names, err := l.Db.ListN(l.metaDir, n)
+	names, err := l.Db.Enumerate(l.metaDir, n)
 	if err != nil {
 		return nil, err
 	}
@@ -143,12 +157,12 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 	}
 
 	var thumb1, thumb2 io.ReadSeeker
-	if !l.Db.Exists(path.Join(l.thumbDir, p.Thumb1)) || !l.Db.Exists(path.Join(l.thumbDir, p.Thumb2)) {
+	if !backend.Exists(l.Db, path.Join(l.thumbDir, p.Thumb1)) || !backend.Exists(l.Db, path.Join(l.thumbDir, p.Thumb2)) {
 		// decode image bytes and construct thumbnails
 		img, _, err := image.Decode(buf)
 		if err != nil {
 			// unsupported file type
-			if err := l.put(l.unsupportedDir, p.Orig, buf); err != nil {
+			if _, err := l.put(l.unsupportedDir, p.Orig, buf); err != nil {
 				return nil, err
 			}
 			return nil, fmt.Errorf("unsupported file type %v", name)
@@ -171,23 +185,23 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 	if err != nil {
 		err2 = err
 	}
-	err = l.put(l.metaDir, p.Meta, bytes.NewReader(meta))
+	_, err = l.put(l.metaDir, p.Meta, bytes.NewReader(meta))
 	if err != nil {
 		err2 = err
 	}
 
 	// add photo image/thumb files to db
-	err = l.put(l.imgDir, p.Orig, buf)
+	_, err = l.put(l.imgDir, p.Orig, buf)
 	if err != nil {
 		err2 = err
 	}
 
-	err = l.put(l.thumbDir, p.Thumb1, thumb1)
+	_, err = l.put(l.thumbDir, p.Thumb1, thumb1)
 	if err != nil {
 		err2 = err
 	}
 
-	err = l.put(l.thumbDir, p.Thumb2, thumb2)
+	_, err = l.put(l.thumbDir, p.Thumb2, thumb2)
 	if err != nil {
 		err2 = err
 	}
@@ -197,14 +211,14 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 
 // put does a safe Put into the backend database. It ensures buf read is
 // seeked to the beginning and the path/name combo does not exist.
-func (l *Library) put(pth, name string, buf io.ReadSeeker) (err error) {
+func (l *Library) put(pth, name string, buf io.ReadSeeker) (n int64, err error) {
 	fullPath := path.Join(pth, name)
-	if l.Db.Exists(fullPath) {
-		return fmt.Errorf("piclib: photo file already exists %v", fullPath)
+	if backend.Exists(l.Db, fullPath) {
+		return 0, fmt.Errorf("piclib: photo file already exists %v", fullPath)
 	}
 
 	if _, err := buf.Seek(0, 0); err != nil {
-		return err
+		return 0, err
 	}
 	return l.Db.Put(fullPath, buf)
 }
@@ -215,7 +229,7 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 		return v.(*cacheVal).p, nil
 	}
 
-	data, err := l.Db.Get(path.Join(l.metaDir, name))
+	data, err := backend.GetBytes(l.Db, path.Join(l.metaDir, name))
 	if err != nil {
 		return nil, err
 	}
@@ -243,5 +257,6 @@ func (l *Library) UpdatePhoto(p *Photo) error {
 	if err != nil {
 		return err
 	}
-	return l.Db.Put(path.Join(l.metaDir, pic.Meta), bytes.NewReader(data))
+	_, err = l.Db.Put(path.Join(l.metaDir, pic.Meta), bytes.NewReader(data))
+	return err
 }

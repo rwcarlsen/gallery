@@ -30,15 +30,23 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer f.Close()
+
 	set, err := backend.LoadSpecList(f)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	back, err := set.Make(*db)
 	if err != nil {
 		log.Fatal(err)
 	}
-	lib = piclib.New(*libName, back, cacheSize)
+
+	lib, err = piclib.Open(*libName, back, cacheSize)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer lib.Close()
 
 	pics, err := lib.ListPhotos(50000)
 	if err != nil {

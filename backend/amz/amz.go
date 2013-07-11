@@ -1,6 +1,7 @@
 package amz
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -22,7 +23,6 @@ const (
 type Backend struct {
 	s3link  *s3.S3
 	buckets map[string]*s3.Bucket
-	DbName  string
 }
 
 func New(auth aws.Auth, region aws.Region) *Backend {
@@ -30,10 +30,6 @@ func New(auth aws.Auth, region aws.Region) *Backend {
 		s3link:  s3.New(auth, region),
 		buckets: make(map[string]*s3.Bucket),
 	}
-}
-
-func (lb *Backend) Name() string {
-	return lb.DbName
 }
 
 func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err error) {
@@ -67,15 +63,17 @@ func (lb *Backend) makeBucket(path string) (bucket *s3.Bucket, bpath string, err
 	return b, bpath, nil
 }
 
-func (lb *Backend) Put(path string, r io.ReadSeeker) error {
-	bucket, bpath, err := lb.makeBucket(path)
+func (lb *Backend) Close() error { return nil }
+
+func (lb *Backend) Put(key string, r io.Reader) (n int64, err error) {
+	bucket, bpath, err := lb.makeBucket(key)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	contType := http.DetectContentType(data)
@@ -83,15 +81,15 @@ func (lb *Backend) Put(path string, r io.ReadSeeker) error {
 	for i := 0; i < maxRetries; i++ {
 		if err = bucket.Put(bpath, data, contType, s3.Private); err == nil {
 			log.Printf("PutObject %v/%v", bucket.Name, bpath)
-			break
+			return int64(len(data)), nil
 		}
 		log.Printf("PutObject failed %v/%v: %v", bucket.Name, bpath, err)
 	}
-	return err
+	return 0, err
 }
 
-func (lb *Backend) Del(path string) error {
-	bucket, bpath, err := lb.makeBucket(path)
+func (lb *Backend) Del(key string) error {
+	bucket, bpath, err := lb.makeBucket(key)
 	if err != nil {
 		return err
 	}
@@ -106,25 +104,10 @@ func (lb *Backend) Del(path string) error {
 	return err
 }
 
-func (lb *Backend) Exists(path string) bool {
-	bucket, bpath, err := lb.makeBucket(path)
-	if err != nil {
-		return false
-	}
-
-	log.Printf("GetObject %v/%v", bucket.Name, bpath)
-	_, err = bucket.Get(bpath)
-	if err != nil {
-		return false
-	}
-
-	return true
-}
-
-// ListN returns up to n items contained in the bucket/prefix defined by path.
+// Enumerate returns up to limit items contained in the bucket/prefix defined by path.
 // There is no limit to n.  When n=0 up to 1000 results are returned.
-func (lb *Backend) ListN(path string, n int) ([]string, error) {
-	bucket, bpath, err := lb.makeBucket(path)
+func (lb *Backend) Enumerate(prefix string, limit int) ([]string, error) {
+	bucket, bpath, err := lb.makeBucket(prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +116,7 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 	marker := ""
 	failed := 0
 	for failed < maxRetries {
-		result, err := bucket.List(bpath, "", marker, n)
+		result, err := bucket.List(bpath, "", marker, limit)
 		log.Printf("ListBucket %v/%v", bucket.Name, bpath)
 		if err != nil {
 			log.Printf("ListBucket failed %v/%v", bucket.Name, bpath)
@@ -146,7 +129,7 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 			names = append(names, pth.Join(bucket.Name, k.Key))
 		}
 
-		if result.IsTruncated && len(result.Contents) < n {
+		if result.IsTruncated && len(result.Contents) < limit {
 			marker = k.Key
 		} else {
 			break
@@ -159,8 +142,8 @@ func (lb *Backend) ListN(path string, n int) ([]string, error) {
 	return names, nil
 }
 
-func (lb *Backend) Get(path string) ([]byte, error) {
-	bucket, bpath, err := lb.makeBucket(path)
+func (lb *Backend) Get(key string) (io.ReadCloser, error) {
+	bucket, bpath, err := lb.makeBucket(key)
 	if err != nil {
 		return nil, err
 	}
@@ -169,9 +152,12 @@ func (lb *Backend) Get(path string) ([]byte, error) {
 	for i := 0; i < maxRetries; i++ {
 		if data, err = bucket.Get(bpath); err == nil {
 			log.Printf("GetObject %v/%v", bucket.Name, bpath)
-			return data, err
+			return readCloser{bytes.NewBuffer(data)}, nil
 		}
 		log.Printf("GetObject failed %v/%v", bucket.Name, bpath)
 	}
 	return nil, err
 }
+
+type readCloser struct {*bytes.Buffer}
+func (_ readCloser) Close() error {return nil}

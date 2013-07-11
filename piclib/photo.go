@@ -7,6 +7,8 @@ import (
 	"path"
 	"strings"
 	"time"
+	
+	"github.com/rwcarlsen/gallery/backend"
 )
 
 // rots holds mappings from exif oritnation tag to degrees clockwise needed
@@ -54,11 +56,47 @@ func (p *Photo) GetOriginal() (data []byte, err error) {
 	if p.lib == nil {
 		return nil, errors.New("piclib: photo not initialized with library")
 	}
-	orig, err := p.lib.Db.Get(path.Join(p.lib.imgDir, p.Orig))
+	return backend.GetBytes(p.lib.Db, path.Join(p.lib.imgDir, p.Orig))
+}
+
+// GetThumb1 retrieves the data for the photo's large thumbnail image (suitable
+// for online sharing).  Returns an error if the photo was neither created nor
+// retrieved from a Library. Other retrieval errors may be returned.
+func (p *Photo) GetThumb1() (data []byte, err error) {
+	if p.lib == nil {
+		return nil, errors.New("piclib: photo not initialized with library")
+	}
+	if v, ok := p.lib.cache.Get(p.Thumb1); ok {
+		return v.(*cacheVal).data, nil
+	}
+
+	thumb1, err := backend.GetBytes(p.lib.Db, path.Join(p.lib.thumbDir, p.Thumb1))
 	if err != nil {
 		return nil, err
 	}
-	return orig, nil
+
+	p.lib.cache.Set(p.Thumb1, cacheData(thumb1))
+	return thumb1, nil
+}
+
+// GetThumb2 retrieves the data for the photo's small thumbnail image (suitable
+// for grid-views, etc).  Returns an error if the photo was neither created nor
+// retrieved from a Library. Other retrieval errors may be returned.
+func (p *Photo) GetThumb2() (data []byte, err error) {
+	if p.lib == nil {
+		return nil, errors.New("piclib: photo not initialized with library")
+	}
+	if v, ok := p.lib.cache.Get(p.Thumb2); ok {
+		return v.(*cacheVal).data, nil
+	}
+
+	thumb2, err := backend.GetBytes(p.lib.Db, path.Join(p.lib.thumbDir, p.Thumb2))
+	if err != nil {
+		return nil, err
+	}
+
+	p.lib.cache.Set(p.Thumb2, cacheData(thumb2))
+	return thumb2, nil
 }
 
 // Verify returns true if the photo's file data is completely intact and
@@ -80,46 +118,6 @@ func (p *Photo) Verify() (bool, error) {
 		return false, nil
 	}
 	return true, nil
-}
-
-// GetThumb1 retrieves the data for the photo's large thumbnail image (suitable
-// for online sharing).  Returns an error if the photo was neither created nor
-// retrieved from a Library. Other retrieval errors may be returned.
-func (p *Photo) GetThumb1() (data []byte, err error) {
-	if p.lib == nil {
-		return nil, errors.New("piclib: photo not initialized with library")
-	}
-	if v, ok := p.lib.cache.Get(p.Thumb1); ok {
-		return v.(*cacheVal).data, nil
-	}
-
-	thumb1, err := p.lib.Db.Get(path.Join(p.lib.thumbDir, p.Thumb1))
-	if err != nil {
-		return nil, err
-	}
-
-	p.lib.cache.Set(p.Thumb1, cacheData(thumb1))
-	return thumb1, nil
-}
-
-// GetThumb2 retrieves the data for the photo's small thumbnail image (suitable
-// for grid-views, etc).  Returns an error if the photo was neither created nor
-// retrieved from a Library. Other retrieval errors may be returned.
-func (p *Photo) GetThumb2() (data []byte, err error) {
-	if p.lib == nil {
-		return nil, errors.New("piclib: photo not initialized with library")
-	}
-	if v, ok := p.lib.cache.Get(p.Thumb2); ok {
-		return v.(*cacheVal).data, nil
-	}
-
-	thumb2, err := p.lib.Db.Get(path.Join(p.lib.thumbDir, p.Thumb2))
-	if err != nil {
-		return nil, err
-	}
-
-	p.lib.cache.Set(p.Thumb2, cacheData(thumb2))
-	return thumb2, nil
 }
 
 // Rotation returns the number of degrees clockwise the photo must be

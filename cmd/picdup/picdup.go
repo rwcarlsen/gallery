@@ -30,18 +30,18 @@ func main() {
 	flag.Parse()
 
 	f, err := os.Open(confPath)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fatal(err)
+	defer f.Close()
+
 	set, err := backend.LoadSpecList(f)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fatal(err)
+
 	back, err := set.Make(*db)
-	if err != nil {
-		log.Fatal(err)
-	}
-	lib = piclib.New(*libName, back, cacheSize)
+	fatal(err)
+
+	lib, err = piclib.Open(*libName, back, cacheSize)
+	fatal(err)
+	defer lib.Close()
 
 	pics, err := lib.ListPhotos(50000)
 	if err != nil {
@@ -85,5 +85,11 @@ func removeDup(p *piclib.Photo, sum string) {
 	path = pth.Join(*libName, piclib.MetaDir, p.Meta)
 	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
+	}
+}
+
+func fatal(err error) {
+	if err != nil {
+		log.Fatal(err)
 	}
 }

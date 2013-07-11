@@ -60,7 +60,12 @@ func main() {
 	}
 
 	back := makeBackend()
-	lib = piclib.New(libName, back, cacheSize)
+	lib, err = piclib.Open(libName, back, cacheSize)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer lib.Close()
+
 	updateLib()
 
 	r := mux.NewRouter()
