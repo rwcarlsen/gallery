@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	libName     = "rwc-piclib"
 	cacheSize   = 300 * piclib.Mb
 	picsPerPage = 20
 )
@@ -35,6 +34,7 @@ var (
 )
 
 var (
+	libName   = piclib.LibName()
 	logger    = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 	resPath   = os.Getenv("WEBPICS")
 	confPath  = filepath.Join(os.Getenv("HOME"), ".backends")
@@ -45,6 +45,12 @@ var (
 	home      []byte // index.html
 	slidepage []byte // slideshow.html
 )
+
+func init() {
+	if resPath == "" {
+		resPath = filepath.Join(os.Getenv("GOPATH"), "src/github.com/rwcarlsen/gallery/webpics")
+	}
+}
 
 func main() {
 	flag.Parse()
@@ -60,7 +66,12 @@ func main() {
 	}
 
 	back := makeBackend()
-	lib = piclib.New(libName, back, cacheSize)
+	lib, err = piclib.Open(libName, back, cacheSize)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer lib.Close()
+
 	updateLib()
 
 	r := mux.NewRouter()
@@ -89,16 +100,7 @@ func main() {
 }
 
 func makeBackend() backend.Interface {
-	f, err := os.Open(confPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	set, err := backend.LoadSpecList(f)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	back, err := set.Make(*db)
+	back, err := backend.LoadDefault()
 	if err != nil {
 		log.Fatal(err)
 	}

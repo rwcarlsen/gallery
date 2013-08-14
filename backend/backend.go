@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -18,20 +19,36 @@ import (
 // Interface specifies the methods that each backend database
 // implementation must satisfy.
 type Interface interface {
-	// Name returns the name of the backend (not Type).
-	Name() string
-	// Exists returns whether or not a file/object exists at path.
-	Exists(path string) bool
 	// Get returns the file/object at path.
-	Get(path string) ([]byte, error)
+	Get(key string) (io.ReadCloser, error)
 	// Put writes all data in r to path - overwriting any existing
 	// file/object.
-	Put(path string, r io.ReadSeeker) error
+	Put(key string, r io.Reader) (n int64, err error)
 	// Del removes the file/object at path.
-	Del(path string) error
+	Del(key string) error
 	// ListN returns a list of n full, absolute paths for every file/object
 	// recursively under path.
-	ListN(path string, n int) ([]string, error)
+	Enumerate(prefix string, limit int) ([]string, error)
+	Close() error
+}
+
+func Exists(db Interface, key string) bool {
+	rc, err := db.Get(key)
+	if err == nil {
+		rc.Close()
+		return true
+	}
+	return false
+}
+
+func GetBytes(db Interface, key string) ([]byte, error) {
+	rc, err := db.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	return ioutil.ReadAll(rc)
 }
 
 // Params is used to hold/specify details required for the initialization
@@ -83,11 +100,7 @@ func localBack(params Params) (Interface, error) {
 	if !ok {
 		return nil, errors.New("backend: missing 'Root' from Params")
 	}
-	name, ok := params["Name"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Name' from Params")
-	}
-	return &localhd.Backend{Root: root, DbName: name}, nil
+	return &localhd.Backend{Root: root}, nil
 }
 
 func amzBack(params Params) (Interface, error) {
@@ -99,19 +112,21 @@ func amzBack(params Params) (Interface, error) {
 	if !ok {
 		return nil, errors.New("backend: missing 'SecretAccessKey' from Params")
 	}
-	name, ok := params["Name"]
-	if !ok {
-		return nil, errors.New("backend: missing 'Name' from Params")
-	}
 
 	auth := aws.Auth{AccessKey: keyid, SecretKey: key}
 	db := amz.New(auth, aws.USEast)
-	db.DbName = name
 	return db, nil
 }
 
 func dummyBack(params Params) (Interface, error) {
 	return nil, nil
+}
+
+var defaultSpec = &Spec{
+	Btype: Local,
+	Bparams: Params{
+		"Root": os.Getenv("HOME"),
+	},
 }
 
 // Spec is a convenient way to group a specific set of config Params for a
@@ -127,30 +142,42 @@ func (s *Spec) Make() (Interface, error) {
 	return Make(s.Btype, s.Bparams)
 }
 
-// SpecList is a convenient way to manage multiple backend Spec's together
-// as a group (e.g. saving to/from a config file, etc).
-type SpecList struct {
-	list map[string]*Spec
+// LoadDefault creates a spec-configured backend by loading a Spec from the
+// location specified by the env var BACKEND_SPEC if defined. Otherwise it
+// uses a default Spec.
+func LoadDefault() (Interface, error) {
+	dir := os.Getenv("BACKEND_SPEC")
+	if dir == "" {
+		return defaultSpec.Make()
+	}
+
+	f, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return LoadSpec(f)
 }
 
-// LoadSpecList creates a SpecList by decoding JSON data from r.
-func LoadSpecList(r io.Reader) (*SpecList, error) {
+// LoadSpec creates a spec-configured backend by decoding JSON data from r.
+func LoadSpec(r io.Reader) (Interface, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
-	list := map[string]*Spec{}
-	if err := json.Unmarshal(data, &list); err != nil {
+	s := &Spec{}
+	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, prettySyntaxError(string(data), err)
 	}
 
-	return &SpecList{list: list}, nil
+	return s.Make()
 }
 
-// Save writes the SpecList in JSON format to w.
-func (s *SpecList) Save(w io.Writer) error {
-	data, err := json.Marshal(s.list)
+// Save writes the Spec in JSON format to w.
+func (s *Spec) Save(w io.Writer) error {
+	data, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
@@ -159,35 +186,6 @@ func (s *SpecList) Save(w io.Writer) error {
 		return err
 	}
 	return nil
-}
-
-// Get retrieves the named Spec. It returns nil if name is not found.
-func (s *SpecList) Get(name string) *Spec {
-	s.init()
-	return s.list[name]
-}
-
-// Set adds a new Spec with the given name to the specset. If name is
-// already in the specset, it is overwritten.
-func (s *SpecList) Set(name string, spec *Spec) {
-	s.init()
-	s.list[name] = spec
-}
-
-// Make creates a backend from Spec identified by name. This is a shortcut
-// for ".Get(...).Make(...)".
-func (s *SpecList) Make(name string) (Interface, error) {
-	s.init()
-	if spec, ok := s.list[name]; ok {
-		return spec.Make()
-	}
-	return nil, fmt.Errorf("backend: name '%v' not found in SpecList", name)
-}
-
-func (s *SpecList) init() {
-	if s.list == nil {
-		s.list = make(map[string]*Spec)
-	}
 }
 
 func prettySyntaxError(js string, err error) error {

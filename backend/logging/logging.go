@@ -1,10 +1,9 @@
 package logging
 
 import (
-	"bytes"
-	"crypto/sha1"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/rwcarlsen/gallery/backend"
@@ -13,16 +12,14 @@ import (
 type Operation string
 
 const (
-	OpPut    Operation = "PUT"
-	OpGet              = "GET"
-	OpName             = "NAME"
-	OpExists           = "EXISTS"
-	OpDel              = "DEL"
+	OpPut    Operation = "PUT "
+	OpGet              = "GET "
+	OpDel              = "DEL "
 	OpListN            = "LIST"
 )
 
-const logFmt = "[%v] %v %v\n"
-const DefaultPath = ".dblog"
+const logFmt = "%v [%v] %v\n"
+const timeFmt = "2006/01/02 15:04:05"
 
 // Backend implements github.com/rwcarlsen/gallery/backend.Interface
 // wrapping a concrete backend implementation and logs operations performed
@@ -30,83 +27,70 @@ const DefaultPath = ".dblog"
 // unmodified to the wrapped backend.
 type Backend struct {
 	// The backend to log operations for.
-	Back backend.Interface
-	// Path specifies the path+filename for the logfile
-	Path   string
-	cached []byte
+	Back    backend.Interface
+	logfile *os.File
+}
+
+func New(db backend.Interface, path string) (*Backend, error) {
+	f, err := os.OpenFile(path, os.O_WRONLY, 0644)
+	if err != nil {
+		f, err = os.Create(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+	f.Seek(0, 2)
+	return &Backend{db, f}, nil
 }
 
 func (b *Backend) logf(op Operation, msg string) error {
-	if b.Path == "" {
-		b.Path = DefaultPath
-	}
-	if b.cached == nil {
-		b.cached, _ = b.Back.Get(b.Path)
-	}
-	b.cached = append(b.cached, []byte(fmt.Sprintf(logFmt, time.Now(), op, msg))...)
-	return b.Back.Put(b.Path, bytes.NewReader(b.cached))
-}
-
-func (b *Backend) Name() string {
-	name := b.Back.Name()
-	b.logf(OpName, name)
-	return name
-}
-
-func (b *Backend) Exists(path string) bool {
-	exists := b.Back.Exists(path)
-	b.logf(OpExists, fmt.Sprintf("%v (%v)", path, exists))
-	return exists
-}
-
-func (b *Backend) Get(path string) ([]byte, error) {
-	data, err := b.Back.Get(path)
-
+	_, err := b.logfile.WriteString(fmt.Sprintf(logFmt, time.Now().Format(timeFmt), op, msg))
 	if err != nil {
-		h := sha1.New()
-		h.Write(data)
-		sum := h.Sum(nil)
-		b.logf(OpGet, fmt.Sprintf("%v (%v bytes, sha1:%x)", path, len(data), sum))
-	} else {
-		b.logf(OpGet, fmt.Sprintf("%v (ERROR: %v)", path, err.Error()))
-	}
-
-	return data, err
-}
-
-func (b *Backend) Put(path string, r io.ReadSeeker) error {
-	if err := b.Back.Put(path, r); err != nil {
-		b.logf(OpPut, fmt.Sprintf("%v (ERROR: %v)", path, err.Error()))
 		return err
-	}
-
-	h := sha1.New()
-	if _, err := r.Seek(0, 0); err != nil {
-		b.logf(OpPut, fmt.Sprintf("%v (? bytes, sha1:?)", path))
-	} else if n, err := io.Copy(h, r); err != nil {
-		b.logf(OpPut, fmt.Sprintf("%v (? bytes, sha1:?)", path))
-	} else {
-		b.logf(OpPut, fmt.Sprintf("%v (%v bytes, sha1:%v)", path, n, h.Sum(nil)))
-	}
-	return nil
-}
-
-func (b *Backend) Del(path string) error {
-	err := b.Back.Del(path)
-	if err != nil {
-		b.logf(OpDel, fmt.Sprintf("%v (ERROR: %v)", path, err.Error()))
-	} else {
-		b.logf(OpDel, fmt.Sprintf("%v", path))
 	}
 	return err
 }
 
-func (b *Backend) ListN(path string, n int) ([]string, error) {
-	items, err := b.Back.ListN(path, n)
+func (lb *Backend) Close() error {
+	return lb.logfile.Close()
+}
+
+func (b *Backend) Get(key string) (io.ReadCloser, error) {
+	rc, err := b.Back.Get(key)
 	if err != nil {
-		b.logf(OpListN, fmt.Sprintf("%v (ask=%v, got=%v, ERROR: %v)", path, n, len(items), err.Error()))
+		b.logf(OpGet, fmt.Sprintf("%v (ERROR: %v)", key, err))
 	} else {
-		b.logf(OpListN, fmt.Sprintf("%v (ask=%v, got=%v)", path, n, len(items)))
+		b.logf(OpGet, key)
+	}
+	return rc, err
+}
+
+func (b *Backend) Put(key string, r io.Reader) (n int64, err error) {
+	n, err = b.Back.Put(key, r)
+	if err != nil {
+		b.logf(OpPut, fmt.Sprintf("%v (ERROR: %v)", key, err))
+	} else {
+		b.logf(OpPut, fmt.Sprintf("%v (%v bytes)", key, n))
+	}
+	return n, err
+}
+
+func (b *Backend) Del(key string) error {
+	err := b.Back.Del(key)
+	if err != nil {
+		b.logf(OpDel, fmt.Sprintf("%v (ERROR: %v)", key, err))
+	} else {
+		b.logf(OpDel, fmt.Sprintf("%v", key))
+	}
+	return err
+}
+
+func (b *Backend) Enumerate(prefix string, limit int) ([]string, error) {
+	items, err := b.Back.Enumerate(prefix, limit)
+	if err != nil {
+		b.logf(OpListN, fmt.Sprintf("%v (limit=%v, got=%v, ERROR: %v)", prefix, limit, len(items), err))
+	} else {
+		b.logf(OpListN, fmt.Sprintf("%v (limit=%v, got=%v)", prefix, limit, len(items)))
 	}
 	return items, err
 }
