@@ -65,7 +65,13 @@ func LibName() string {
 	return name
 }
 
-var logPath = filepath.Join(os.Getenv("HOME"), ".piclib.log")
+var logPath = os.Getenv("PICLIB_LOG")
+
+func init() {
+	if logPath == "" {
+		logPath = filepath.Join(os.Getenv("HOME"), ".picliblog")
+	}
+}
 
 // Library manages and organizes collections of Photos stored in the desired
 // backend database.  Allowed image formats are those supported by Go's

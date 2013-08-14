@@ -12,10 +12,9 @@ import (
 type Operation string
 
 const (
-	OpPut    Operation = "PUT"
-	OpGet              = "GET"
-	OpExists           = "EXISTS"
-	OpDel              = "DEL"
+	OpPut    Operation = "PUT "
+	OpGet              = "GET "
+	OpDel              = "DEL "
 	OpListN            = "LIST"
 )
 
