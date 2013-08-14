@@ -18,11 +18,14 @@ var (
 	dry     = flag.Bool("dry", true, "just print output")
 )
 
-var hashExists = map[string]bool{}
+// map[hash]filename
+var hashes = map[string]string{}
 var lib *piclib.Library
 
 func main() {
 	flag.Parse()
+	log.SetPrefix("[picdup] ")
+	log.SetFlags(0)
 
 	back, err := backend.LoadDefault()
 	fatal(err)
@@ -31,23 +34,25 @@ func main() {
 	fatal(err)
 	defer lib.Close()
 
-	pics, err := lib.ListPhotos(50000)
+	pics, err := lib.ListPhotos(1000000)
 	if err != nil {
 		log.Print(err)
 	}
 
 	for _, p := range pics {
-		if hashExists[p.Sha1] {
-			removeDup(p, p.Sha1)
+		if fname, ok := hashes[p.Sha1]; ok {
+			removeDup(p, fname)
+			continue
 		}
-		hashExists[p.Sha1] = true
+		hashes[p.Sha1] = p.Orig
 	}
 	log.Printf("%v original pics", len(pics))
-	log.Printf("%v unique pics", len(hashExists))
+	log.Printf("%v unique pics", len(hashes))
+	log.Printf("%v duplicate pics", len(pics) - len(hashes))
 }
 
-func removeDup(p *piclib.Photo, sum string) {
-	log.Printf("removing photo '%v' with hash '%v'", p.Meta, sum)
+func removeDup(p *piclib.Photo, fname string) {
+	log.Printf("removed photo '%v' as duplicate of '%v'", p.Orig, fname)
 	if *dry {
 		return
 	}

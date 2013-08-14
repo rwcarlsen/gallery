@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
-	"path/filepath"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
@@ -126,7 +125,7 @@ func dummyBack(params Params) (Interface, error) {
 var defaultSpec = &Spec{
 	Btype: Local,
 	Bparams: Params{
-		"Root": filepath.Join(os.Getenv("HOME"), "pics"),
+		"Root": os.Getenv("HOME"),
 	},
 }
 
@@ -145,7 +144,7 @@ func (s *Spec) Make() (Interface, error) {
 
 // LoadDefault creates a spec-configured backend by loading a Spec from the
 // location specified by the env var BACKEND_SPEC if defined. Otherwise it
-// uses the default Spec.
+// uses a default Spec.
 func LoadDefault() (Interface, error) {
 	dir := os.Getenv("BACKEND_SPEC")
 	if dir == "" {

@@ -37,6 +37,8 @@ var lib *piclib.Library
 
 func main() {
 	flag.Parse()
+	log.SetPrefix("[picput] ")
+	log.SetFlags(0)
 
 	back, err := backend.LoadDefault()
 	if err != nil {
