@@ -49,10 +49,15 @@ func main() {
 	log.Printf("%v original pics", len(pics))
 	log.Printf("%v unique pics", len(hashes))
 	log.Printf("%v duplicate pics", len(pics) - len(hashes))
+	if *dry {
+		log.Printf("0 pics removed")
+	} else {
+		log.Printf("%v pics removed", len(pics) - len(hashes))
+	}
 }
 
 func removeDup(p *piclib.Photo, fname string) {
-	log.Printf("removed photo '%v' as duplicate of '%v'", p.Orig, fname)
+	log.Printf("'%v' duplicate of '%v'", p.Orig, fname)
 	if *dry {
 		return
 	}
