@@ -40,6 +40,7 @@ const (
 	// UnsupportedDir is the path to files of unrecognized type that were added
 	// to the Library.
 	UnsupportedDir = "unsupported"
+	DefaultLibName = "piclib"
 )
 
 const (
@@ -53,6 +54,16 @@ const (
 	nameTimeFmt = "2006-01-02-15-04-05"
 	Version     = "0.1"
 )
+
+// LibName returns the name as specified by the PICLIB_NAME env variable if it
+// is set or DefaultLibName otherwise.
+func LibName() string {
+	name := os.Getenv("PICLIB_NAME")
+	if name == "" {
+		return DefaultLibName
+	}
+	return name
+}
 
 var logPath = filepath.Join(os.Getenv("HOME"), ".piclib.log")
 

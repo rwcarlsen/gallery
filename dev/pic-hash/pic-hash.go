@@ -8,17 +8,12 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
-	"path/filepath"
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
 var db = flag.String("db", "", "backend containing piclib to dump to")
-var libName = flag.String("lib", "testlib", "name of library to create/access")
-
-var confPath = filepath.Join(os.Getenv("HOME"), ".backends")
 
 const cacheSize = 300 * piclib.Mb
 
@@ -27,24 +22,12 @@ var lib *piclib.Library
 func main() {
 	flag.Parse()
 
-	// create library from backend spec
-	f, err := os.Open(confPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	set, err := backend.LoadSpecList(f)
+	back, err := backend.LoadDefault()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	back, err := set.Make(*db)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	lib, err = piclib.Open(*libName, back, cacheSize)
+	lib, err = piclib.Open(piclib.LibName(), back, cacheSize)
 	if err != nil {
 		log.Fatal(err)
 	}

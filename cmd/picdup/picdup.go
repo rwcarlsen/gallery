@@ -5,21 +5,16 @@ package main
 import (
 	"flag"
 	"log"
-	"os"
 	pth "path"
-	"path/filepath"
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-var confPath = filepath.Join(os.Getenv("HOME"), ".backends")
-
 const cacheSize = 300 * piclib.Mb
 
 var (
-	libName = flag.String("lib", "rwc-piclib", "name of library to create/access")
-	db      = flag.String("db", "", "name of db")
+	libName = piclib.LibName()
 	dry     = flag.Bool("dry", true, "just print output")
 )
 
@@ -29,17 +24,10 @@ var lib *piclib.Library
 func main() {
 	flag.Parse()
 
-	f, err := os.Open(confPath)
-	fatal(err)
-	defer f.Close()
-
-	set, err := backend.LoadSpecList(f)
+	back, err := backend.LoadDefault()
 	fatal(err)
 
-	back, err := set.Make(*db)
-	fatal(err)
-
-	lib, err = piclib.Open(*libName, back, cacheSize)
+	lib, err = piclib.Open(libName, back, cacheSize)
 	fatal(err)
 	defer lib.Close()
 
@@ -64,25 +52,25 @@ func removeDup(p *piclib.Photo, sum string) {
 		return
 	}
 
-	path := pth.Join(*libName, piclib.ImageDir, p.Orig)
+	path := pth.Join(libName, piclib.ImageDir, p.Orig)
 	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = pth.Join(*libName, piclib.ThumbDir, p.Thumb2)
+	path = pth.Join(libName, piclib.ThumbDir, p.Thumb2)
 	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = pth.Join(*libName, piclib.ThumbDir, p.Thumb1)
+	path = pth.Join(libName, piclib.ThumbDir, p.Thumb1)
 	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 		return
 	}
 
-	path = pth.Join(*libName, piclib.MetaDir, p.Meta)
+	path = pth.Join(libName, piclib.MetaDir, p.Meta)
 	if err := lib.Db.Del(path); err != nil {
 		log.Print(err)
 	}

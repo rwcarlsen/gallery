@@ -9,14 +9,12 @@ import (
 	"github.com/rwcarlsen/gallery/backend"
 )
 
-var from = flag.String("from", "", "source backend")
-var to = flag.String("to", "", "destination backend")
+var from = flag.String("from", "", "path to source spec")
+var to = flag.String("to", "", "path to dst spec")
 var syncPath = flag.String("path", "", "name of library to create/access")
 
 var dry = flag.Bool("dry", false, "true to just print output of command and not sync anything")
 var del = flag.Bool("del", false, "delete files at dst that don't exist at src")
-
-const confPath = "/home/robert/.backends"
 
 func must(b backend.Interface, err error) backend.Interface {
 	if err != nil {
@@ -28,17 +26,20 @@ func must(b backend.Interface, err error) backend.Interface {
 func main() {
 	flag.Parse()
 
-	f, err := os.Open(confPath)
+	f1, err := os.Open(*from)
 	if err != nil {
 		log.Fatal(err)
 	}
-	set, err := backend.LoadSpecList(f)
-	if err != nil {
-		log.Fatal(err)
-	}
+	defer f1.Close()
 
-	fromDb := must(set.Make(*from))
-	toDb := must(set.Make(*to))
+	f2, err := os.Open(*to)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f2.Close()
+
+	fromDb := must(backend.LoadSpec(f1))
+	toDb := must(backend.LoadSpec(f2))
 
 	config := 0
 	if *dry {

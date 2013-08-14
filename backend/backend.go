@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"io"
 	"io/ioutil"
 	"strings"
+	"path/filepath"
 
 	"github.com/rwcarlsen/gallery/backend/amz"
 	"github.com/rwcarlsen/gallery/backend/localhd"
@@ -121,6 +123,13 @@ func dummyBack(params Params) (Interface, error) {
 	return nil, nil
 }
 
+var defaultSpec = &Spec{
+	Btype: Local,
+	Bparams: Params{
+		"Root": filepath.Join(os.Getenv("HOME"), "pics"),
+	},
+}
+
 // Spec is a convenient way to group a specific set of config Params for a
 // backend together with its corresponding Type.
 type Spec struct {
@@ -134,30 +143,42 @@ func (s *Spec) Make() (Interface, error) {
 	return Make(s.Btype, s.Bparams)
 }
 
-// SpecList is a convenient way to manage multiple backend Spec's together
-// as a group (e.g. saving to/from a config file, etc).
-type SpecList struct {
-	list map[string]*Spec
+// LoadDefault creates a spec-configured backend by loading a Spec from the
+// location specified by the env var BACKEND_SPEC if defined. Otherwise it
+// uses the default Spec.
+func LoadDefault() (Interface, error) {
+	dir := os.Getenv("BACKEND_SPEC")
+	if dir == "" {
+		return defaultSpec.Make()
+	}
+
+	f, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return LoadSpec(f)
 }
 
-// LoadSpecList creates a SpecList by decoding JSON data from r.
-func LoadSpecList(r io.Reader) (*SpecList, error) {
+// LoadSpec creates a spec-configured backend by decoding JSON data from r.
+func LoadSpec(r io.Reader) (Interface, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
-	list := map[string]*Spec{}
-	if err := json.Unmarshal(data, &list); err != nil {
+	s := &Spec{}
+	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, prettySyntaxError(string(data), err)
 	}
 
-	return &SpecList{list: list}, nil
+	return s.Make()
 }
 
-// Save writes the SpecList in JSON format to w.
-func (s *SpecList) Save(w io.Writer) error {
-	data, err := json.Marshal(s.list)
+// Save writes the Spec in JSON format to w.
+func (s *Spec) Save(w io.Writer) error {
+	data, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
@@ -166,35 +187,6 @@ func (s *SpecList) Save(w io.Writer) error {
 		return err
 	}
 	return nil
-}
-
-// Get retrieves the named Spec. It returns nil if name is not found.
-func (s *SpecList) Get(name string) *Spec {
-	s.init()
-	return s.list[name]
-}
-
-// Set adds a new Spec with the given name to the specset. If name is
-// already in the specset, it is overwritten.
-func (s *SpecList) Set(name string, spec *Spec) {
-	s.init()
-	s.list[name] = spec
-}
-
-// Make creates a backend from Spec identified by name. This is a shortcut
-// for ".Get(...).Make(...)".
-func (s *SpecList) Make(name string) (Interface, error) {
-	s.init()
-	if spec, ok := s.list[name]; ok {
-		return spec.Make()
-	}
-	return nil, fmt.Errorf("backend: name '%v' not found in SpecList", name)
-}
-
-func (s *SpecList) init() {
-	if s.list == nil {
-		s.list = make(map[string]*Spec)
-	}
 }
 
 func prettySyntaxError(js string, err error) error {
