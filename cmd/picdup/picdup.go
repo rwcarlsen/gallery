@@ -7,14 +7,14 @@ import (
 	"log"
 	pth "path"
 
-	"github.com/rwcarlsen/gallery/backend"
+	"github.com/rwcarlsen/gallery/conf"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
 const cacheSize = 300 * piclib.Mb
 
 var (
-	libName = piclib.LibName()
+	libName = conf.Default.LibName()
 	dry     = flag.Bool("dry", true, "just print output")
 )
 
@@ -27,7 +27,7 @@ func main() {
 	log.SetPrefix("[picdup] ")
 	log.SetFlags(0)
 
-	back, err := backend.LoadDefault()
+	back, err := conf.Default.MakeBackend()
 	fatal(err)
 
 	lib, err = piclib.Open(libName, back, cacheSize)

@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/rwcarlsen/gallery/backend"
+	"github.com/rwcarlsen/gallery/conf"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
@@ -18,12 +18,12 @@ var l = log.New(os.Stdout, "[picvalid] ", 0)
 func main() {
 	flag.Parse()
 
-	back, err := backend.LoadDefault()
+	back, err := conf.Default.MakeBackend()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	lib, err = piclib.Open(piclib.LibName(), back, cacheSize)
+	lib, err = piclib.Open(conf.Default.LibName(), back, cacheSize)
 	if err != nil {
 		log.Fatal(err)
 	}

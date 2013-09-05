@@ -17,7 +17,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"github.com/rwcarlsen/gallery/backend"
+	"github.com/rwcarlsen/gallery/conf"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
@@ -28,16 +28,13 @@ const (
 
 var (
 	addr        = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
-	db          = flag.String("db", "hd", "name of backend  described in conf file")
 	filter      = flag.String("filter", "", "only serve pics with notes that match filter text")
 	disableEdit = flag.Bool("noedit", false, "don't allow editing of anything in library")
 )
 
 var (
-	libName   = piclib.LibName()
 	logger    = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
-	resPath   = os.Getenv("WEBPICS")
-	confPath  = filepath.Join(os.Getenv("HOME"), ".backends")
+	resPath   = conf.Default.WebpicsAssets()
 	lib       *piclib.Library
 	allPhotos []*piclib.Photo
 	contexts  = make(map[string]*context)
@@ -45,12 +42,6 @@ var (
 	home      []byte // index.html
 	slidepage []byte // slideshow.html
 )
-
-func init() {
-	if resPath == "" {
-		resPath = filepath.Join(os.Getenv("GOPATH"), "src/github.com/rwcarlsen/gallery/webpics")
-	}
-}
 
 func main() {
 	flag.Parse()
@@ -65,8 +56,11 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	back := makeBackend()
-	lib, err = piclib.Open(libName, back, cacheSize)
+	back, err := conf.Default.MakeBackend()
+	if err != nil {
+		log.Fatal(err)
+	}
+	lib, err = piclib.Open(conf.Default.LibName(), back, cacheSize)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -97,14 +91,6 @@ func main() {
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		logger.Fatal(err)
 	}
-}
-
-func makeBackend() backend.Interface {
-	back, err := backend.LoadDefault()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return back
 }
 
 func updateLib() {

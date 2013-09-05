@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -122,13 +121,6 @@ func dummyBack(params Params) (Interface, error) {
 	return nil, nil
 }
 
-var defaultSpec = &Spec{
-	Btype: Local,
-	Bparams: Params{
-		"Root": os.Getenv("HOME"),
-	},
-}
-
 // Spec is a convenient way to group a specific set of config Params for a
 // backend together with its corresponding Type.
 type Spec struct {
@@ -140,24 +132,6 @@ type Spec struct {
 // function.
 func (s *Spec) Make() (Interface, error) {
 	return Make(s.Btype, s.Bparams)
-}
-
-// LoadDefault creates a spec-configured backend by loading a Spec from the
-// location specified by the env var BACKEND_SPEC if defined. Otherwise it
-// uses a default Spec.
-func LoadDefault() (Interface, error) {
-	dir := os.Getenv("BACKEND_SPEC")
-	if dir == "" {
-		return defaultSpec.Make()
-	}
-
-	f, err := os.Open(dir)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	return LoadSpec(f)
 }
 
 // LoadSpec creates a spec-configured backend by decoding JSON data from r.

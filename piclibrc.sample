@@ -1,0 +1,6 @@
+{
+    "BackendSpecPath": "",
+    "LibraryName": "piclib",
+    "LogPath": ".piclib.log",
+    "WebpicsPath": "/home/robert/gopath/src/github.com/rwcarlsen/gallery/webpics"
+}

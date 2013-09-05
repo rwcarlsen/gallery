@@ -9,13 +9,12 @@ import (
 	_ "image/gif"
 	_ "image/png"
 	"io"
-	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	"github.com/rwcarlsen/gallery/backend"
 	"github.com/rwcarlsen/gallery/backend/logging"
+	"github.com/rwcarlsen/gallery/conf"
 	cache "github.com/rwcarlsen/gocache"
 )
 
@@ -40,7 +39,6 @@ const (
 	// UnsupportedDir is the path to files of unrecognized type that were added
 	// to the Library.
 	UnsupportedDir = "unsupported"
-	DefaultLibName = "piclib"
 )
 
 const (
@@ -54,24 +52,6 @@ const (
 	nameTimeFmt = "2006-01-02-15-04-05"
 	Version     = "0.1"
 )
-
-// LibName returns the name as specified by the PICLIB_NAME env variable if it
-// is set or DefaultLibName otherwise.
-func LibName() string {
-	name := os.Getenv("PICLIB_NAME")
-	if name == "" {
-		return DefaultLibName
-	}
-	return name
-}
-
-var logPath = os.Getenv("PICLIB_LOG")
-
-func init() {
-	if logPath == "" {
-		logPath = filepath.Join(os.Getenv("HOME"), ".picliblog")
-	}
-}
 
 // Library manages and organizes collections of Photos stored in the desired
 // backend database.  Allowed image formats are those supported by Go's
@@ -92,7 +72,7 @@ type Library struct {
 // maintained up to cacheSize bytes in order to reduce pressure on the db
 // backend.
 func Open(name string, db backend.Interface, cacheSize uint64) (*Library, error) {
-	logdb, err := logging.New(db, logPath)
+	logdb, err := logging.New(db, conf.Default.LogFile())
 	if err != nil {
 		return nil, err
 	}

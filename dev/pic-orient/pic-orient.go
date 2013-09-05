@@ -6,13 +6,10 @@ import (
 	"flag"
 	"log"
 
-	"github.com/rwcarlsen/gallery/backend"
+	"github.com/rwcarlsen/gallery/conf"
 	"github.com/rwcarlsen/gallery/piclib"
 	"github.com/rwcarlsen/goexif/exif"
 )
-
-var db = flag.String("db", "", "backend containing piclib to dump to")
-var libName = flag.String("lib", "testlib", "name of library to create/access")
 
 const cacheSize = 300 * piclib.Mb
 
@@ -21,12 +18,12 @@ var lib *piclib.Library
 func main() {
 	flag.Parse()
 
-	back, err := backend.LoadDefault()
+	back, err := conf.Default.MakeBackend()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	lib, err = piclib.Open(piclib.LibName(), back, cacheSize)
+	lib, err = piclib.Open(conf.Default.LibName(), back, cacheSize)
 	if err != nil {
 		log.Fatal(err)
 	}
