@@ -118,9 +118,12 @@ func (c *Config) LogFile() string {
 }
 
 func (c *Config) WebpicsAssets() string {
-	if c.WebpicsPath == "" {
+	if p := os.Getenv("WEBPICS"); p != "" {
+		return p
+	} else if c.WebpicsPath != "" {
+		return c.WebpicsPath
+	} else {
 		panic("conf: cannot find webpics assets")
 	}
-	return c.WebpicsPath
 }
 
