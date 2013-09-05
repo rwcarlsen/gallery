@@ -15,12 +15,13 @@ func main() {
 	log.SetPrefix("[piccfg] ")
 	log.SetFlags(0)
 
-	log.Printf("BackendSpecPath: %v", conf.Default.BackendSpecPath)
 	if *raw {
+		log.Printf("BackendSpecPath: %v", conf.Default.BackendSpecPath)
 		log.Printf("LibraryName: %v", conf.Default.LibraryName)
 		log.Printf("LogPath: %v", conf.Default.LogPath)
 		log.Printf("WebpicsPath: %v", conf.Default.WebpicsPath)
 	} else {
+		log.Printf("BackendSpecPath: %v", conf.Default.SpecPath())
 		log.Printf("LibraryName: %v", conf.Default.LibName())
 		log.Printf("LogPath: %v", conf.Default.LogFile())
 		func() {

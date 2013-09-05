@@ -79,16 +79,17 @@ func (c *Config) SaveFile(path string) error {
 	return c.Save(f)
 }
 
-func (c *Config) MakeBackend() (backend.Interface, error) {
+func (c *Config) SpecPath() string {
 	if specpath := os.Getenv("BACKEND_SPEC"); specpath != "" {
+		return specpath
+	} else {
+		return c.BackendSpecPath
+	}
+}
+
+func (c *Config) MakeBackend() (backend.Interface, error) {
+	if specpath := c.SpecPath(); specpath != "" {
 		f, err := os.Open(specpath)
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-		return backend.LoadSpec(f)
-	} else if c.BackendSpecPath != "" {
-		f, err := os.Open(c.BackendSpecPath)
 		if err != nil {
 			return nil, err
 		}
