@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
-	"os"
 
 	"github.com/rwcarlsen/gallery/conf"
 	"github.com/rwcarlsen/gallery/piclib"
@@ -12,8 +12,6 @@ import (
 const cacheSize = 300 * piclib.Mb
 
 var lib *piclib.Library
-
-var l = log.New(os.Stdout, "[picvalid] ", 0)
 
 func main() {
 	flag.Parse()
@@ -39,9 +37,9 @@ func main() {
 		if err != nil {
 			log.Printf("failed to verify photo '%v': %v", p.Orig, err)
 		} else if !valid {
-			l.Printf("ERROR: photo '%v' is corrupt.", p.Orig)
+			fmt.Printf("ERROR: photo '%v' is corrupt.", p.Orig)
 		} else {
-			l.Printf("VALID: photo '%v' verified.", p.Orig)
+			fmt.Printf("VALID: photo '%v' verified.", p.Orig)
 		}
 	}
 }

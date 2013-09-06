@@ -23,8 +23,8 @@ func TestRegister(t *testing.T) {
 
 func TestSpec(t *testing.T) {
 	s := &Spec{
-		Btype:   dummy,
-		Bparams: Params{},
+		Type:   "dummy",
+		Params: Params{},
 	}
 
 	if _, err := s.Make(); err != nil {

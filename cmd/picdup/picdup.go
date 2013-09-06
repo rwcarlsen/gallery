@@ -4,6 +4,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	pth "path"
 
@@ -24,7 +25,6 @@ var lib *piclib.Library
 
 func main() {
 	flag.Parse()
-	log.SetPrefix("[picdup] ")
 	log.SetFlags(0)
 
 	back, err := conf.Default.Backend()
@@ -46,18 +46,18 @@ func main() {
 		}
 		hashes[p.Sha1] = p.Orig
 	}
-	log.Printf("%v original pics", len(pics))
-	log.Printf("%v unique pics", len(hashes))
-	log.Printf("%v duplicate pics", len(pics)-len(hashes))
+	fmt.Printf("%v original pics", len(pics))
+	fmt.Printf("%v unique pics", len(hashes))
+	fmt.Printf("%v duplicate pics", len(pics)-len(hashes))
 	if *dry {
-		log.Printf("0 pics removed")
+		fmt.Printf("0 pics removed")
 	} else {
-		log.Printf("%v pics removed", len(pics)-len(hashes))
+		fmt.Printf("%v pics removed", len(pics)-len(hashes))
 	}
 }
 
 func removeDup(p *piclib.Photo, fname string) {
-	log.Printf("'%v' duplicate of '%v'", p.Orig, fname)
+	fmt.Printf("'%v' duplicate of '%v'", p.Orig, fname)
 	if *dry {
 		return
 	}
