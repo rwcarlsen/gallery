@@ -16,11 +16,15 @@ var syncPath = flag.String("path", "", "name of library to create/access")
 var dry = flag.Bool("dry", false, "true to just print output of command and not sync anything")
 var del = flag.Bool("del", false, "delete files at dst that don't exist at src")
 
-func must(b backend.Interface, err error) backend.Interface {
+func must(s *backend.Spec, err error) backend.Interface {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return b
+	back, err := s.Make()
+	if err != nil {
+		panic(err)
+	}
+	return back
 }
 
 func main() {

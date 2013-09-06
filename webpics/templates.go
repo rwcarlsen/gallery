@@ -1,4 +1,3 @@
-
 package main
 
 import "github.com/rwcarlsen/gallery/piclib"

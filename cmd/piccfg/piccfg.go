@@ -1,9 +1,9 @@
-
 package main
 
 import (
-	"log"
+	"encoding/json"
 	"flag"
+	"log"
 
 	"github.com/rwcarlsen/gallery/conf"
 )
@@ -15,13 +15,21 @@ func main() {
 	log.SetPrefix("[piccfg] ")
 	log.SetFlags(0)
 
+	printSpec := func() {
+		s, _ := conf.Default.Spec()
+		data, _ := json.MarshalIndent(s, "[piccfg] ", "    ")
+		log.Printf("Spec:%s", data)
+	}
+
 	if *raw {
 		log.Printf("BackendSpecPath: %v", conf.Default.BackendSpecPath)
+		printSpec()
 		log.Printf("LibraryName: %v", conf.Default.LibraryName)
 		log.Printf("LogPath: %v", conf.Default.LogPath)
 		log.Printf("WebpicsPath: %v", conf.Default.WebpicsPath)
 	} else {
 		log.Printf("BackendSpecPath: %v", conf.Default.SpecPath())
+		printSpec()
 		log.Printf("LibraryName: %v", conf.Default.LibName())
 		log.Printf("LogPath: %v", conf.Default.LogFile())
 		func() {
@@ -34,4 +42,3 @@ func main() {
 		}()
 	}
 }
-

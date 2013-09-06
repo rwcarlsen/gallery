@@ -27,7 +27,7 @@ func main() {
 	log.SetPrefix("[picdup] ")
 	log.SetFlags(0)
 
-	back, err := conf.Default.MakeBackend()
+	back, err := conf.Default.Backend()
 	fatal(err)
 
 	lib, err = piclib.Open(libName, back, cacheSize)
@@ -48,11 +48,11 @@ func main() {
 	}
 	log.Printf("%v original pics", len(pics))
 	log.Printf("%v unique pics", len(hashes))
-	log.Printf("%v duplicate pics", len(pics) - len(hashes))
+	log.Printf("%v duplicate pics", len(pics)-len(hashes))
 	if *dry {
 		log.Printf("0 pics removed")
 	} else {
-		log.Printf("%v pics removed", len(pics) - len(hashes))
+		log.Printf("%v pics removed", len(pics)-len(hashes))
 	}
 }
 

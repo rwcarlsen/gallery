@@ -40,7 +40,7 @@ func main() {
 	log.SetPrefix("[picput] ")
 	log.SetFlags(0)
 
-	back, err := conf.Default.MakeBackend()
+	back, err := conf.Default.Backend()
 	if err != nil {
 		log.Fatal(err)
 	}

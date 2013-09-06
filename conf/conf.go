@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	Default *Config
+	Default           *Config
 	DefaultConfigPath = filepath.Join(os.Getenv("HOME"), ".piclibrc")
 )
 
 var DefaultSpec = &backend.Spec{
-	Btype: backend.Local,
-	Bparams: backend.Params{
+	Type: backend.Local,
+	Params: backend.Params{
 		"Root": os.Getenv("HOME"),
 	},
 }
@@ -87,7 +87,15 @@ func (c *Config) SpecPath() string {
 	}
 }
 
-func (c *Config) MakeBackend() (backend.Interface, error) {
+func (c *Config) Backend() (backend.Interface, error) {
+	s, err := c.Spec()
+	if err != nil {
+		return nil, err
+	}
+	return s.Make()
+}
+
+func (c *Config) Spec() (*backend.Spec, error) {
 	if specpath := c.SpecPath(); specpath != "" {
 		f, err := os.Open(specpath)
 		if err != nil {
@@ -96,7 +104,7 @@ func (c *Config) MakeBackend() (backend.Interface, error) {
 		defer f.Close()
 		return backend.LoadSpec(f)
 	} else {
-		return DefaultSpec.Make()
+		return DefaultSpec, nil
 	}
 }
 
@@ -127,4 +135,3 @@ func (c *Config) WebpicsAssets() string {
 		panic("conf: cannot find webpics assets")
 	}
 }
-

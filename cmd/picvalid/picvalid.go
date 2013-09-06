@@ -18,7 +18,7 @@ var l = log.New(os.Stdout, "[picvalid] ", 0)
 func main() {
 	flag.Parse()
 
-	back, err := conf.Default.MakeBackend()
+	back, err := conf.Default.Backend()
 	if err != nil {
 		log.Fatal(err)
 	}

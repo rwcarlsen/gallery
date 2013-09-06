@@ -275,4 +275,3 @@ func imgRotJS(deg int) string {
 	//Cross-browser
 	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
 }
-

@@ -12,10 +12,10 @@ import (
 type Operation string
 
 const (
-	OpPut    Operation = "PUT "
-	OpGet              = "GET "
-	OpDel              = "DEL "
-	OpListN            = "LIST"
+	OpPut   Operation = "PUT "
+	OpGet             = "GET "
+	OpDel             = "DEL "
+	OpListN           = "LIST"
 )
 
 const logFmt = "%v [%v] %v\n"

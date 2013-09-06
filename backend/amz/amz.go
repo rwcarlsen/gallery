@@ -159,5 +159,6 @@ func (lb *Backend) Get(key string) (io.ReadCloser, error) {
 	return nil, err
 }
 
-type readCloser struct {*bytes.Buffer}
-func (_ readCloser) Close() error {return nil}
+type readCloser struct{ *bytes.Buffer }
+
+func (_ readCloser) Close() error { return nil }

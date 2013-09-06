@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 	"time"
-	
+
 	"github.com/rwcarlsen/gallery/backend"
 )
 

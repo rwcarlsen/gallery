@@ -46,7 +46,6 @@ func GetBytes(db Interface, key string) ([]byte, error) {
 		return nil, err
 	}
 	defer rc.Close()
-
 	return ioutil.ReadAll(rc)
 }
 
@@ -59,27 +58,21 @@ type Params map[string]string
 // ready-to-use backend initialized with Params.
 type TypeFunc func(Params) (Interface, error)
 
-// Type specifies a unique kind of backend. There is a one-to-one
-// correspondence between backend Types and TypeFunc's.
-type Type string
-
 const (
-	Amazon Type = "Amazon-S3"
-	Local       = "Local-HD"
-	dummy       = "dummy" // used for testing
+	Amazon = "Amazon-S3"
+	Local  = "Local-HD"
 )
 
-var types = map[Type]TypeFunc{}
+var types = map[string]TypeFunc{}
 
 func init() {
 	Register(Amazon, amzBack)
 	Register(Local, localBack)
-	Register(dummy, dummyBack)
 }
 
 // Register enables backends of type t to be created by Make functions and
 // methods in this package.
-func Register(t Type, fn TypeFunc) {
+func Register(t string, fn TypeFunc) {
 	types[t] = fn
 }
 
@@ -87,7 +80,7 @@ func Register(t Type, fn TypeFunc) {
 // params must contain required information for the specified backend type.
 // An error is returned if t is an unregistered type or if params do not
 // contain all pertinent information to initialize a backend of type t.
-func Make(t Type, params Params) (Interface, error) {
+func Make(t string, params Params) (Interface, error) {
 	if fn, ok := types[t]; ok {
 		return fn(params)
 	}
@@ -117,25 +110,15 @@ func amzBack(params Params) (Interface, error) {
 	return db, nil
 }
 
-func dummyBack(params Params) (Interface, error) {
-	return nil, nil
-}
-
 // Spec is a convenient way to group a specific set of config Params for a
-// backend together with its corresponding Type.
+// backend together with its corresponding type.
 type Spec struct {
-	Btype   Type
-	Bparams Params
+	Type   string
+	Params Params
 }
 
-// Make creates a backend from the Spec. This is a shortcut for the Make
-// function.
-func (s *Spec) Make() (Interface, error) {
-	return Make(s.Btype, s.Bparams)
-}
-
-// LoadSpec creates a spec-configured backend by decoding JSON data from r.
-func LoadSpec(r io.Reader) (Interface, error) {
+// LoadSpec creates a spec by decoding JSON data from r.
+func LoadSpec(r io.Reader) (*Spec, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -145,8 +128,13 @@ func LoadSpec(r io.Reader) (Interface, error) {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, prettySyntaxError(string(data), err)
 	}
+	return s, nil
+}
 
-	return s.Make()
+// Make creates a backend from the Spec. This is a shortcut for the Make
+// function.
+func (s *Spec) Make() (Interface, error) {
+	return Make(s.Type, s.Params)
 }
 
 // Save writes the Spec in JSON format to w.
@@ -175,7 +163,6 @@ func prettySyntaxError(js string, err error) error {
 	}
 
 	line, pos := strings.Count(js[:start], "\n"), int(syntax.Offset)-start-1
-
 	msg := fmt.Sprintf("Error in line %d: %s\n", line+1, err)
 	msg += fmt.Sprintf("%s\n%s^", js[start:end], strings.Repeat("", pos))
 	return pretty(msg)
@@ -183,6 +170,4 @@ func prettySyntaxError(js string, err error) error {
 
 type pretty string
 
-func (p pretty) Error() string {
-	return string(p)
-}
+func (p pretty) Error() string { return string(p) }
