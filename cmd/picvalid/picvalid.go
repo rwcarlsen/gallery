@@ -29,17 +29,17 @@ func main() {
 
 	pics, err := lib.ListPhotos(50000)
 	if err != nil {
-		log.Printf("photo listing error: %v", err)
+		log.Printf("photo listing error: %v\n", err)
 	}
 
 	for _, p := range pics {
 		valid, err := p.Verify()
 		if err != nil {
-			log.Printf("failed to verify photo '%v': %v", p.Orig, err)
+			log.Printf("failed to verify photo '%v': %v\n", p.Orig, err)
 		} else if !valid {
-			fmt.Printf("ERROR: photo '%v' is corrupt.", p.Orig)
+			fmt.Printf("ERROR: photo '%v' is corrupt.\n", p.Orig)
 		} else {
-			fmt.Printf("VALID: photo '%v' verified.", p.Orig)
+			fmt.Printf("VALID: photo '%v' verified.\n", p.Orig)
 		}
 	}
 }

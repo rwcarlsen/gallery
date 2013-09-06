@@ -46,18 +46,18 @@ func main() {
 		}
 		hashes[p.Sha1] = p.Orig
 	}
-	fmt.Printf("%v original pics", len(pics))
-	fmt.Printf("%v unique pics", len(hashes))
-	fmt.Printf("%v duplicate pics", len(pics)-len(hashes))
+	fmt.Printf("%v original pics\n", len(pics))
+	fmt.Printf("%v unique pics\n", len(hashes))
+	fmt.Printf("%v duplicate pics\n", len(pics)-len(hashes))
 	if *dry {
-		fmt.Printf("0 pics removed")
+		fmt.Printf("0 pics removed\n")
 	} else {
-		fmt.Printf("%v pics removed", len(pics)-len(hashes))
+		fmt.Printf("%v pics removed\n", len(pics)-len(hashes))
 	}
 }
 
 func removeDup(p *piclib.Photo, fname string) {
-	fmt.Printf("'%v' duplicate of '%v'", p.Orig, fname)
+	fmt.Printf("'%v' duplicate of '%v'\n", p.Orig, fname)
 	if *dry {
 		return
 	}
