@@ -139,7 +139,7 @@ function downloadURL(url) {
 }
 
 // configurable
-var maxDisplayPages = 20
+var maxDisplayPages = 15
 // end configurable
 
 var startPage = 1
