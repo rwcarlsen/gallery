@@ -36,6 +36,7 @@ var validFmt = map[string]bool{
 var lib *piclib.Library
 
 func main() {
+	log.SetFlags(0)
 	flag.Parse()
 
 	back, err := conf.Default.Backend()
@@ -90,6 +91,8 @@ func addToLib(path string) {
 
 	base := filepath.Base(path)
 	if _, err = lib.AddPhoto(base, f); err != nil {
-		log.Printf("path %v: %v", path, err)
+		log.Printf("[ERROR] '%v': %v", path, err)
+	} else {
+		fmt.Printf("file %v added\n", path)
 	}
 }
