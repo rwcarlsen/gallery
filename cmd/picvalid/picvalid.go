@@ -15,6 +15,7 @@ var lib *piclib.Library
 
 func main() {
 	flag.Parse()
+	log.SetFlags(0)
 
 	back, err := conf.Default.Backend()
 	if err != nil {
@@ -27,7 +28,7 @@ func main() {
 	}
 	defer lib.Close()
 
-	pics, err := lib.ListPhotos(50000)
+	pics, err := lib.ListPhotos(500000)
 	if err != nil {
 		log.Printf("photo listing error: %v\n", err)
 	}
@@ -37,7 +38,7 @@ func main() {
 		if err != nil {
 			log.Printf("failed to verify photo '%v': %v\n", p.Orig, err)
 		} else if !valid {
-			fmt.Printf("ERROR: photo '%v' is corrupt.\n", p.Orig)
+			log.Printf("ERROR: photo '%v' is corrupt.\n", p.Orig)
 		} else {
 			fmt.Printf("VALID: photo '%v' verified.\n", p.Orig)
 		}
