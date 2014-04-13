@@ -21,6 +21,10 @@ ul.thumb-grid>li>a>img {
   margin-top: -30%;
 }
 
+.zoom-img {
+    padding: 10% 10% 10% 10%;
+}
+
 /* for the pate number nav buttons (make fixed-width) */
 .pga {
   padding: 0px 0px;
