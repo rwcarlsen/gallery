@@ -4,7 +4,7 @@ ul.thumb-grid {
   list-style-type: none;
 }
 ul.thumb-grid>li {
-	float: left;
+    display: inline-block;
 	width: 15%;
 	margin: 0 5% 5% 0;
 }
