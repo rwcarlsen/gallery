@@ -141,5 +141,7 @@ const zoompic = `
 		</script>
 
 	</body>
+    <script src="http://code.jquery.com/jquery-latest.js"></script>
+    <script src="/static/zoompic.js"></script>
 </html>
 `
