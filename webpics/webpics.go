@@ -79,6 +79,7 @@ func main() {
 	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
 	r.HandleFunc("/dynamic/time-nav", TimeNavHandler)
 	r.HandleFunc("/dynamic/toggle-dateless", DateToggleHandler)
+	r.HandleFunc("/dynamic/set-page/{page:[0-9]+}", SetPageHandler)
 	r.HandleFunc("/dynamic/stat/{stat}", StatHandler)
 	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
 	r.HandleFunc("/dynamic/slideshow", SlideshowHandler)
@@ -358,6 +359,12 @@ func PageNavHandler(w http.ResponseWriter, r *http.Request) {
 func StatHandler(w http.ResponseWriter, r *http.Request) {
 	c, vars := getContext(w, r)
 	c.serveStat(w, vars["stat"])
+}
+
+func SetPageHandler(w http.ResponseWriter, r *http.Request) {
+	c, vars := getContext(w, r)
+	fmt.Printf("setting page to %v\n", vars["page"])
+	c.CurrPage = vars["page"]
 }
 
 func TimeNavHandler(w http.ResponseWriter, r *http.Request) {

@@ -205,6 +205,8 @@ func (c *context) serveStat(w http.ResponseWriter, stat string) {
 	case "num-pages":
 		n := len(c.photos)/picsPerPage + 1
 		fmt.Fprint(w, n)
+	case "pics-per-page":
+		fmt.Fprint(w, picsPerPage)
 	case "num-pics":
 		fmt.Fprint(w, len(c.photos))
 	case "hiding-dateless":

@@ -111,7 +111,6 @@ const zoompic = `
 	<body>
 		<div class="container black">
 			<div class="row" style="text-align: center;">
-				<br><br><br>
 				<a href="/"><img class="zoom-img" data-dismiss="modal" src="/piclib/thumb2/{{.Path}}" style="{{.Style}}"></a>
 			</div>
 		</div>

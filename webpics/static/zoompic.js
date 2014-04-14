@@ -19,12 +19,21 @@ function keydown() {
 }
 
 function getStats() {
-  $.get("/dynamic/stat/num-pages", function(data){
-    numPages = parseInt(data)
+  $.get("/dynamic/stat/pics-per-page", function(data){
+    picsPerPage = parseInt(data)
   })
   $.get("/dynamic/stat/num-pics", function(data){
     numPhotos = parseInt(data)
     $(document).keydown(keydown)
+
+    // change thumbnail gallery page to page of current zoompic upon exiting
+    // this webpage
+    $(window).bind('beforeunload', function(){
+      $.ajax({
+        url: "/dynamic/set-page/" + Math.ceil(currPic / picsPerPage).toString(),
+        async: false
+      });
+    });
   })
 }
 
@@ -33,7 +42,7 @@ function getCurrPic() {
   return +(elems[elems.length-1])
 }
 
-var numPages = 0
+var picsPerPage = 0
 var numPhotos = 0
 var currPic = getCurrPic()
 var keys = new Object()
