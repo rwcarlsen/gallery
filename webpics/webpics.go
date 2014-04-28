@@ -34,7 +34,7 @@ var (
 	resPath   = conf.Default.WebpicsAssets()
 	lib       *piclib.Library
 	allPhotos []*piclib.Photo
-	picMap    map[string]*piclib.Photo
+	picMap    = map[string]*piclib.Photo{}
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
 	home      []byte // index.html

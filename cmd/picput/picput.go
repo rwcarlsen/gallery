@@ -70,7 +70,7 @@ func walkFn(path string, info os.FileInfo, err error) error {
 	} else if info.IsDir() {
 		return nil
 	} else if strings.Index(path, piclib.NameSep) != -1 {
-		return fmt.Errorf("%v is in a piclib already. Aborting.", path)
+		return fmt.Errorf("filename '%v' contains reserved sequence '%v'", path, piclib.NameSep)
 	}
 
 	addToLib(path)
@@ -79,7 +79,7 @@ func walkFn(path string, info os.FileInfo, err error) error {
 
 func addToLib(path string) {
 	if !validFmt[strings.ToLower(filepath.Ext(path))] {
-		log.Printf("skipped file %v", path)
+		fmt.Printf("[SKIP] file %v not a supported type\n", path)
 		return
 	}
 
@@ -88,10 +88,15 @@ func addToLib(path string) {
 		log.Printf("path %v: %v", path, err)
 		return
 	}
+	defer f.Close()
 
 	base := filepath.Base(path)
 	if _, err = lib.AddPhoto(base, f); err != nil {
-		log.Printf("[ERROR] '%v': %v", path, err)
+		if _, ok := err.(piclib.DupErr); ok {
+			fmt.Printf("[SKIP] %v\n", err)
+		} else {
+			log.Printf("[ERROR] '%v': %v", path, err)
+		}
 	} else {
 		fmt.Printf("file %v added\n", path)
 	}

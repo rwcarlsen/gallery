@@ -77,7 +77,6 @@ function updateNav() {
   $.get("/dynamic/pg", function(pg) {
     pageTo(parseInt(pg))
   })
-  updateDatelessToggle()
 }
 
 function keydown() {
@@ -86,16 +85,6 @@ function keydown() {
   } else if (event.which == keys.right) {
     pageNext()
   }
-}
-
-function bindNavEvents() {
-  $("#search-form").submit(function(){
-    // post instead of form submit allows callback on server response
-    $.post($(this).attr('action'), $(this).serialize(), function(json) {
-      updateNav()
-    });
-    return false; // prevent form submission and page reload
-  });
 }
 
 // configurable
@@ -114,6 +103,5 @@ keys.right = 39
 keys.enter = 13
 
 $(document).keydown(keydown)
-bindNavEvents()
 updateNav()
 

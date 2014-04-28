@@ -53,6 +53,13 @@ const (
 	Version     = "0.1"
 )
 
+type DupErr string
+
+func (e DupErr) Error() string {
+	b := path.Base(string(e))
+	return fmt.Sprintf("'%s' already exists in library", b)
+}
+
 // Library manages and organizes collections of Photos stored in the desired
 // backend database.  Allowed image formats are those supported by Go's
 // standard library image package.  Unrecognized formats of any kind (even
@@ -97,7 +104,7 @@ func (l *Library) Close() error {
 // names can be used with the GetPhoto method for retrieving actual photo
 // objects.
 func (l *Library) ListNames(n int) ([]string, error) {
-	names, err := l.Db.Enumerate(l.metaDir, n)
+	names, err := l.Db.Enumerate(l.imgDir, n)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +141,8 @@ func (l *Library) ListPhotos(n int) ([]*Photo, error) {
 // AddPhoto addes a photo to the library where name is the photo's original
 // name and buf contains the entirety of the image data.  If buf contains an
 // unsupported file type, the data will be stored in UnsupportedDir and an
-// error returned.
+// error returned. If the given name already exists in the library, DupErr
+// will be returned.
 func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error) {
 	sum, n := hash(buf)
 
@@ -211,7 +219,7 @@ func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error)
 func (l *Library) put(pth, name string, buf io.ReadSeeker) (n int64, err error) {
 	fullPath := path.Join(pth, name)
 	if backend.Exists(l.Db, fullPath) {
-		return 0, fmt.Errorf("piclib: photo file already exists %v", fullPath)
+		return 0, DupErr(fullPath)
 	}
 
 	if _, err := buf.Seek(0, 0); err != nil {
@@ -226,7 +234,9 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 		return v.(*cacheVal).p, nil
 	}
 
-	data, err := backend.GetBytes(l.Db, path.Join(l.metaDir, name))
+	mfile := name[:len(name)-len(path.Ext(name))] + ".json"
+
+	data, err := backend.GetBytes(l.Db, path.Join(l.metaDir, mfile))
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +255,7 @@ func (l *Library) GetPhoto(name string) (*Photo, error) {
 // UpdatePhoto overwrites any/all of a photo p's metadata to whatever
 // new state is has been changed to.
 func (l *Library) UpdatePhoto(p *Photo) error {
-	pic, err := l.GetPhoto(p.Meta)
+	pic, err := l.GetPhoto(p.Orig)
 	if err != nil {
 		return err
 	}

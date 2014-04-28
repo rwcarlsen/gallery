@@ -89,7 +89,7 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 	list := make([]*thumbData, end-start)
 	for i, p := range c.photos[start:end] {
 		list[i] = &thumbData{
-			Path:  p.Meta,
+			Path:  p.Orig,
 			Date:  p.Taken.Format("Jan 2, 2006"),
 			Index: i + start,
 			Notes: p.Tags[noteField],
@@ -108,7 +108,7 @@ func (c *context) serveZoom(w http.ResponseWriter, index string) error {
 	i, _ := strconv.Atoi(index)
 	p := c.photos[i]
 	pData := &thumbData{
-		Path:  p.Meta,
+		Path:  p.Orig,
 		Date:  p.Taken.Format("Jan 2, 2006"),
 		Index: i,
 		Notes: p.Tags[noteField],
