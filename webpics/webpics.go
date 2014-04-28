@@ -25,9 +25,8 @@ const (
 )
 
 var (
-	addr        = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
-	filter      = flag.String("filter", "", "only serve pics with notes that match filter text")
-	disableEdit = flag.Bool("noedit", false, "don't allow editing of anything in library")
+	addr   = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
+	noedit = flag.Bool("noedit", false, "don't allow editing of anything in library")
 )
 
 var (
@@ -193,7 +192,7 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func NotesHandler(w http.ResponseWriter, r *http.Request) {
-	if *disableEdit {
+	if *noedit {
 		return
 	}
 	c, vars := getContext(w, r)
