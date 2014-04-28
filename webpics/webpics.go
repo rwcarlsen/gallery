@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -64,7 +65,7 @@ func main() {
 	}
 	defer lib.Close()
 
-	updateLib()
+	loadPics()
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
@@ -88,7 +89,7 @@ func main() {
 	}
 }
 
-func updateLib() {
+func loadPics() {
 	names := []string{}
 	if len(flag.Args()) > 0 {
 		names = flag.Args()
@@ -101,12 +102,14 @@ func updateLib() {
 	}
 
 	for _, name := range names {
+		name = path.Base(name)
 		p, err := lib.GetPhoto(name)
 		if err != nil {
 			logger.Printf("err on %v: %v", name, err)
+		} else {
+			allPhotos = append(allPhotos, p)
+			picMap[name] = p
 		}
-		allPhotos = append(allPhotos, p)
-		picMap[name] = p
 	}
 }
 
@@ -238,7 +241,6 @@ func StatHandler(w http.ResponseWriter, r *http.Request) {
 
 func SetPageHandler(w http.ResponseWriter, r *http.Request) {
 	c, vars := getContext(w, r)
-	fmt.Printf("setting page to %v\n", vars["page"])
 	c.CurrPage = vars["page"]
 }
 
