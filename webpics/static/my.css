@@ -15,17 +15,11 @@ ul.thumb-grid>li>a>img {
 	width: 100%;
 }
 
-#uploadermodal{
-  width: 800px;
-  margin-left: -400px;
-  margin-top: -30%;
-}
-
 .zoom-img {
     padding: 10% 10% 10% 10%;
 }
 
-/* for the pate number nav buttons (make fixed-width) */
+/* for the page number nav buttons (make fixed-width) */
 .pga {
   padding: 0px 0px;
   margin: 0px 0px;
@@ -40,13 +34,9 @@ ul.thumb-grid>li>a>img {
   display: inline-block !important;
   float: left;
 }
-
-/* for the time navigation dropdown menu */
 .dropdown-link {
   display: inline !important;
 }
-
-/* for the time navigation dropdown menu */
 .dropdown-wide {
   min-width: 47em !important;
 }

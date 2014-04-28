@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
 	"text/template"
 	"time"
 
@@ -23,89 +22,18 @@ var (
 const noteField = "LibNotes"
 
 type context struct {
-	allPhotos    []*piclib.Photo
-	photos       []*piclib.Photo
-	HideDateless bool
-	CurrPage     string
-	filter       string // manual, forced pic pre-filter - trumps other filters
-	query        []string
-	random       []int
-	randIndex    int
+	photos    []*piclib.Photo
+	CurrPage  string
+	random    []int
+	randIndex int
 }
 
 func newContext(pics []*piclib.Photo, filter string) *context {
 	c := &context{
-		allPhotos: pics,
-		photos:    pics,
-		CurrPage:  "1",
-		filter:    filter,
+		photos:   pics,
+		CurrPage: "1",
 	}
-	c.updateFilter() // initialize pic list
 	return c
-}
-
-func (c *context) toggleDateless() {
-	c.HideDateless = !c.HideDateless
-	c.updateFilter()
-}
-
-func (c *context) setSearchFilter(query []string) {
-	if c.query != nil {
-		// reset if photos are already filtered
-		c.query = nil
-		c.updateFilter()
-	}
-	c.query = query
-	c.updateFilter()
-}
-
-func (c *context) updateFilter() {
-	c.CurrPage = "1"
-	newlist := make([]*piclib.Photo, 0, len(c.photos))
-	for _, p := range c.allPhotos {
-		if c.passFilter(p) {
-			newlist = append(newlist, p)
-		}
-	}
-	c.photos = newlist
-}
-
-func (c *context) passFilter(p *piclib.Photo) bool {
-	if c.HideDateless && !p.LegitTaken() {
-		return false
-	} else if !c.passesSearch(p) {
-		return false
-	} else if !strings.Contains(p.Tags[noteField], c.filter) {
-		return false
-	}
-	return true
-}
-
-func (c *context) passesSearch(p *piclib.Photo) bool {
-	if len(c.query) == 0 {
-		return true
-	}
-
-	notes := strings.ToLower(p.Tags[noteField])
-	for _, val := range c.query {
-		val = strings.ToLower(val)
-		for _, s := range strings.Fields(val) {
-			if !strings.Contains(notes, s) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (c *context) addPics(pics []*piclib.Photo) {
-	newlist := []*piclib.Photo{}
-	for _, p := range pics {
-		if c.passFilter(p) {
-			newlist = append(newlist, p)
-		}
-	}
-	c.photos = append(newlist, c.photos...)
 }
 
 func (c *context) saveNotes(r *http.Request, picIndex string) error {
@@ -209,8 +137,6 @@ func (c *context) serveStat(w http.ResponseWriter, stat string) {
 		fmt.Fprint(w, picsPerPage)
 	case "num-pics":
 		fmt.Fprint(w, len(c.photos))
-	case "hiding-dateless":
-		fmt.Fprint(w, c.HideDateless)
 	default:
 		fmt.Fprintf(w, "invalid stat '%v'", stat)
 	}
