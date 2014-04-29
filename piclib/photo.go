@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/rwcarlsen/gallery/backend"
 )
@@ -29,18 +28,12 @@ var rots = map[int]int{
 // Photos usually should not be created manually - rather they should be
 // created through the Library's AddPhoto method.
 type Photo struct {
-	Meta        string
-	Orig        string
-	Thumb1      string
-	Thumb2      string
-	Size        int
-	Uploaded    time.Time
-	Taken       time.Time
-	Orientation int
-	Tags        map[string]string
-	LibVersion  string
-	Sha1        string
-	lib         *Library
+	Notes  string
+	Orig   string
+	Thumb1 string
+	Thumb2 string
+	Size   int
+	Sha1   string
 }
 
 // LegitTaken returns true only if this photo's Taken date was retrieved from
@@ -62,7 +55,7 @@ func (p *Photo) GetOriginal() (data []byte, err error) {
 // GetThumb1 retrieves the data for the photo's large thumbnail image (suitable
 // for online sharing).  Returns an error if the photo was neither created nor
 // retrieved from a Library. Other retrieval errors may be returned.
-func (p *Photo) GetThumb1() (data []byte, err error) {
+func (p *Photo) Thumb1() (data []byte, err error) {
 	if p.lib == nil {
 		return nil, errors.New("piclib: photo not initialized with library")
 	}
@@ -82,7 +75,7 @@ func (p *Photo) GetThumb1() (data []byte, err error) {
 // GetThumb2 retrieves the data for the photo's small thumbnail image (suitable
 // for grid-views, etc).  Returns an error if the photo was neither created nor
 // retrieved from a Library. Other retrieval errors may be returned.
-func (p *Photo) GetThumb2() (data []byte, err error) {
+func (p *Photo) Thumb2() (data []byte, err error) {
 	if p.lib == nil {
 		return nil, errors.New("piclib: photo not initialized with library")
 	}
