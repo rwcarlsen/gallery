@@ -177,3 +177,23 @@ func SaveChecksum(pic string) error {
 	meta.Sha1 = fmt.Sprintf("%x", sum)
 	return WriteMeta(pic, meta)
 }
+
+func Validate(pic string) error {
+	_, meta, err := Notes(pic)
+	if err != nil {
+		return err
+	} else if meta == nil || len(meta.Sha1) == 0 {
+		return fmt.Errorf("%v has no checksum to validate", pic)
+	}
+
+	sum, err := Checksum(pic)
+	if err != nil {
+		return err
+	}
+
+	if meta.Sha1 != fmt.Sprintf("%x", sum) {
+		return fmt.Errorf("%v failed checksum validation")
+	}
+
+	return nil
+}
