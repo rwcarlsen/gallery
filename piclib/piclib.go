@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rwcarlsen/goexif/exif"
@@ -30,12 +31,64 @@ type Meta struct {
 	Sha1 string
 }
 
-func Path() string {
+var Path = filepath.Join(os.Getenv("HOME"), "piclib")
+
+func init() {
 	s := os.Getenv("PICLIB")
-	if s == "" {
-		return filepath.Join(os.Getenv("HOME"), "piclib")
+	if len(s) > 0 {
+		Path = s
 	}
-	return s
+}
+
+type DupErr string
+
+func (s DupErr) Error() string {
+	return fmt.Sprintf("%v already exists in library", string(s))
+}
+
+func IsDup(err error) bool {
+	_, ok := err.(DupErr)
+	return ok
+}
+
+func Add(pic string, rename bool) error {
+	// check if pic path is already within library path
+	if abs, err := filepath.Abs(pic); err != nil {
+		return err
+	} else if strings.HasPrefix(abs, Path) {
+		return nil
+	}
+
+	// check if dst path exists
+	dstpath := filepath.Join(Path, filepath.Base(pic))
+	if f, err := os.Open(dstpath); err == nil {
+		f.Close()
+		return DupErr(pic)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	dst, err := os.Create(dstpath)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	src, err := os.Open(pic)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return err
+	}
+
+	if rename {
+		return Rename(dstpath)
+	}
+	return nil
 }
 
 func Rename(pic string) error {

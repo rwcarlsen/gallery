@@ -3,7 +3,7 @@ package main
 
 import (
 	"flag"
-	"io"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -13,25 +13,7 @@ import (
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-var validFmt = map[string]bool{
-	".jpg":  true,
-	".jpeg": true,
-	".gif":  true,
-	".png":  true,
-	".tif":  true,
-	".tiff": true,
-	".bmp":  true,
-	".exif": true,
-	".giff": true,
-	".raw":  true,
-	".avi":  true,
-	".mpg":  true,
-	".mp4":  true,
-	".mov":  true,
-	".m4v":  true,
-}
-
-var lib = flag.String("lib", "", "path to picture library (blank => $HOME/piclib")
+var lib = flag.String("lib", "", "path to picture library (blank => $HOME/piclib)")
 
 type CmdFunc func(cmd string, args []string)
 
@@ -61,8 +43,12 @@ func main() {
 
 	flag.Parse()
 
-	if *lib == "" {
-		*lib = piclib.Path()
+	if *lib != "" {
+		var err error
+		piclib.Path, err = filepath.Abs(*lib)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if len(flag.Args()) == 0 {
@@ -81,8 +67,8 @@ func main() {
 func put(cmd string, args []string) {
 	desc := "copies given files to the library path. If no args are given, reads a list of files from stdin."
 	fs := newFlagSet("put", "[FILE...]", desc)
-	fs.Parse(args)
 	rename := fs.Bool("rename", true, "true to rename files with an exif date or sha1 hash prefix")
+	fs.Parse(args)
 
 	files := args
 	if len(args) == 0 {
@@ -99,26 +85,13 @@ func put(cmd string, args []string) {
 			continue
 		}
 
-		src, err := os.Open(p)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer src.Close()
-
-		dstpath := filepath.Join(*lib, filepath.Base(p))
-		dst, err := os.Create(dstpath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer src.Close()
-
-		_, err = io.Copy(dst, src)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if *rename {
-			piclib.Rename(dstpath)
+		err := piclib.Add(p, *rename)
+		if piclib.IsDup(err) {
+			fmt.Printf("[SKIP] %v", err)
+		} else if err != nil {
+			log.Printf("[ERR] %v", err)
+		} else {
+			fmt.Printf("[ADD] %v", p)
 		}
 	}
 }
