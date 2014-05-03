@@ -51,54 +51,58 @@ func IsDup(err error) bool {
 	return ok
 }
 
-func Add(pic string, rename bool) error {
+func Add(pic string, rename bool) (newname string, err error) {
 	// check if pic path is already within library path
 	if abs, err := filepath.Abs(pic); err != nil {
-		return err
+		return "", err
 	} else if strings.HasPrefix(abs, Path) {
-		return nil
+		return pic, nil
 	}
 
 	// check if dst path exists
 	dstpath := filepath.Join(Path, filepath.Base(pic))
 	if f, err := os.Open(dstpath); err == nil {
 		f.Close()
-		return DupErr(pic)
+		return "", DupErr(pic)
 	} else if !os.IsNotExist(err) {
-		return err
+		return "", err
 	}
 
 	dst, err := os.Create(dstpath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer dst.Close()
 
 	src, err := os.Open(pic)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer src.Close()
 
 	_, err = io.Copy(dst, src)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if rename {
 		return Rename(dstpath)
 	}
-	return nil
+	return pic, nil
 }
 
-func Rename(pic string) error {
+func Rename(pic string) (newname string, err error) {
 	name, err := CanonicalName(pic)
 	if err != nil {
-		return err
+		return "", err
 	} else if name == pic {
-		return nil
+		return pic, nil
 	}
-	return os.Rename(pic, name)
+	err = os.Rename(pic, name)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
 }
 
 func CanonicalName(pic string) (string, error) {
@@ -188,7 +192,7 @@ func WriteMeta(pic string, m *Meta) error {
 		return err
 	}
 
-	return ioutil.WriteFile(NotesPath(pic), append([]byte(notes), data...), 0755)
+	return ioutil.WriteFile(NotesPath(pic), append([]byte(notes), data...), 0644)
 }
 
 func Checksum(pic string) ([]byte, error) {
