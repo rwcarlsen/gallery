@@ -67,7 +67,7 @@ func main() {
 func put(cmd string, args []string) {
 	desc := "copies given files to the library path. If no args are given, reads a list of files from stdin."
 	fs := newFlagSet("put", "[FILE...]", desc)
-	rename := fs.Bool("rename", true, "true to rename files with an exif date or sha1 hash prefix")
+	norename := fs.Bool("norename", false, "true to not rename files with an exif date or sha1 hash prefix")
 	fs.Parse(args)
 
 	files := args
@@ -85,7 +85,7 @@ func put(cmd string, args []string) {
 			continue
 		}
 
-		err := piclib.Add(p, *rename)
+		err := piclib.Add(p, !*norename)
 		if piclib.IsDup(err) {
 			fmt.Printf("[SKIP] %v\n", err)
 		} else if err != nil {
