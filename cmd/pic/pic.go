@@ -18,7 +18,8 @@ var lib = flag.String("lib", "", "path to picture library (blank => env PICLIB =
 type CmdFunc func(cmd string, args []string)
 
 var cmds = map[string]CmdFunc{
-	"put": put,
+	"put":      put,
+	"validate": validate,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -71,8 +72,8 @@ func put(cmd string, args []string) {
 	sum := fs.Bool("sum", true, "true to include a sha1 hash in a notes file")
 	fs.Parse(args)
 
-	files := args
-	if len(args) == 0 {
+	files := fs.Args()
+	if len(files) == 0 {
 		data, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			log.Fatal(err)
@@ -99,6 +100,45 @@ func put(cmd string, args []string) {
 			if err := piclib.SaveChecksum(newname); err != nil {
 				log.Printf("[ERR] %v\n", err)
 			}
+		}
+	}
+}
+
+func validate(cmd string, args []string) {
+	desc := "verifies checksums of given files. If no args are given, reads a list of files from stdin."
+	fs := newFlagSet("validate", "[FILE...]", desc)
+	all := fs.Bool("all", false, "true validate every file in the library")
+	v := fs.Bool("v", false, "verbose output")
+	fs.Parse(args)
+
+	files := fs.Args()
+	if *all {
+		var err error
+		files, err = piclib.List(-1)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if len(files) == 0 {
+		data, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatal(err)
+		}
+		files = strings.Fields(string(data))
+	}
+
+	for _, path := range files {
+		p := strings.TrimSpace(path)
+		if p == "" {
+			continue
+		}
+
+		err := piclib.Validate(p)
+		if err != nil {
+			log.Printf("[ERR] %v\n", err)
+		} else if *v {
+			fmt.Printf("[VALID] %v\n", path)
 		}
 	}
 }

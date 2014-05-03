@@ -51,6 +51,28 @@ func IsDup(err error) bool {
 	return ok
 }
 
+func List(n int) (pics []string, err error) {
+	f, err := os.Open(Path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	names, err := f.Readdirnames(n)
+	if err != nil {
+		return nil, err
+	}
+
+	paths := []string{}
+	for _, name := range names {
+		if strings.HasSuffix(name, NotesExt) {
+			continue
+		}
+		paths = append(paths, filepath.Join(Path, name))
+	}
+	return paths, nil
+}
+
 func Add(pic string, rename bool) (newname string, err error) {
 	// check if pic path is already within library path
 	if abs, err := filepath.Abs(pic); err != nil {
