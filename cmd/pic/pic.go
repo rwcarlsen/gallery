@@ -13,7 +13,7 @@ import (
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-var lib = flag.String("lib", "", "path to picture library (blank => $HOME/piclib)")
+var lib = flag.String("lib", "", "path to picture library (blank => env PICLIB => $HOME/piclib)")
 
 type CmdFunc func(cmd string, args []string)
 
@@ -87,11 +87,11 @@ func put(cmd string, args []string) {
 
 		err := piclib.Add(p, *rename)
 		if piclib.IsDup(err) {
-			fmt.Printf("[SKIP] %v", err)
+			fmt.Printf("[SKIP] %v\n", err)
 		} else if err != nil {
-			log.Printf("[ERR] %v", err)
+			log.Printf("[ERR] %v\n", err)
 		} else {
-			fmt.Printf("[ADD] %v", p)
+			fmt.Printf("[ADD] %v\n", p)
 		}
 	}
 }

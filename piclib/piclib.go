@@ -112,10 +112,10 @@ func CanonicalName(pic string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		tm = fmt.Sprintf("sha1%x", sum)
+		tm = fmt.Sprintf("%x", sum)
+		return filepath.Join(dir, NoDate+tm+NameSep+b), nil
 	}
-
-	return filepath.Join(dir, NoDate+tm+NameSep+b), nil
+	return filepath.Join(dir, tm+NameSep+b), nil
 }
 
 func Taken(pic string) time.Time {
