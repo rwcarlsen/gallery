@@ -3,17 +3,13 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/rwcarlsen/gallery/conf"
 	"github.com/rwcarlsen/gallery/piclib"
 )
-
-const cacheSize = 300 * piclib.Mb
 
 var validFmt = map[string]bool{
 	".jpg":  true,
@@ -33,71 +29,26 @@ var validFmt = map[string]bool{
 	".m4v":  true,
 }
 
-var lib *piclib.Library
+var lib = flag.String("lib", "", "path to picture library (blank => $HOME/piclib")
 
 func main() {
 	log.SetFlags(0)
 	flag.Parse()
 
-	back, err := conf.Default.Backend()
-	if err != nil {
-		log.Fatal(err)
+	if *lib == "" {
+		*lib = piclib.Path()
 	}
 
-	lib, err = piclib.Open(conf.Default.LibName(), back, cacheSize)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer lib.Close()
-
-	picPaths := flag.Args()
-
-	for _, path := range picPaths {
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			if err := filepath.Walk(path, walkFn); err != nil {
-				log.Print(err)
-			}
-		} else {
-			addToLib(path)
+	files := flag.Args()
+	if len(flag.Args()) == 0 {
+		data, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatal(err)
 		}
-	}
-}
-
-func walkFn(path string, info os.FileInfo, err error) error {
-	if err != nil {
-		log.Print(err)
-		return nil
-	} else if info.IsDir() {
-		return nil
-	} else if strings.Index(path, piclib.NameSep) != -1 {
-		return fmt.Errorf("filename '%v' contains reserved sequence '%v'", path, piclib.NameSep)
+		files = strings.Split(string(data), "\n", -1)
 	}
 
-	addToLib(path)
-	return nil
-}
-
-func addToLib(path string) {
-	if !validFmt[strings.ToLower(filepath.Ext(path))] {
-		fmt.Printf("[SKIP] file %v not a supported type\n", path)
-		return
-	}
-
-	f, err := os.Open(path)
-	if err != nil {
-		log.Printf("path %v: %v", path, err)
-		return
-	}
-	defer f.Close()
-
-	base := filepath.Base(path)
-	if _, err = lib.AddPhoto(base, f); err != nil {
-		if _, ok := err.(piclib.DupErr); ok {
-			fmt.Printf("[SKIP] %v\n", err)
-		} else {
-			log.Printf("[ERROR] '%v': %v", path, err)
-		}
-	} else {
-		fmt.Printf("file %v added\n", path)
+	for _, path := range files {
+		// ...
 	}
 }

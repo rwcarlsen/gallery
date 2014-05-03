@@ -30,15 +30,25 @@ type Meta struct {
 	Sha1 string
 }
 
+func Path() string {
+	s := os.Getenv("PICLIB")
+	if s == "" {
+		return filepath.Join(os.Getenv("HOME"), "piclib")
+	}
+	return s
+}
+
 func Rename(pic string) error {
-	name, err := CalcName(pic)
+	name, err := CanonicalName(pic)
 	if err != nil {
 		return err
+	} else if name == pic {
+		return nil
 	}
 	return os.Rename(pic, name)
 }
 
-func CalcName(pic string) (string, error) {
+func CanonicalName(pic string) (string, error) {
 	dir := filepath.Dir(pic)
 	b := filepath.Base(pic)
 
@@ -123,23 +133,6 @@ func WriteMeta(pic string, m *Meta) error {
 	data, err := json.Marshal(m)
 	if err != nil {
 		return err
-	}
-
-	return ioutil.WriteFile(NotesPath(pic), append([]byte(notes), data...), 0755)
-}
-
-func WriteNotes(pic, notes string) error {
-	_, meta, err := Notes(pic)
-	if err != nil {
-		return err
-	}
-
-	var data []byte
-	if meta != nil {
-		data, err = json.Marshal(meta)
-		if err != nil {
-			return err
-		}
 	}
 
 	return ioutil.WriteFile(NotesPath(pic), append([]byte(notes), data...), 0755)
