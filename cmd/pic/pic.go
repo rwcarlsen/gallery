@@ -20,6 +20,8 @@ type CmdFunc func(cmd string, args []string)
 var cmds = map[string]CmdFunc{
 	"put":      put,
 	"validate": validate,
+	"dups":     dups,
+	"find":     find,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -63,6 +65,42 @@ func main() {
 		return
 	}
 	cmd(flag.Arg(0), flag.Args()[1:])
+}
+
+func dups(cmd string, args []string) {
+	desc := "Print duplicate files from the list. If no args are given, reads a list of files from stdin."
+	fs := newFlagSet("dups", "[FILE...]", desc)
+	all := fs.Bool("all", false, "true to check every file in the library")
+	fs.Parse(args)
+
+	files := fs.Args()
+	if *all {
+		var err error
+		files, err = piclib.List(-1)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if len(files) == 0 {
+		data, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatal(err)
+		}
+		files = strings.Fields(string(data))
+	}
+
+	sums := map[string]string{}
+	for _, file := range files {
+		sum, err := piclib.Checksum(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		s := fmt.Sprintf("%x", sum)
+		if orig, ok := sums[s]; ok {
+			fmt.Printf("[DUP] %v is duplicate of %v\n", file, orig)
+		} else {
+			sums[s] = file
+		}
+	}
 }
 
 func put(cmd string, args []string) {
@@ -118,9 +156,7 @@ func validate(cmd string, args []string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-	}
-
-	if len(files) == 0 {
+	} else if len(files) == 0 {
 		data, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			log.Fatal(err)
@@ -140,5 +176,20 @@ func validate(cmd string, args []string) {
 		} else if *v {
 			fmt.Printf("[VALID] %v\n", path)
 		}
+	}
+}
+
+func find(cmd string, args []string) {
+	desc := "Find and list pictures."
+	fs := newFlagSet("find", "", desc)
+	fs.Parse(args)
+
+	files, err := piclib.List(-1)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, file := range files {
+		fmt.Println(filepath.Base(file))
 	}
 }

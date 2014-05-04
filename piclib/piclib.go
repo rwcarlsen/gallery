@@ -22,7 +22,6 @@ const Version = "0.1"
 
 const (
 	NoDate      = "nodate-sha1-"
-	NameSep     = "-sep-"
 	NotesExt    = ".notes"
 	nameTimeFmt = "2006-01-02-15-04-05"
 )
@@ -51,6 +50,14 @@ func IsDup(err error) bool {
 	return ok
 }
 
+func PicPath(pic string) string {
+	p := filepath.Base(pic)
+	if strings.HasSuffix(p, NotesExt) {
+		p = p[:len(p)-len(NotesExt)]
+	}
+	return filepath.Join(Path, p)
+}
+
 func List(n int) (pics []string, err error) {
 	f, err := os.Open(Path)
 	if err != nil {
@@ -66,6 +73,8 @@ func List(n int) (pics []string, err error) {
 	paths := []string{}
 	for _, name := range names {
 		if strings.HasSuffix(name, NotesExt) {
+			continue
+		} else if strings.HasPrefix(name, ".") {
 			continue
 		}
 		paths = append(paths, filepath.Join(Path, name))
@@ -139,13 +148,13 @@ func CanonicalName(pic string) (string, error) {
 			return "", err
 		}
 		tm = fmt.Sprintf("%x", sum)
-		return filepath.Join(dir, NoDate+tm+NameSep+b), nil
+		return filepath.Join(dir, NoDate+tm+b), nil
 	}
-	return filepath.Join(dir, tm+NameSep+b), nil
+	return filepath.Join(dir, tm+b), nil
 }
 
 func Taken(pic string) time.Time {
-	f, err := os.Open(pic)
+	f, err := os.Open(PicPath(pic))
 	if err != nil {
 		return time.Time{}
 	}
@@ -174,7 +183,7 @@ func Taken(pic string) time.Time {
 }
 
 func NotesPath(pic string) string {
-	return pic + NotesExt
+	return PicPath(pic) + NotesExt
 }
 
 func Notes(pic string) (notes string, m *Meta, err error) {
@@ -218,7 +227,7 @@ func WriteMeta(pic string, m *Meta) error {
 }
 
 func Checksum(pic string) ([]byte, error) {
-	f, err := os.Open(pic)
+	f, err := os.Open(PicPath(pic))
 	if err != nil {
 		return nil, err
 	}
