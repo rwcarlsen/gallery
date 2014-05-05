@@ -146,6 +146,7 @@ func validate(cmd string, args []string) {
 	desc := "verifies checksums of given files. If no args are given, reads a list of files from stdin."
 	fs := newFlagSet("validate", "[FILE...]", desc)
 	all := fs.Bool("all", false, "true validate every file in the library")
+	calc := fs.Bool("calc", false, "true to calculate and store the checksum if it doesn't exist")
 	v := fs.Bool("v", false, "verbose output")
 	fs.Parse(args)
 
@@ -171,10 +172,20 @@ func validate(cmd string, args []string) {
 		}
 
 		err := piclib.Validate(p)
-		if err != nil {
+		if piclib.IsNoSum(err) {
+			if *calc {
+				if err := piclib.SaveChecksum(p); err != nil {
+					log.Printf("[ERR] %v\n", err)
+				} else if *v {
+					log.Printf("[VALID] %v\n", p)
+				}
+			} else {
+				log.Printf("[ERR] %v\n", err)
+			}
+		} else if err != nil {
 			log.Printf("[ERR] %v\n", err)
 		} else if *v {
-			fmt.Printf("[VALID] %v\n", path)
+			fmt.Printf("[VALID] %v\n", p)
 		}
 	}
 }

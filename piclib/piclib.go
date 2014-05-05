@@ -267,12 +267,23 @@ func SaveChecksum(pic string) error {
 	return WriteMeta(pic, meta)
 }
 
+type NoSumErr string
+
+func (s NoSumErr) Error() string {
+	return fmt.Sprintf("%v has no checksum to validate", string(s))
+}
+
+func IsNoSum(err error) bool {
+	_, ok := err.(NoSumErr)
+	return ok
+}
+
 func Validate(pic string) error {
 	_, meta, err := Notes(pic)
 	if err != nil {
 		return err
 	} else if meta == nil || len(meta.Sha1) == 0 {
-		return fmt.Errorf("%v has no checksum to validate", pic)
+		return NoSumErr(pic)
 	}
 
 	sum, err := Checksum(pic)
@@ -281,7 +292,7 @@ func Validate(pic string) error {
 	}
 
 	if meta.Sha1 != fmt.Sprintf("%x", sum) {
-		return fmt.Errorf("%v failed checksum validation")
+		return fmt.Errorf("%v failed validation", pic)
 	}
 
 	return nil
