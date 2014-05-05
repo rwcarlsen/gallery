@@ -27,7 +27,8 @@ const (
 )
 
 type Meta struct {
-	Sha1 string
+	Sha1  string
+	Taken time.Time
 }
 
 var Path = filepath.Join(os.Getenv("HOME"), "piclib")
@@ -82,6 +83,8 @@ func List(n int) (pics []string, err error) {
 	return paths, nil
 }
 
+// Add copies a picture in the Path directory.  If rename is true, the copied
+// file is renamed to CanonicalName(pic).
 func Add(pic string, rename bool) (newname string, err error) {
 	// check if pic path is already within library path
 	if abs, err := filepath.Abs(pic); err != nil {
@@ -154,6 +157,11 @@ func CanonicalName(pic string) (string, error) {
 }
 
 func Taken(pic string) time.Time {
+	// use meta data date taken if it exists
+	if _, meta, err := Notes(pic); err == nil && meta != nil {
+		return meta.Taken
+	}
+
 	f, err := os.Open(PicPath(pic))
 	if err != nil {
 		return time.Time{}
