@@ -77,6 +77,8 @@ func List(n int) (pics []string, err error) {
 			continue
 		} else if strings.HasPrefix(name, ".") {
 			continue
+		} else if fi, err := os.Stat(filepath.Join(Path, name)); err == nil && fi.IsDir() {
+			continue
 		}
 		paths = append(paths, filepath.Join(Path, name))
 	}
