@@ -78,9 +78,9 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 
 	start := picsPerPage * (pgNum - 1)
 	end := min(start+picsPerPage, len(c.photos))
-	list := make([]*thumbData, end-start)
+	list := make([]*Photo, end-start)
 	for i, p := range c.photos[start:end] {
-		list[i] = &thumbData{
+		list[i] = &Photo{
 			Path:  p.Orig,
 			Date:  p.Taken.Format("Jan 2, 2006"),
 			Index: i + start,
@@ -99,7 +99,7 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 func (c *context) serveZoom(w http.ResponseWriter, index string) error {
 	i, _ := strconv.Atoi(index)
 	p := c.photos[i]
-	pData := &thumbData{
+	pData := &Photo{
 		Path:  p.Orig,
 		Date:  p.Taken.Format("Jan 2, 2006"),
 		Index: i,
@@ -186,22 +186,6 @@ func min(x, y int) int {
 		return x
 	}
 	return y
-}
-
-// imgRotJS returns the css3 style text required to rotate an element deg
-// clockwise.
-func imgRotJS(deg int) string {
-	t := fmt.Sprintf("transform:rotate(%vdeg)", deg)
-	//Cross-browser
-	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
-}
-
-type thumbData struct {
-	Path  string
-	Notes string
-	Date  string
-	Index int
-	Style string
 }
 
 type month struct {

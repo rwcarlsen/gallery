@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"github.com/rwcarlsen/gallery/conf"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
@@ -29,6 +27,9 @@ const (
 var (
 	addr   = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
 	noedit = flag.Bool("noedit", false, "don't allow editing of anything in library")
+	lib    = flag.String("lib", "", "path to picture library (blank => env PICLIB => $HOME/piclib)")
+	all    = flag.Bool("all", false, "true to view every file in the library")
+	dosort = flag.Bool("sort", true, "true to sort files in reverse chronological order")
 )
 
 var (
@@ -39,35 +40,57 @@ var (
 
 var (
 	logger    = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
-	resPath   = conf.Default.WebpicsAssets()
-	lib       *piclib.Library
-	allPhotos []*piclib.Photo
-	picMap    = map[string]*piclib.Photo{}
+	resPath   = os.Getenv("WEBPICS")
+	allPhotos []Photo
+	picMap    = map[string]Photo{}
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
 	slidepage []byte // slideshow.html
 )
 
+type Photo struct {
+	Path   string
+	Notes  string
+	Taken  time.Time
+	Index  int
+	Orient int
+}
+
+func (p Photo) Date() string {
+	return p.Taken.Format("Jan 2, 2006")
+}
+
+func (p Photo) Style() string {
+	t := fmt.Sprintf("transform:rotate(%vdeg)", p.Orient)
+	//Cross-browser
+	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
+}
+
 func main() {
 	flag.Parse()
 	var err error
+
+	if *lib != "" {
+		var err error
+		piclib.Path, err = filepath.Abs(*lib)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if resPath == "" {
+		resPath = "."
+	}
 
 	slidepage, err = ioutil.ReadFile(filepath.Join(resPath, "slideshow.html"))
 	if err != nil {
 		logger.Fatal(err)
 	}
 
-	back, err := conf.Default.Backend()
-	if err != nil {
-		log.Fatal(err)
-	}
-	lib, err = piclib.Open(conf.Default.LibName(), back, cacheSize)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer lib.Close()
-
 	loadPics()
+	if *dosort && len(allPhotos) > 0 {
+		sort.Sort(newFirst(allPhotos))
+	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
@@ -92,30 +115,34 @@ func main() {
 }
 
 func loadPics() {
-	names := []string{}
-	if len(flag.Args()) > 0 {
-		names = flag.Args()
-	} else {
+	files := flag.Args()
+	if *all {
+		var err error
+		files, err = piclib.List(-1)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if len(files) == 0 {
 		data, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			logger.Printf("failed to read names from stdin: %v", err)
+			log.Fatalf("failed to read names from stdin: %v", err)
 		}
-		names = strings.Fields(string(data))
+		files = strings.Fields(string(data))
 	}
 
-	for _, name := range names {
-		name = path.Base(name)
-		p, err := lib.GetPhoto(name)
+	for _, name := range files {
+		notes, _, err := piclib.Notes(name)
+		t, err := piclib.Taken(name)
 		if err != nil {
-			logger.Printf("err on %v: %v", name, err)
-		} else {
-			allPhotos = append(allPhotos, p)
-			picMap[name] = p
+			log.Fatal(err)
 		}
-	}
-
-	if len(allPhotos) > 0 {
-		sort.Sort(newFirst(allPhotos))
+		p := Photo{
+			Path:  piclib.Filepath(name),
+			Notes: notes,
+			Taken: t,
+			// Orient: ...,
+		}
+		allPhotos = append(allPhotos, p)
 	}
 }
 
@@ -292,4 +319,9 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 
 	vars := mux.Vars(r)
 	return c, vars
+}
+
+// imgRotJS returns the css3 style text required to rotate an element deg
+// clockwise.
+func imgRotJS(deg int) string {
 }

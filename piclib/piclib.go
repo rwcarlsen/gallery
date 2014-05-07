@@ -51,7 +51,7 @@ func IsDup(err error) bool {
 	return ok
 }
 
-func PicPath(pic string) string {
+func Filepath(pic string) string {
 	p := filepath.Base(pic)
 	if strings.HasSuffix(p, NotesExt) {
 		p = p[:len(p)-len(NotesExt)]
@@ -164,7 +164,7 @@ func Taken(pic string) time.Time {
 		return meta.Taken
 	}
 
-	f, err := os.Open(PicPath(pic))
+	f, err := os.Open(Filepath(pic))
 	if err != nil {
 		return time.Time{}
 	}
@@ -193,7 +193,7 @@ func Taken(pic string) time.Time {
 }
 
 func NotesPath(pic string) string {
-	return PicPath(pic) + NotesExt
+	return Filepath(pic) + NotesExt
 }
 
 func Notes(pic string) (notes string, m *Meta, err error) {
@@ -237,7 +237,7 @@ func WriteMeta(pic string, m *Meta) error {
 }
 
 func Checksum(pic string) ([]byte, error) {
-	f, err := os.Open(PicPath(pic))
+	f, err := os.Open(Filepath(pic))
 	if err != nil {
 		return nil, err
 	}
