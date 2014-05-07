@@ -6,17 +6,9 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
-	"text/template"
 	"time"
 
 	"github.com/rwcarlsen/gallery/piclib"
-)
-
-var (
-	zoomTmpl    = template.Must(template.New("zoompic").Parse(zoompic))
-	picsTmpl    = template.Must(template.New("browsepics").Parse(browsepics))
-	pagenavTmpl = template.Must(template.New("pagination").Parse(pagination))
-	timenavTmpl = template.Must(template.New("timenav").Parse(timenav))
 )
 
 const noteField = "LibNotes"
@@ -97,7 +89,7 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 		}
 	}
 
-	if err = picsTmpl.Execute(w, list); err != nil {
+	if err = utilTmpl.ExecuteTemplate(w, "picgrid", list); err != nil {
 		return err
 	}
 	c.CurrPage = pg
@@ -125,7 +117,7 @@ func (c *context) servePageNav(w http.ResponseWriter) error {
 		pages[i] = i + 1
 	}
 
-	return pagenavTmpl.Execute(w, pages)
+	return utilTmpl.ExecuteTemplate(w, "pagenav", pages)
 }
 
 func (c *context) serveStat(w http.ResponseWriter, stat string) {
@@ -172,7 +164,7 @@ func (c *context) serveTimeNav(w http.ResponseWriter) error {
 	yr.StartPage = yr.Months[0].Page
 	years = append(years, yr)
 
-	return timenavTmpl.Execute(w, years)
+	return utilTmpl.ExecuteTemplate(w, "timenav", years)
 }
 
 func (c *context) pageOf(start int, t time.Time) (page, last int) {
@@ -202,4 +194,30 @@ func imgRotJS(deg int) string {
 	t := fmt.Sprintf("transform:rotate(%vdeg)", deg)
 	//Cross-browser
 	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
+}
+
+type thumbData struct {
+	Path  string
+	Notes string
+	Date  string
+	Index int
+	Style string
+}
+
+type month struct {
+	Name string
+	Page int
+}
+
+type year struct {
+	Year      int
+	StartPage int
+	Months    []*month
+}
+
+func (y *year) reverseMonths() {
+	end := len(y.Months) - 1
+	for i := 0; i < len(y.Months)/2; i++ {
+		y.Months[i], y.Months[end-i] = y.Months[end-i], y.Months[i]
+	}
 }

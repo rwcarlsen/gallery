@@ -42,6 +42,12 @@ function getCurrPic() {
   return +(elems[elems.length-1])
 }
 
+function saveNotes(index) {
+  ind = index.toString()
+  data = $("#pic-notes" + ind).val()
+  $.post("/dynamic/save-notes/" + ind, data)
+}
+
 var picsPerPage = 0
 var numPhotos = 0
 var currPic = getCurrPic()

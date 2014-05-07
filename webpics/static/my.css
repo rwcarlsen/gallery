@@ -16,6 +16,8 @@ ul.thumb-grid>li>a>img {
 }
 
 .zoom-img {
+    max-width: 80%;
+    max-height: 80%;
     padding: 10% 10% 10% 10%;
 }
 

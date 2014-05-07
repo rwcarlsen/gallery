@@ -1,67 +1,55 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>RWC Photos</title>
-    <link href="/static/bootstrap/css/bootstrap.css" rel="stylesheet" media="screen">
-    <link href="/static/my.css" rel="stylesheet" media="screen">
-    <link rel="shortcut icon" href="/static/favicon.ico" />
-  </head>
+{{template "header"}}
 
-  <body>
-
-    <div class="navbar navbar-fixed-top">
-      <div class="navbar-inner">
-        <div class="container">
-
-          <a class="brand active" href="#">Gallery</a>
-          <ul class="nav">
-            <li class="dropdown" id="time-menu">
-              <a class="dropdown-toggle" data-toggle="dropdown" href="#time-menu">
-                When
-                <b class="caret"></b>
-              </a>
-              <ul class="dropdown-menu" id="time-nav"></ul>
-            </li>
-
-            <li class="divider-vertical"></li>
-          </ul>
-
-          <ul class="nav pull-right">
-            <li>
-              <a href="/dynamic/slideshow">Slideshow</a>
-            </li>
-            <li class="dropdown" id="stats-menu">
-              <a class="dropdown-toggle" data-toggle="dropdown" href="#stats-menu">
-                Stats
-                <b class="caret"></b>
-              </a>
-              <ul class="dropdown-menu">
-                <li><a href="#" id="num-pics"></a></li>
-                <li><a href="#" id="num-pages"></a></li>
-              </ul>
-            </li>
-          </ul>
-
-        </div>
-      </div>
-    </div>
-
-    <div class="navbar navbar-fixed-bottom">
-      <div class="navbar-inner">
-        <div class="container" id="page-nav"></div>
-      </div>
-    </div>
-
+<div class="navbar navbar-fixed-top">
+  <div class="navbar-inner">
     <div class="container">
-      <br>
-      <div id="pic-gallery"></div>
-      <br>
-      </div>
+
+      <a class="brand active" href="#">Gallery</a>
+      <ul class="nav">
+        <li class="dropdown" id="time-menu">
+          <a class="dropdown-toggle" data-toggle="dropdown" href="#time-menu">
+            When
+            <b class="caret"></b>
+          </a>
+          <ul class="dropdown-menu" id="time-nav"></ul>
+        </li>
+
+        <li class="divider-vertical"></li>
+      </ul>
+
+      <ul class="nav pull-right">
+        <li>
+          <a href="/dynamic/slideshow">Slideshow</a>
+        </li>
+        <li class="dropdown" id="stats-menu">
+          <a class="dropdown-toggle" data-toggle="dropdown" href="#stats-menu">
+            Stats
+            <b class="caret"></b>
+          </a>
+          <ul class="dropdown-menu">
+            <li><a href="#" id="num-pics"></a></li>
+            <li><a href="#" id="num-pages"></a></li>
+          </ul>
+        </li>
+      </ul>
+
     </div>
+  </div>
+</div>
 
-    <script src="http://code.jquery.com/jquery-latest.js"></script>
-    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
-    <script src="/static/my.js"></script>
+<div class="navbar navbar-fixed-bottom">
+  <div class="navbar-inner">
+    <div class="container" id="page-nav"></div>
+  </div>
+</div>
 
-  </body>
-</html>
+<div class="container">
+  <br>
+  <div id="pic-gallery"></div>
+  <br>
+  </div>
+</div>
+
+<script src="/static/my.js"></script>
+
+{{template "footer"}}

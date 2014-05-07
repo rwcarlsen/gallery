@@ -1,0 +1,64 @@
+{{define "header"}}
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>RWC Photos</title>
+    <link href="/static/bootstrap/css/bootstrap.css" rel="stylesheet" media="screen">
+    <link href="/static/my.css" rel="stylesheet" media="screen">
+    <link rel="shortcut icon" href="/static/favicon.ico" />
+    <script src="http://code.jquery.com/jquery-latest.js"></script>
+    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+  </head>
+  <body>
+{{end}}
+
+{{define "footer"}}
+  </body>
+</html>
+{{end}}
+
+{{define "picgrid"}}
+<ul class="thumb-grid group">
+{{range $index, $photo := .}}
+<li>
+  <div style="{{$photo.Style}}">
+    <a href="/dynamic/zoom/{{$photo.Index}}">
+      <img class="img-rounded" src="/piclib/thumb1/{{$photo.Path}}">
+    </a>
+    <div class="caption">
+      <p class="pagination-centered">{{$photo.Date}}</p>
+    </div>
+  </div>
+</li>
+{{end}}
+</ul>
+{{end}}
+
+{{define "pagenav"}}
+<div class="pagination pagination-centered">
+<ul>
+  <li id="pgprev" ><a href="#" onclick="pagePrev()">Newer</a></li>
+  {{range $i, $pgNum := .}}
+  <li id="pg{{$pgNum}}" class="pglink">
+    <a class="pga" href="#" onclick="pageTo({{$pgNum}})"><p class="pgp">{{$pgNum}}</p></a>
+  </li>
+  {{end}}
+  <li id="pgnext"><a href="#" onclick="pageNext()">Older</a></li>
+</ul>
+</div>
+{{end}}
+
+{{define "timenav"}}
+{{range $i, $year := .}}
+<li>
+  <div class="pagination pagination-centered">
+    <ul class="dropdown-wide">
+      <li class="dropdown-page"><a class="dropdown-link" href="#" onclick="pageTo({{$year.StartPage}})">{{$year.Year}}</a></li>
+      {{range $j, $month := $year.Months}}
+      <li class="dropdown-page"><a class="dropdown-link float-left" href="#" onclick="pageTo({{$month.Page}})">{{$month.Name}}</a></li>
+      {{end}}
+    </ul>
+  </div>
+</li>
+{{end}}
+{{end}}

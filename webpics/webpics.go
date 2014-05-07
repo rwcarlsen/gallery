@@ -10,7 +10,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -30,6 +32,12 @@ var (
 )
 
 var (
+	zoomTmpl = template.Must(template.ParseFiles("zoompic.html", "util.html"))
+	gridTmpl = template.Must(template.ParseFiles("index.html", "util.html"))
+	utilTmpl = template.Must(template.ParseFiles("util.html"))
+)
+
+var (
 	logger    = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 	resPath   = conf.Default.WebpicsAssets()
 	lib       *piclib.Library
@@ -37,17 +45,12 @@ var (
 	picMap    = map[string]*piclib.Photo{}
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
-	home      []byte // index.html
 	slidepage []byte // slideshow.html
 )
 
 func main() {
 	flag.Parse()
 	var err error
-	home, err = ioutil.ReadFile(filepath.Join(resPath, "index.html"))
-	if err != nil {
-		logger.Fatal(err)
-	}
 
 	slidepage, err = ioutil.ReadFile(filepath.Join(resPath, "slideshow.html"))
 	if err != nil {
@@ -110,14 +113,32 @@ func loadPics() {
 			picMap[name] = p
 		}
 	}
+
+	if len(allPhotos) > 0 {
+		sort.Sort(newFirst(allPhotos))
+	}
 }
+
+type newFirst []*piclib.Photo
+
+func (pl newFirst) Less(i, j int) bool {
+	itm := pl[i].Taken
+	jtm := pl[j].Taken
+	return itm.After(jtm)
+}
+
+func (pl newFirst) Len() int { return len(pl) }
+
+func (pl newFirst) Swap(i, j int) { pl[i], pl[j] = pl[j], pl[i] }
 
 ///////////////////////////////////////////////////////////
 ///// static content handlers /////////////////////////////
 ///////////////////////////////////////////////////////////
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write(home)
+	if err := gridTmpl.Execute(w, nil); err != nil {
+		logger.Print(err)
+	}
 }
 
 func StaticHandler(w http.ResponseWriter, r *http.Request) {

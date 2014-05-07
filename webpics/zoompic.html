@@ -1,0 +1,26 @@
+{{template "header"}}
+
+<div class="container black">
+  <div class="row" style="text-align: center;">
+    <a href="/"><img class="zoom-img" data-dismiss="modal" src="/piclib/orig/{{.Path}}" style="{{.Style}}"></a>
+  </div>
+</div>
+
+<div class="navbar navbar-fixed-bottom">
+  <div class="navbar-inner">
+    <div class="container">
+      <ul class="nav">
+        <li><textarea id="pic-notes{{.Index}}">{{.Notes}}</textarea></li>
+        <li><div><a href="#" class="btn" style="margin-left: 10px" onclick="saveNotes({{.Index}})">Save Notes</a></div></li>
+      </ul>
+      <ul class="nav pull-right">
+        <li><a href="#" disabled>Taken {{.Date}}</a></li>
+        <li><div><a class="btn" href="/piclib/orig/{{.Path}}">Original</a></div></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script src="/static/zoompic.js"></script>
+
+{{template "footer"}}
