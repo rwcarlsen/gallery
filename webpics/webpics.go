@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,10 +19,7 @@ import (
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-const (
-	cacheSize   = 300 * piclib.Mb
-	picsPerPage = 20
-)
+const picsPerPage = 20
 
 var (
 	addr   = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
@@ -41,7 +38,7 @@ var (
 var (
 	logger    = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 	resPath   = os.Getenv("WEBPICS")
-	allPhotos []Photo
+	allPhotos = []Photo{}
 	picMap    = map[string]Photo{}
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
@@ -49,6 +46,7 @@ var (
 )
 
 type Photo struct {
+	Name   string
 	Path   string
 	Notes  string
 	Taken  time.Time
@@ -95,7 +93,7 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
 	r.HandleFunc("/static/{path:.*}", StaticHandler)
-	r.HandleFunc("/piclib/{imgType}/{picName}", PhotoHandler)
+	r.HandleFunc("/photo/{name}", PhotoHandler)
 	r.HandleFunc("/dynamic/pg{pg:[0-9]*}", PageHandler)
 	r.HandleFunc("/dynamic/zoom/{index:[0-9]+}", ZoomHandler)
 	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
@@ -132,30 +130,30 @@ func loadPics() {
 
 	for _, name := range files {
 		notes, _, err := piclib.Notes(name)
-		t, err := piclib.Taken(name)
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		p := Photo{
-			Path:  piclib.Filepath(name),
-			Notes: notes,
-			Taken: t,
-			// Orient: ...,
+			Name:   filepath.Base(name),
+			Path:   piclib.Filepath(name),
+			Notes:  notes,
+			Taken:  piclib.Taken(name),
+			Orient: piclib.Orientation(name),
 		}
 		allPhotos = append(allPhotos, p)
+		picMap[p.Name] = p
 	}
 }
 
-type newFirst []*piclib.Photo
+type newFirst []Photo
 
 func (pl newFirst) Less(i, j int) bool {
 	itm := pl[i].Taken
 	jtm := pl[j].Taken
 	return itm.After(jtm)
 }
-
-func (pl newFirst) Len() int { return len(pl) }
-
+func (pl newFirst) Len() int      { return len(pl) }
 func (pl newFirst) Swap(i, j int) { pl[i], pl[j] = pl[j], pl[i] }
 
 ///////////////////////////////////////////////////////////
@@ -175,53 +173,38 @@ func StaticHandler(w http.ResponseWriter, r *http.Request) {
 
 func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	data, p, err := fetchImg(vars["imgType"], vars["picName"])
-	if err != nil {
-		logger.Print(err)
-		return
-	} else if !strings.Contains(p.Tags[noteField], *filter) {
-		logger.Printf("Unauthorized access attempt to pic %v", vars["picName"])
+	p, ok := picMap[vars["name"]]
+	if !ok {
+		logger.Print("pic %v not valid", p.Name)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")
-	disp := "attachment; filename=\"" + p.Orig + "\""
+	disp := "attachment; filename=\"" + p.Name + "\""
 	w.Header().Set("Content-Disposition", disp)
-	w.Write(data)
+
+	if err := writeImg(w, p.Name); err != nil {
+		logger.Print(err)
+		return
+	}
 }
 
-const (
-	MetaFile  = "meta"
-	OrigImg   = "orig"
-	Thumb1Img = "thumb1"
-	Thumb2Img = "thumb2"
-)
-
-func fetchImg(imgType, picName string) ([]byte, *piclib.Photo, error) {
-	p, ok := picMap[picName]
+func writeImg(w io.Writer, name string) error {
+	p, ok := picMap[name]
 	if !ok {
-		return nil, nil, fmt.Errorf("picname %v not valid", picName)
+		return fmt.Errorf("%v is not a valid pic", name)
 	}
 
-	var data []byte
-	var err error
-	switch imgType {
-	case MetaFile:
-		data, err = json.Marshal(p)
-	case OrigImg:
-		data, err = p.GetOriginal()
-	case Thumb1Img:
-		data, err = p.GetThumb1()
-	case Thumb2Img:
-		data, err = p.GetThumb2()
-	default:
-		return nil, nil, fmt.Errorf("invalid image type '%v'", imgType)
-	}
-
+	data, err := ioutil.ReadFile(p.Path)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
-	return data, p, nil
+
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 ///////////////////////////////////////////////////////////
@@ -260,7 +243,7 @@ func SlideStyleHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
 	c.initRand()
 	p := c.photos[c.random[c.randIndex]]
-	w.Write([]byte(imgRotJS(p.Rotation())))
+	w.Write([]byte(p.Style()))
 }
 
 func SlideshowHandler(w http.ResponseWriter, r *http.Request) {
@@ -308,20 +291,15 @@ func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]st
 	if !ok {
 		v = time.Now().String()
 		s.Values["context-id"] = v
-		contexts[v.(string)] = newContext(allPhotos, *filter)
+		contexts[v.(string)] = newContext(allPhotos)
 	} else if _, ok := contexts[v.(string)]; !ok {
 		v = time.Now().String()
 		s.Values["context-id"] = v
-		contexts[v.(string)] = newContext(allPhotos, *filter)
+		contexts[v.(string)] = newContext(allPhotos)
 	}
 	s.Save(r, w)
 	c := contexts[v.(string)]
 
 	vars := mux.Vars(r)
 	return c, vars
-}
-
-// imgRotJS returns the css3 style text required to rotate an element deg
-// clockwise.
-func imgRotJS(deg int) string {
 }

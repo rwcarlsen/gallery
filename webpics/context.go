@@ -11,16 +11,14 @@ import (
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-const noteField = "LibNotes"
-
 type context struct {
-	photos    []*piclib.Photo
+	photos    []Photo
 	CurrPage  string
 	random    []int
 	randIndex int
 }
 
-func newContext(pics []*piclib.Photo, filter string) *context {
+func newContext(pics []Photo) *context {
 	c := &context{
 		photos:   pics,
 		CurrPage: "1",
@@ -41,8 +39,8 @@ func (c *context) saveNotes(r *http.Request, picIndex string) error {
 	r.Body.Close()
 
 	p := c.photos[i]
-	p.Tags[noteField] = string(data)
-	if err := lib.UpdatePhoto(p); err != nil {
+	err = piclib.WriteNotes(p.Path, string(data))
+	if err != nil {
 		return err
 	}
 	return nil
@@ -57,17 +55,11 @@ func (c *context) initRand() {
 
 func (c *context) serveSlide(w http.ResponseWriter) error {
 	c.initRand()
-
 	p := c.photos[c.random[c.randIndex]]
-	data, err := p.GetOriginal()
-	if err != nil {
-		return err
-	}
-	w.Write(data)
 	if c.randIndex++; c.randIndex == len(c.photos) {
 		c.randIndex = 0
 	}
-	return nil
+	return writeImg(w, p.Name)
 }
 
 func (c *context) servePage(w http.ResponseWriter, pg string) error {
@@ -78,15 +70,10 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 
 	start := picsPerPage * (pgNum - 1)
 	end := min(start+picsPerPage, len(c.photos))
-	list := make([]*Photo, end-start)
+	list := make([]Photo, end-start)
 	for i, p := range c.photos[start:end] {
-		list[i] = &Photo{
-			Path:  p.Orig,
-			Date:  p.Taken.Format("Jan 2, 2006"),
-			Index: i + start,
-			Notes: p.Tags[noteField],
-			Style: imgRotJS(p.Rotation()),
-		}
+		p.Index = i + start
+		list[i] = p
 	}
 
 	if err = utilTmpl.ExecuteTemplate(w, "picgrid", list); err != nil {
@@ -99,15 +86,8 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 func (c *context) serveZoom(w http.ResponseWriter, index string) error {
 	i, _ := strconv.Atoi(index)
 	p := c.photos[i]
-	pData := &Photo{
-		Path:  p.Orig,
-		Date:  p.Taken.Format("Jan 2, 2006"),
-		Index: i,
-		Notes: p.Tags[noteField],
-		Style: imgRotJS(p.Rotation()),
-	}
-
-	return zoomTmpl.Execute(w, pData)
+	p.Index = i
+	return zoomTmpl.Execute(w, p)
 }
 
 func (c *context) servePageNav(w http.ResponseWriter) error {

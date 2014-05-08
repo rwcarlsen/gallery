@@ -26,9 +26,22 @@ const (
 	nameTimeFmt = "2006-01-02-15-04-05"
 )
 
+// rots holds mappings from exif orientation tag to degrees clockwise needed
+var rots = map[int]int{
+	1: 0,
+	2: 0,
+	3: 180,
+	4: 180,
+	5: 90,
+	6: 90,
+	7: 270,
+	8: 270,
+}
+
 type Meta struct {
-	Sha1  string
-	Taken time.Time
+	Sha1   string
+	Taken  time.Time
+	Orient int
 }
 
 var Path = filepath.Join(os.Getenv("HOME"), "piclib")
@@ -161,7 +174,9 @@ func CanonicalName(pic string) (string, error) {
 func Taken(pic string) time.Time {
 	// use meta data date taken if it exists
 	if _, meta, err := Notes(pic); err == nil && meta != nil {
-		return meta.Taken
+		if !meta.Taken.IsZero() {
+			return meta.Taken
+		}
 	}
 
 	f, err := os.Open(Filepath(pic))
@@ -190,6 +205,32 @@ func Taken(pic string) time.Time {
 		return time.Time{}
 	}
 	return t
+}
+
+func Orientation(pic string) int {
+	// use meta data orientation if it exists
+	if _, meta, err := Notes(pic); err == nil && meta != nil {
+		if meta.Orient != 0 {
+			return meta.Orient
+		}
+	}
+
+	f, err := os.Open(Filepath(pic))
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		return 0
+	}
+
+	tg, err := x.Get(exif.Orientation)
+	if err != nil {
+		return 0
+	}
+	return rots[int(tg.Int(0))]
 }
 
 func NotesPath(pic string) string {
@@ -222,15 +263,31 @@ func Notes(pic string) (notes string, m *Meta, err error) {
 	return notes, m, nil
 }
 
+func WriteNotes(pic string, notes string) error {
+	_, meta, err := Notes(pic)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(NotesPath(pic), []byte(notes), 0644)
+	if err != nil {
+		return err
+	}
+	return WriteMeta(pic, meta)
+}
+
 func WriteMeta(pic string, m *Meta) error {
 	notes, _, err := Notes(pic)
 	if err != nil {
 		return err
 	}
 
-	data, err := json.Marshal(m)
-	if err != nil {
-		return err
+	data := []byte{}
+	if m != nil {
+		data, err = json.Marshal(m)
+		if err != nil {
+			return err
+		}
 	}
 
 	return ioutil.WriteFile(NotesPath(pic), append([]byte(notes), data...), 0644)
