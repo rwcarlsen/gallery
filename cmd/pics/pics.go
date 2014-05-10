@@ -139,7 +139,7 @@ func put(cmd string, args []string) {
 				if err != nil {
 					log.Print("[ERR] %v", err)
 				} else {
-					fmt.Print("[THUMB] %v", p)
+					fmt.Printf("[THUMB] %v\n", p)
 				}
 			}
 		}
@@ -182,7 +182,7 @@ func thumb(cmd string, args []string) {
 		if err != nil {
 			log.Print("[ERR] %v", err)
 		} else {
-			fmt.Print("[THUMB] %v", p)
+			fmt.Printf("[THUMB] %v\n", p)
 		}
 	}
 }
