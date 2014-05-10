@@ -122,6 +122,10 @@ func (c *context) serveTimeNav(w http.ResponseWriter) error {
 	maxYear := c.photos[0].Taken.Year()
 	minYear := c.photos[len(c.photos)-1].Taken.Year()
 	lastMinMonth := c.photos[len(c.photos)-1].Taken.Month()
+	if maxYear-minYear > 20 {
+		minYear = maxYear - 20
+		lastMinMonth = 12
+	}
 
 	var last, pg int
 	for y := maxYear; y > minYear; y-- {
