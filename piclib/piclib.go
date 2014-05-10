@@ -403,7 +403,7 @@ func MakeThumb(pic string, w, h uint) error {
 		return err
 	}
 
-	m := resize.Resize(w, h, img, resize.Bilinear)
+	m := resize.Resize(w, h, img, resize.Bicubic)
 
 	dst, err := os.Create(ThumbPath(pic))
 	if err != nil {
