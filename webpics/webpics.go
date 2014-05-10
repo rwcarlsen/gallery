@@ -204,7 +204,7 @@ func writeImg(w io.Writer, name string, thumb bool) error {
 	var data []byte
 	var err error
 	if thumb {
-		data, err = ioutil.ReadFile(piclib.ThumbPath(p.Name))
+		data, err = ioutil.ReadFile(piclib.ThumbFile(p.Name))
 	} else {
 		data, err = ioutil.ReadFile(p.Path)
 	}

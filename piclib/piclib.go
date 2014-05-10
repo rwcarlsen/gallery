@@ -257,6 +257,15 @@ func ThumbPath(pic string) string {
 	return Filepath(pic) + ThumbExt
 }
 
+// ThumbFile returns the thumnail filepath for pic if it exists, otherwise,
+// returns the pic filepath.
+func ThumbFile(pic string) string {
+	if _, err := os.Stat(ThumbPath(pic)); err != nil {
+		return Filepath(pic)
+	}
+	return ThumbPath(pic)
+}
+
 func Notes(pic string) (notes string, m *Meta, err error) {
 	data, err := ioutil.ReadFile(NotesPath(pic))
 	if os.IsNotExist(err) {
