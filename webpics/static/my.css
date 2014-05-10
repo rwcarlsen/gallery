@@ -2,6 +2,7 @@
 /* stuff for the thumbnail gallery to look right */
 ul.thumb-grid {
   list-style-type: none;
+  padding-top: 60px;
 }
 ul.thumb-grid>li {
     display: inline-block;

@@ -90,17 +90,16 @@ func List(n int, skipext ...string) (pics []string, err error) {
 		return nil, err
 	}
 
+	skipext = append(skipext, NotesExt)
+	skipext = append(skipext, ThumbExt)
 	paths := []string{}
 	for _, name := range names {
-		if strings.HasSuffix(name, NotesExt) {
-			continue
-		} else if strings.HasSuffix(name, ThumbExt) {
-			continue
-		} else if strings.HasPrefix(name, ".") {
+		if strings.HasPrefix(name, ".") {
 			continue
 		} else if fi, err := os.Stat(filepath.Join(Path, name)); err == nil && fi.IsDir() {
 			continue
 		}
+
 		skip := false
 		for _, ext := range skipext {
 			if strings.ToLower(filepath.Ext(name)) == ext {
