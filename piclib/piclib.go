@@ -117,6 +117,11 @@ func List(n int, skipext ...string) (pics []string, err error) {
 // Add copies a picture in the Path directory.  If rename is true, the copied
 // file is renamed to CanonicalName(pic).
 func Add(pic string, rename bool) (newname string, err error) {
+	// make pic lib dir if it doesn't exist
+	if err := os.MkdirAll(Path, 0755); err != nil {
+		return "", err
+	}
+
 	// check if pic path is already within library path
 	if abs, err := filepath.Abs(pic); err != nil {
 		return "", err
@@ -126,8 +131,7 @@ func Add(pic string, rename bool) (newname string, err error) {
 
 	// check if dst path exists
 	dstpath := filepath.Join(Path, filepath.Base(pic))
-	if f, err := os.Open(dstpath); err == nil {
-		f.Close()
+	if _, err := os.Stat(dstpath); err == nil {
 		return "", DupErr(pic)
 	} else if !os.IsNotExist(err) {
 		return "", err
@@ -173,6 +177,9 @@ func Rename(pic string) (newname string, err error) {
 func CanonicalName(pic string) (string, error) {
 	dir := filepath.Dir(pic)
 	b := filepath.Base(pic)
+	if i := strings.Index(b, "-sep-"); i != -1 {
+		b = b[i+len("-sep-"):]
+	}
 
 	t := Taken(pic)
 	tm := t.Format(nameTimeFmt)
@@ -184,7 +191,7 @@ func CanonicalName(pic string) (string, error) {
 		tm = fmt.Sprintf("%x", sum)
 		return filepath.Join(dir, NoDate+tm+b), nil
 	}
-	return filepath.Join(dir, tm+b), nil
+	return filepath.Join(dir, tm+"_"+b), nil
 }
 
 func Taken(pic string) time.Time {
@@ -387,8 +394,7 @@ func Validate(pic string) error {
 }
 
 func MakeThumb(pic string, w, h uint) error {
-	if f, err := os.Open(ThumbPath(pic)); err == nil {
-		f.Close()
+	if _, err := os.Stat(ThumbPath(pic)); err == nil {
 		return fmt.Errorf("%v already has a thumbnail")
 	}
 

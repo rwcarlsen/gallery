@@ -132,15 +132,15 @@ func put(cmd string, args []string) {
 			fmt.Printf("[SKIP] %v\n", err)
 		} else if err != nil {
 			log.Printf("[ERR] %v\n", err)
+			continue
 		} else {
 			fmt.Printf("[ADD] %v\n", p)
-			if *thumb {
-				err := piclib.MakeThumb(p, 1000, 0)
-				if err != nil {
-					log.Print("[ERR] %v", err)
-				} else {
-					fmt.Printf("[THUMB] %v\n", p)
-				}
+		}
+
+		if *thumb {
+			err := piclib.MakeThumb(newname, 1000, 0)
+			if err != nil {
+				log.Printf("[ERR] %v", err)
 			}
 		}
 
