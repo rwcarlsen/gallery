@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/kierdavis/dateparser"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
@@ -72,6 +74,7 @@ func dups(cmd string, args []string) {
 	desc := "Print duplicate files from the list. If no args are given, reads a list of files from stdin."
 	fs := newFlagSet("dups", "[FILE...]", desc)
 	all := fs.Bool("all", false, "true to check every file in the library")
+	quiet := fs.Bool("quiet", false, "true to only print file names")
 	fs.Parse(args)
 
 	files := fs.Args()
@@ -97,7 +100,11 @@ func dups(cmd string, args []string) {
 		}
 		s := fmt.Sprintf("%x", sum)
 		if orig, ok := sums[s]; ok {
-			fmt.Printf("[DUP] %v is duplicate of %v\n", file, orig)
+			if *quiet {
+				fmt.Println(file)
+			} else {
+				fmt.Printf("[DUP] %v is duplicate of %v\n", file, orig)
+			}
 		} else {
 			sums[s] = file
 		}
@@ -238,7 +245,29 @@ func validate(cmd string, args []string) {
 func find(cmd string, args []string) {
 	desc := "Find and list pictures."
 	fs := newFlagSet("find", "", desc)
+	after := fs.String("from", "", "only show photos after date")
+	before := fs.String("to", "", "only show photos before date")
 	fs.Parse(args)
+
+	var err error
+	var at time.Time
+	bt := time.Now()
+	if *after != "" {
+		reftime := time.Date(time.Now().Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+		pars := &dateparser.Parser{Default: reftime}
+		at, err = pars.Parse(*after)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	if *before != "" {
+		reftime := time.Date(time.Now().Year(), 12, 31, 23, 59, 59, 0, time.UTC)
+		pars := &dateparser.Parser{Default: reftime}
+		bt, err = pars.Parse(*before)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	files, err := piclib.List(-1)
 	if err != nil {
@@ -246,6 +275,9 @@ func find(cmd string, args []string) {
 	}
 
 	for _, file := range files {
-		fmt.Println(filepath.Base(file))
+		t := piclib.Taken(file)
+		if (*after == "" || t.After(at)) && (*before == "" || t.Before(bt)) {
+			fmt.Println(filepath.Base(file))
+		}
 	}
 }
