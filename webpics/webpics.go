@@ -36,7 +36,6 @@ var (
 )
 
 var (
-	logger    = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 	resPath   = os.Getenv("WEBPICS")
 	allPhotos = []Photo{}
 	picMap    = map[string]Photo{}
@@ -82,7 +81,7 @@ func main() {
 
 	slidepage, err = ioutil.ReadFile(filepath.Join(resPath, "slideshow.html"))
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 
 	loadPics()
@@ -93,7 +92,7 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
 	r.HandleFunc("/static/{path:.*}", StaticHandler)
-	r.HandleFunc("/photo/{name}", PhotoHandler)
+	r.HandleFunc("/photo/{type}/{name}", PhotoHandler)
 	r.HandleFunc("/dynamic/pg{pg:[0-9]*}", PageHandler)
 	r.HandleFunc("/dynamic/zoom/{index:[0-9]+}", ZoomHandler)
 	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
@@ -106,17 +105,19 @@ func main() {
 	r.HandleFunc("/dynamic/slide-style", SlideStyleHandler)
 
 	http.Handle("/", r)
-	logger.Printf("listening on %v", *addr)
+	log.Printf("listening on %v", *addr)
 	if err := http.ListenAndServe(*addr, nil); err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 }
+
+var skipext = []string{"", ".mov", ".m4v", ".go"}
 
 func loadPics() {
 	files := flag.Args()
 	if *all {
 		var err error
-		files, err = piclib.List(-1)
+		files, err = piclib.List(-1, "")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -162,7 +163,7 @@ func (pl newFirst) Swap(i, j int) { pl[i], pl[j] = pl[j], pl[i] }
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	if err := gridTmpl.Execute(w, nil); err != nil {
-		logger.Print(err)
+		log.Print(err)
 	}
 }
 
@@ -175,27 +176,38 @@ func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	p, ok := picMap[vars["name"]]
 	if !ok {
-		logger.Print("pic %v not valid", p.Name)
+		log.Print("pic %v not valid", p.Name)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/octet-stream")
-	disp := "attachment; filename=\"" + p.Name + "\""
-	w.Header().Set("Content-Disposition", disp)
+	var err error
+	switch vars["type"] {
+	case "orig":
+		err = writeImg(w, p.Name, false)
+	case "thumb":
+		err = writeImg(w, p.Name, true)
+	default:
+		log.Print("invalid pic type %v", vars["type"])
+	}
 
-	if err := writeImg(w, p.Name); err != nil {
-		logger.Print(err)
-		return
+	if err != nil {
+		log.Print(err)
 	}
 }
 
-func writeImg(w io.Writer, name string) error {
+func writeImg(w io.Writer, name string, thumb bool) error {
 	p, ok := picMap[name]
 	if !ok {
 		return fmt.Errorf("%v is not a valid pic", name)
 	}
 
-	data, err := ioutil.ReadFile(p.Path)
+	var data []byte
+	var err error
+	if thumb {
+		data, err = ioutil.ReadFile(piclib.ThumbPath(p.Name))
+	} else {
+		data, err = ioutil.ReadFile(p.Path)
+	}
 	if err != nil {
 		return err
 	}
@@ -217,7 +229,7 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, c.CurrPage)
 	} else {
 		if err := c.servePage(w, pg); err != nil {
-			logger.Print(err)
+			log.Print(err)
 		}
 	}
 }
@@ -228,14 +240,14 @@ func NotesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	c, vars := getContext(w, r)
 	if err := c.saveNotes(r, vars["picIndex"]); err != nil {
-		logger.Print(err)
+		log.Print(err)
 	}
 }
 
 func NextSlideHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
 	if err := c.serveSlide(w); err != nil {
-		logger.Print(err)
+		log.Print(err)
 	}
 }
 
@@ -253,14 +265,14 @@ func SlideshowHandler(w http.ResponseWriter, r *http.Request) {
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
 	c, vars := getContext(w, r)
 	if err := c.serveZoom(w, vars["index"]); err != nil {
-		logger.Print(err)
+		log.Print(err)
 	}
 }
 
 func PageNavHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
 	if err := c.servePageNav(w); err != nil {
-		logger.Print(err)
+		log.Print(err)
 	}
 }
 
@@ -277,7 +289,7 @@ func SetPageHandler(w http.ResponseWriter, r *http.Request) {
 func TimeNavHandler(w http.ResponseWriter, r *http.Request) {
 	c, _ := getContext(w, r)
 	if err := c.serveTimeNav(w); err != nil {
-		logger.Print(err)
+		log.Print(err)
 	}
 }
 

@@ -6,7 +6,9 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"image"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/png"
 	"io"
 	"io/ioutil"
@@ -15,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
 )
 
@@ -23,6 +26,7 @@ const Version = "0.1"
 const (
 	NoDate      = "nodate-sha1-"
 	NotesExt    = ".notes"
+	ThumbExt    = ".thumb"
 	nameTimeFmt = "2006-01-02-15-04-05"
 )
 
@@ -68,11 +72,13 @@ func Filepath(pic string) string {
 	p := filepath.Base(pic)
 	if strings.HasSuffix(p, NotesExt) {
 		p = p[:len(p)-len(NotesExt)]
+	} else if strings.HasSuffix(p, ThumbExt) {
+		p = p[:len(p)-len(ThumbExt)]
 	}
 	return filepath.Join(Path, p)
 }
 
-func List(n int) (pics []string, err error) {
+func List(n int, skipext ...string) (pics []string, err error) {
 	f, err := os.Open(Path)
 	if err != nil {
 		return nil, err
@@ -88,12 +94,23 @@ func List(n int) (pics []string, err error) {
 	for _, name := range names {
 		if strings.HasSuffix(name, NotesExt) {
 			continue
+		} else if strings.HasSuffix(name, ThumbExt) {
+			continue
 		} else if strings.HasPrefix(name, ".") {
 			continue
 		} else if fi, err := os.Stat(filepath.Join(Path, name)); err == nil && fi.IsDir() {
 			continue
 		}
-		paths = append(paths, filepath.Join(Path, name))
+		skip := false
+		for _, ext := range skipext {
+			if strings.ToLower(filepath.Ext(name)) == ext {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			paths = append(paths, filepath.Join(Path, name))
+		}
 	}
 	return paths, nil
 }
@@ -237,6 +254,10 @@ func NotesPath(pic string) string {
 	return Filepath(pic) + NotesExt
 }
 
+func ThumbPath(pic string) string {
+	return Filepath(pic) + ThumbExt
+}
+
 func Notes(pic string) (notes string, m *Meta, err error) {
 	data, err := ioutil.ReadFile(NotesPath(pic))
 	if os.IsNotExist(err) {
@@ -355,4 +376,32 @@ func Validate(pic string) error {
 	}
 
 	return nil
+}
+
+func MakeThumb(pic string, w, h uint) error {
+	if f, err := os.Open(ThumbPath(pic)); err == nil {
+		f.Close()
+		return fmt.Errorf("%v already has a thumbnail")
+	}
+
+	f, err := os.Open(Filepath(pic))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return err
+	}
+
+	m := resize.Resize(w, h, img, resize.Bilinear)
+
+	dst, err := os.Create(ThumbPath(pic))
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	return jpeg.Encode(dst, m, nil)
 }

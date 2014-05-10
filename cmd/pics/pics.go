@@ -22,6 +22,7 @@ var cmds = map[string]CmdFunc{
 	"validate": validate,
 	"dups":     dups,
 	"find":     find,
+	"thumb":    thumb,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -108,6 +109,7 @@ func put(cmd string, args []string) {
 	fs := newFlagSet("put", "[FILE...]", desc)
 	norename := fs.Bool("norename", false, "true to not rename files with an exif date or sha1 hash prefix")
 	sum := fs.Bool("sum", true, "true to include a sha1 hash in a notes file")
+	thumb := fs.Bool("thumb", true, "true to create and add a thumbnail also")
 	fs.Parse(args)
 
 	files := fs.Args()
@@ -132,12 +134,55 @@ func put(cmd string, args []string) {
 			log.Printf("[ERR] %v\n", err)
 		} else {
 			fmt.Printf("[ADD] %v\n", p)
+			if *thumb {
+				err := piclib.MakeThumb(p, 1000, 0)
+				if err != nil {
+					log.Print("[ERR] %v", err)
+				} else {
+					fmt.Print("[THUMB] %v", p)
+				}
+			}
 		}
 
 		if *sum {
 			if err := piclib.SaveChecksum(newname); err != nil {
 				log.Printf("[ERR] %v\n", err)
 			}
+		}
+	}
+}
+
+func thumb(cmd string, args []string) {
+	desc := "creates thumbnail images for the given files. If no args are given, reads a list of files from stdin."
+	fs := newFlagSet("thumb", "[FILE...]", desc)
+	w := fs.Uint("w", 1000, "thumb width (px). 0 to preserve aspect ratio based on height.")
+	h := fs.Uint("h", 0, "thumb height (px). 0 to preserve aspect ratio based on width.")
+	fs.Parse(args)
+
+	files := fs.Args()
+	if len(files) == 0 {
+		data, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatal(err)
+		}
+		files = strings.Fields(string(data))
+	}
+
+	if *w == 0 && *h == 0 {
+		log.Fatal("either width or height must be non-zero")
+	}
+
+	for _, path := range files {
+		p := strings.TrimSpace(path)
+		if p == "" {
+			continue
+		}
+
+		err := piclib.MakeThumb(p, *w, *h)
+		if err != nil {
+			log.Print("[ERR] %v", err)
+		} else {
+			fmt.Print("[THUMB] %v", p)
 		}
 	}
 }
