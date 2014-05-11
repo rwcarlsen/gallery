@@ -137,42 +137,33 @@ func Add(pic string, rename bool) (newname string, err error) {
 
 	dstpath := filepath.Join(Path, filepath.Base(pic))
 	if rename {
-		name, err := CanonicalName(pic)
-		if err != nil {
-			fmt.Println("spot1")
-			return "", err
-		}
-		dstpath = filepath.Join(Path, name)
+		dstpath = filepath.Join(Path, canon)
 	}
+
 	if _, err := os.Stat(dstpath); err == nil {
 		return "", DupErr(pic)
 	} else if !os.IsNotExist(err) {
-		fmt.Println("spot2")
 		return "", err
 	} else if _, err := os.Stat(filepath.Join(Path, canon)); err == nil {
 		return "", DupErr(pic)
 	} else if !os.IsNotExist(err) {
-		fmt.Println("spot3")
 		return "", err
 	}
 
 	dst, err := os.Create(dstpath)
 	if err != nil {
-		fmt.Println("spot4")
 		return "", err
 	}
 	defer dst.Close()
 
 	src, err := os.Open(pic)
 	if err != nil {
-		fmt.Println("spot5")
 		return "", err
 	}
 	defer src.Close()
 
 	_, err = io.Copy(dst, src)
 	if err != nil {
-		fmt.Println("spot6")
 		return "", err
 	}
 
