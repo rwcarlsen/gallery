@@ -19,7 +19,7 @@ import (
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-const picsPerPage = 20
+const picsPerPage = 24
 
 var (
 	addr   = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
