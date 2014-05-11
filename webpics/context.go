@@ -6,106 +6,24 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
-	"strings"
-	"text/template"
 	"time"
 
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-var (
-	zoomTmpl    = template.Must(template.New("zoompic").Parse(zoompic))
-	picsTmpl    = template.Must(template.New("browsepics").Parse(browsepics))
-	pagenavTmpl = template.Must(template.New("pagination").Parse(pagination))
-	timenavTmpl = template.Must(template.New("timenav").Parse(timenav))
-)
-
-const noteField = "LibNotes"
-
 type context struct {
-	allPhotos    []*piclib.Photo
-	photos       []*piclib.Photo
-	HideDateless bool
-	CurrPage     string
-	filter       string // manual, forced pic pre-filter - trumps other filters
-	query        []string
-	random       []int
-	randIndex    int
+	photos    []*Photo
+	CurrPage  string
+	random    []int
+	randIndex int
 }
 
-func newContext(pics []*piclib.Photo, filter string) *context {
+func newContext(pics []*Photo) *context {
 	c := &context{
-		allPhotos: pics,
-		photos:    pics,
-		CurrPage:  "1",
-		filter:    filter,
+		photos:   pics,
+		CurrPage: "1",
 	}
-	c.updateFilter() // initialize pic list
 	return c
-}
-
-func (c *context) toggleDateless() {
-	c.HideDateless = !c.HideDateless
-	c.updateFilter()
-}
-
-func (c *context) setSearchFilter(query []string) {
-	if c.query != nil {
-		// reset if photos are already filtered
-		c.query = nil
-		c.updateFilter()
-	}
-	c.query = query
-	c.updateFilter()
-}
-
-func (c *context) updateFilter() {
-	c.CurrPage = "1"
-	newlist := make([]*piclib.Photo, 0, len(c.photos))
-	for _, p := range c.allPhotos {
-		if c.passFilter(p) {
-			newlist = append(newlist, p)
-		}
-	}
-	c.photos = newlist
-}
-
-func (c *context) passFilter(p *piclib.Photo) bool {
-	if c.HideDateless && !p.LegitTaken() {
-		return false
-	} else if !c.passesSearch(p) {
-		return false
-	} else if !strings.Contains(p.Tags[noteField], c.filter) {
-		return false
-	}
-	return true
-}
-
-func (c *context) passesSearch(p *piclib.Photo) bool {
-	if len(c.query) == 0 {
-		return true
-	}
-
-	notes := strings.ToLower(p.Tags[noteField])
-	for _, val := range c.query {
-		val = strings.ToLower(val)
-		for _, s := range strings.Fields(val) {
-			if !strings.Contains(notes, s) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (c *context) addPics(pics []*piclib.Photo) {
-	newlist := []*piclib.Photo{}
-	for _, p := range pics {
-		if c.passFilter(p) {
-			newlist = append(newlist, p)
-		}
-	}
-	c.photos = append(newlist, c.photos...)
 }
 
 func (c *context) saveNotes(r *http.Request, picIndex string) error {
@@ -121,8 +39,9 @@ func (c *context) saveNotes(r *http.Request, picIndex string) error {
 	r.Body.Close()
 
 	p := c.photos[i]
-	p.Tags[noteField] = string(data)
-	if err := lib.UpdatePhoto(p); err != nil {
+	p.Notes = string(data)
+	err = piclib.WriteNotes(p.Path, p.Notes)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -137,17 +56,11 @@ func (c *context) initRand() {
 
 func (c *context) serveSlide(w http.ResponseWriter) error {
 	c.initRand()
-
 	p := c.photos[c.random[c.randIndex]]
-	data, err := p.GetOriginal()
-	if err != nil {
-		return err
-	}
-	w.Write(data)
 	if c.randIndex++; c.randIndex == len(c.photos) {
 		c.randIndex = 0
 	}
-	return nil
+	return writeImg(w, p.Name, false)
 }
 
 func (c *context) servePage(w http.ResponseWriter, pg string) error {
@@ -158,18 +71,14 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 
 	start := picsPerPage * (pgNum - 1)
 	end := min(start+picsPerPage, len(c.photos))
-	list := make([]*thumbData, end-start)
+	list := make([]Photo, end-start)
 	for i, p := range c.photos[start:end] {
-		list[i] = &thumbData{
-			Path:  p.Meta,
-			Date:  p.Taken.Format("Jan 2, 2006"),
-			Index: i + start,
-			Notes: p.Tags[noteField],
-			Style: imgRotJS(p.Rotation()),
-		}
+		pp := *p
+		pp.Index = i + start
+		list[i] = pp
 	}
 
-	if err = picsTmpl.Execute(w, list); err != nil {
+	if err = utilTmpl.ExecuteTemplate(w, "picgrid", list); err != nil {
 		return err
 	}
 	c.CurrPage = pg
@@ -178,16 +87,9 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 
 func (c *context) serveZoom(w http.ResponseWriter, index string) error {
 	i, _ := strconv.Atoi(index)
-	p := c.photos[i]
-	pData := &thumbData{
-		Path:  p.Meta,
-		Date:  p.Taken.Format("Jan 2, 2006"),
-		Index: i,
-		Notes: p.Tags[noteField],
-		Style: imgRotJS(p.Rotation()),
-	}
-
-	return zoomTmpl.Execute(w, pData)
+	p := *c.photos[i]
+	p.Index = i
+	return zoomTmpl.Execute(w, p)
 }
 
 func (c *context) servePageNav(w http.ResponseWriter) error {
@@ -197,7 +99,7 @@ func (c *context) servePageNav(w http.ResponseWriter) error {
 		pages[i] = i + 1
 	}
 
-	return pagenavTmpl.Execute(w, pages)
+	return utilTmpl.ExecuteTemplate(w, "pagenav", pages)
 }
 
 func (c *context) serveStat(w http.ResponseWriter, stat string) {
@@ -209,11 +111,18 @@ func (c *context) serveStat(w http.ResponseWriter, stat string) {
 		fmt.Fprint(w, picsPerPage)
 	case "num-pics":
 		fmt.Fprint(w, len(c.photos))
-	case "hiding-dateless":
-		fmt.Fprint(w, c.HideDateless)
 	default:
 		fmt.Fprintf(w, "invalid stat '%v'", stat)
 	}
+}
+
+func (c *context) findMinYear() int {
+	for i := len(c.photos) - 1; i > 0; i-- {
+		if !c.photos[i].Taken.IsZero() {
+			return c.photos[i].Taken.Year()
+		}
+	}
+	return 2000
 }
 
 func (c *context) serveTimeNav(w http.ResponseWriter) error {
@@ -222,8 +131,12 @@ func (c *context) serveTimeNav(w http.ResponseWriter) error {
 	}
 	years := make([]*year, 0)
 	maxYear := c.photos[0].Taken.Year()
-	minYear := c.photos[len(c.photos)-1].Taken.Year()
+	minYear := c.findMinYear()
 	lastMinMonth := c.photos[len(c.photos)-1].Taken.Month()
+	if maxYear-minYear > 20 {
+		minYear = maxYear - 20
+		lastMinMonth = 12
+	}
 
 	var last, pg int
 	for y := maxYear; y > minYear; y-- {
@@ -246,7 +159,7 @@ func (c *context) serveTimeNav(w http.ResponseWriter) error {
 	yr.StartPage = yr.Months[0].Page
 	years = append(years, yr)
 
-	return timenavTmpl.Execute(w, years)
+	return utilTmpl.ExecuteTemplate(w, "timenav", years)
 }
 
 func (c *context) pageOf(start int, t time.Time) (page, last int) {
@@ -270,10 +183,20 @@ func min(x, y int) int {
 	return y
 }
 
-// imgRotJS returns the css3 style text required to rotate an element deg
-// clockwise.
-func imgRotJS(deg int) string {
-	t := fmt.Sprintf("transform:rotate(%vdeg)", deg)
-	//Cross-browser
-	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
+type month struct {
+	Name string
+	Page int
+}
+
+type year struct {
+	Year      int
+	StartPage int
+	Months    []*month
+}
+
+func (y *year) reverseMonths() {
+	end := len(y.Months) - 1
+	for i := 0; i < len(y.Months)/2; i++ {
+		y.Months[i], y.Months[end-i] = y.Months[end-i], y.Months[i]
+	}
 }

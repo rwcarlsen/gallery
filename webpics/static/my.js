@@ -77,23 +77,6 @@ function updateNav() {
   $.get("/dynamic/pg", function(pg) {
     pageTo(parseInt(pg))
   })
-  updateDatelessToggle()
-}
-
-function updateDatelessToggle() {
-    $.post("/dynamic/stat/hiding-dateless", function(data) {
-      text = "Hide Dateless"
-      if (data == "true") {
-        text = "Show Dateless"
-      }
-      $("#dateless-toggle").text(text)
-    })
-}
-
-function toggleDateless() {
-    $.post("/dynamic/toggle-dateless", function(data) {
-      updateNav()
-    })
 }
 
 function keydown() {
@@ -102,40 +85,6 @@ function keydown() {
   } else if (event.which == keys.right) {
     pageNext()
   }
-}
-
-function bindNavEvents() {
-  $("#search-form").submit(function(){
-    // post instead of form submit allows callback on server response
-    $.post($(this).attr('action'), $(this).serialize(), function(json) {
-      updateNav()
-    });
-    return false; // prevent form submission and page reload
-  });
-}
-
-function tagPut(pic) {
-  event.preventDefault()
-
-  tag = $("#search-box").val()
-  if (tag == "") {
-    downloadURL("/piclib/orig/" + pic)
-    return
-  }
-  path = "/tagit/" + tag + "/" + pic
-  $.post(path, function(){})
-}
-
-function downloadURL(url) {
-    var hiddenIFrameID = 'hiddenDownloader',
-        iframe = document.getElementById(hiddenIFrameID);
-    if (iframe === null) {
-        iframe = document.createElement('iframe');
-        iframe.id = hiddenIFrameID;
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-    }
-    iframe.src = url;
 }
 
 // configurable
@@ -154,6 +103,5 @@ keys.right = 39
 keys.enter = 13
 
 $(document).keydown(keydown)
-bindNavEvents()
 updateNav()
 

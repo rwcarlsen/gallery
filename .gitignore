@@ -4,6 +4,8 @@
 *.so
 
 *.sw*
+*.notes
+*.JPG
 
 # Folders
 _obj

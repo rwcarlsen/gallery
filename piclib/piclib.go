@@ -3,257 +3,429 @@ package piclib
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/png"
 	"io"
-	"path"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/rwcarlsen/gallery/backend"
-	"github.com/rwcarlsen/gallery/backend/logging"
-	"github.com/rwcarlsen/gallery/conf"
-	cache "github.com/rwcarlsen/gocache"
+	"github.com/nfnt/resize"
+	"github.com/rwcarlsen/goexif/exif"
 )
 
-const (
-	Byte = 1
-	Kb   = 1000 * Byte
-	Mb   = 1000 * Kb
-	Gb   = 1000 * Mb
-)
-
-// The library stores images and data in the listed categories with each used
-// as the first part of the path when storing/retrieving such data from a
-// backend.  Example, the path to a meta-data file for an image would be
-// path.Join(MetaDir, metafile-name).
-const (
-	// ImageDir is the path to original image files.
-	ImageDir = "originals"
-	// MetaDir is the path to image metadata files.
-	MetaDir = "metadata"
-	// ThumbDir is the path to reduced-size thumbnail images.
-	ThumbDir = "thumbnails"
-	// UnsupportedDir is the path to files of unrecognized type that were added
-	// to the Library.
-	UnsupportedDir = "unsupported"
-)
+const Version = "0.1"
 
 const (
-	noDate       = "-NoDate"
-	NameSep      = "-sep-"
-	oldMeta      = "OldMeta"
-	revSepMarker = "\n---revsepmarker---\n"
-)
-
-const (
+	NoDate      = "nodate-sha1-"
+	NotesExt    = ".notes"
+	ThumbExt    = ".thumb"
 	nameTimeFmt = "2006-01-02-15-04-05"
-	Version     = "0.1"
 )
 
-// Library manages and organizes collections of Photos stored in the desired
-// backend database.  Allowed image formats are those supported by Go's
-// standard library image package.  Unrecognized formats of any kind (even
-// non-image based) are stored in UnsupportedDir.
-type Library struct {
-	Db             backend.Interface
-	name           string
-	imgDir         string
-	thumbDir       string
-	metaDir        string
-	unsupportedDir string
-	cache          *cache.LRUCache
+// rots holds mappings from exif orientation tag to degrees clockwise needed
+var rots = map[int]int{
+	1: 0,
+	2: 0,
+	3: 180,
+	4: 180,
+	5: 90,
+	6: 90,
+	7: 270,
+	8: 270,
 }
 
-// New creates and initializes a new library.  All library data is namespaced
-// under name in the backend db.  A cache of previously retrieved data is
-// maintained up to cacheSize bytes in order to reduce pressure on the db
-// backend.
-func Open(name string, db backend.Interface, cacheSize uint64) (*Library, error) {
-	logdb, err := logging.New(db, conf.Default.LogFile())
+type Meta struct {
+	Sha1   string
+	Taken  time.Time
+	Orient int
+}
+
+var Path = filepath.Join(os.Getenv("HOME"), "piclib")
+
+func init() {
+	s := os.Getenv("PICLIB")
+	if len(s) > 0 {
+		Path = s
+	}
+}
+
+type DupErr string
+
+func (s DupErr) Error() string {
+	return fmt.Sprintf("%v already exists in library", string(s))
+}
+
+func IsDup(err error) bool {
+	_, ok := err.(DupErr)
+	return ok
+}
+
+func Filepath(pic string) string {
+	p := filepath.Base(pic)
+	if strings.HasSuffix(p, NotesExt) {
+		p = p[:len(p)-len(NotesExt)]
+	} else if strings.HasSuffix(p, ThumbExt) {
+		p = p[:len(p)-len(ThumbExt)]
+	}
+	return filepath.Join(Path, p)
+}
+
+func List(n int, skipext ...string) (pics []string, err error) {
+	f, err := os.Open(Path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	names, err := f.Readdirnames(n)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Library{
-		Db:             logdb,
-		name:           name,
-		imgDir:         path.Join(name, ImageDir),
-		thumbDir:       path.Join(name, ThumbDir),
-		metaDir:        path.Join(name, MetaDir),
-		unsupportedDir: path.Join(name, UnsupportedDir),
-		cache:          cache.NewLRUCache(cacheSize),
-	}, nil
-}
-
-// Closes the library and its underlying backend database.
-func (l *Library) Close() error {
-	return l.Db.Close()
-}
-
-// ListNames the names of up to n library Photos in no particular order. The
-// names can be used with the GetPhoto method for retrieving actual photo
-// objects.
-func (l *Library) ListNames(n int) ([]string, error) {
-	names, err := l.Db.Enumerate(l.metaDir, n)
-	if err != nil {
-		return nil, err
-	}
-	bases := make([]string, len(names))
-	for i, name := range names {
-		bases[i] = path.Base(name)
-	}
-	return bases, nil
-}
-
-// ListPhotos is a convenience for retrieving up to n library Photos (no order
-// guaruntees).  This is a convenience method covering functionality of
-// ListNames and GetPhoto methods.
-func (l *Library) ListPhotos(n int) ([]*Photo, error) {
-	names, err := l.ListNames(n)
-	if err != nil {
-		return nil, err
-	}
-
-	var err2 error
-	pics := make([]*Photo, 0, len(names))
+	skipext = append(skipext, NotesExt)
+	skipext = append(skipext, ThumbExt)
+	paths := []string{}
 	for _, name := range names {
-		p, err := l.GetPhoto(name)
-		if err != nil {
-			err2 = fmt.Errorf("error reading metadata file '%v'", name)
+		if strings.HasPrefix(name, ".") {
+			continue
+		} else if fi, err := os.Stat(filepath.Join(Path, name)); err == nil && fi.IsDir() {
 			continue
 		}
-		pics = append(pics, p)
-	}
 
-	return pics, err2
-}
-
-// AddPhoto addes a photo to the library where name is the photo's original
-// name and buf contains the entirety of the image data.  If buf contains an
-// unsupported file type, the data will be stored in UnsupportedDir and an
-// error returned.
-func (l *Library) AddPhoto(name string, buf io.ReadSeeker) (p *Photo, err error) {
-	sum, n := hash(buf)
-
-	// create photo meta object
-	p = &Photo{
-		Uploaded:   time.Now(),
-		Tags:       make(map[string]string),
-		LibVersion: Version,
-		Sha1:       sum,
-		Size:       int(n),
-		lib:        l,
-	}
-	addExifBased(buf, p, name)
-
-	if _, err := buf.Seek(0, 0); err != nil {
-		return nil, err
-	}
-
-	var thumb1, thumb2 io.ReadSeeker
-	if !backend.Exists(l.Db, path.Join(l.thumbDir, p.Thumb1)) || !backend.Exists(l.Db, path.Join(l.thumbDir, p.Thumb2)) {
-		// decode image bytes and construct thumbnails
-		img, _, err := image.Decode(buf)
-		if err != nil {
-			// unsupported file type
-			if _, err := l.put(l.unsupportedDir, p.Orig, buf); err != nil {
-				return nil, err
+		skip := false
+		for _, ext := range skipext {
+			if strings.ToLower(filepath.Ext(name)) == ext {
+				skip = true
+				break
 			}
-			return nil, fmt.Errorf("unsupported file type %v", name)
 		}
+		if !skip {
+			paths = append(paths, filepath.Join(Path, name))
+		}
+	}
+	return paths, nil
+}
 
-		thumb1, err = thumb(144, 0, img)
+// Add copies a picture in the Path directory.  If rename is true, the copied
+// file is renamed to CanonicalName(pic).
+func Add(pic string, rename bool) (newname string, err error) {
+	// make pic lib dir if it doesn't exist
+	if err := os.MkdirAll(Path, 0755); err != nil {
+		return "", err
+	}
+
+	// check if pic path is already within library path
+	if abs, err := filepath.Abs(pic); err != nil {
+		return "", err
+	} else if strings.HasPrefix(abs, Path) {
+		return pic, nil
+	}
+
+	// check if dst path exists
+	dstpath := filepath.Join(Path, filepath.Base(pic))
+	if _, err := os.Stat(dstpath); err == nil {
+		return "", DupErr(pic)
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+
+	dst, err := os.Create(dstpath)
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+
+	src, err := os.Open(pic)
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return "", err
+	}
+
+	if rename {
+		return Rename(dstpath)
+	}
+	return pic, nil
+}
+
+func Rename(pic string) (newname string, err error) {
+	name, err := CanonicalName(pic)
+	if err != nil {
+		return "", err
+	} else if name == pic {
+		return pic, nil
+	}
+	err = os.Rename(pic, name)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+func CanonicalName(pic string) (string, error) {
+	dir := filepath.Dir(pic)
+	b := filepath.Base(pic)
+	if i := strings.Index(b, "-sep-"); i != -1 {
+		b = b[i+len("-sep-"):]
+	}
+
+	t := Taken(pic)
+	tm := t.Format(nameTimeFmt)
+	if t.IsZero() {
+		sum, err := Checksum(pic)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		thumb2, err = thumb(800, 0, img)
+		tm = fmt.Sprintf("%x", sum)
+		return filepath.Join(dir, NoDate+tm+b), nil
+	}
+	return filepath.Join(dir, tm+"_"+b), nil
+}
+
+func Taken(pic string) time.Time {
+	// use meta data date taken if it exists
+	if _, meta, err := Notes(pic); err == nil && meta != nil {
+		if !meta.Taken.IsZero() {
+			return meta.Taken
+		}
+	}
+
+	f, err := os.Open(Filepath(pic))
+	if err != nil {
+		return time.Time{}
+	}
+	defer f.Close()
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		return time.Time{}
+	}
+
+	tg, err := x.Get(exif.DateTimeOriginal)
+	if err != nil {
+		if tg, err = x.Get(exif.DateTime); err != nil {
+			return time.Time{}
+		}
+	}
+	if tg == nil {
+		return time.Time{}
+	}
+
+	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+func Orientation(pic string) int {
+	// use meta data orientation if it exists
+	if _, meta, err := Notes(pic); err == nil && meta != nil {
+		if meta.Orient != 0 {
+			return meta.Orient
+		}
+	}
+
+	f, err := os.Open(Filepath(pic))
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	x, err := exif.Decode(f)
+	if err != nil {
+		return 0
+	}
+
+	tg, err := x.Get(exif.Orientation)
+	if err != nil {
+		return 0
+	}
+	return rots[int(tg.Int(0))]
+}
+
+func NotesPath(pic string) string {
+	return Filepath(pic) + NotesExt
+}
+
+func ThumbPath(pic string) string {
+	return Filepath(pic) + ThumbExt
+}
+
+// ThumbFile returns the thumnail filepath for pic if it exists, otherwise,
+// returns the pic filepath.
+func ThumbFile(pic string) string {
+	if _, err := os.Stat(ThumbPath(pic)); err != nil {
+		return Filepath(pic)
+	}
+	return ThumbPath(pic)
+}
+
+func Notes(pic string) (notes string, m *Meta, err error) {
+	data, err := ioutil.ReadFile(NotesPath(pic))
+	if os.IsNotExist(err) {
+		return "", &Meta{}, nil
+	} else if err != nil {
+		return "", nil, err
+	}
+
+	notes = string(data)
+
+	buf := bytes.NewBuffer(data)
+	dec := json.NewDecoder(buf)
+	m = &Meta{}
+	if err := dec.Decode(&m); err == nil {
+		data, err := ioutil.ReadAll(dec.Buffered())
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
-	}
-	/////// store all photo related data in backend ////////
-
-	var err2 error
-	// add photo meta-data object to db
-	meta, err := json.Marshal(p)
-	if err != nil {
-		err2 = err
-	}
-	_, err = l.put(l.metaDir, p.Meta, bytes.NewReader(meta))
-	if err != nil {
-		err2 = err
+		notes = string(data)
+	} else {
+		m = nil
 	}
 
-	// add photo image/thumb files to db
-	_, err = l.put(l.imgDir, p.Orig, buf)
-	if err != nil {
-		err2 = err
-	}
-
-	_, err = l.put(l.thumbDir, p.Thumb1, thumb1)
-	if err != nil {
-		err2 = err
-	}
-
-	_, err = l.put(l.thumbDir, p.Thumb2, thumb2)
-	if err != nil {
-		err2 = err
-	}
-
-	return p, err2
+	return notes, m, nil
 }
 
-// put does a safe Put into the backend database. It ensures buf read is
-// seeked to the beginning and the path/name combo does not exist.
-func (l *Library) put(pth, name string, buf io.ReadSeeker) (n int64, err error) {
-	fullPath := path.Join(pth, name)
-	if backend.Exists(l.Db, fullPath) {
-		return 0, fmt.Errorf("piclib: photo file already exists %v", fullPath)
-	}
-
-	if _, err := buf.Seek(0, 0); err != nil {
-		return 0, err
-	}
-	return l.Db.Put(fullPath, buf)
-}
-
-// GetPhoto returns the named Photo from the library.
-func (l *Library) GetPhoto(name string) (*Photo, error) {
-	if v, ok := l.cache.Get(name); ok {
-		return v.(*cacheVal).p, nil
-	}
-
-	data, err := backend.GetBytes(l.Db, path.Join(l.metaDir, name))
-	if err != nil {
-		return nil, err
-	}
-
-	var p Photo
-	err = json.Unmarshal(data, &p)
-	if err != nil {
-		return nil, err
-	}
-	p.lib = l
-
-	l.cache.Set(name, cachePic(&p))
-	return &p, nil
-}
-
-// UpdatePhoto overwrites any/all of a photo p's metadata to whatever
-// new state is has been changed to.
-func (l *Library) UpdatePhoto(p *Photo) error {
-	pic, err := l.GetPhoto(p.Meta)
+func WriteNotes(pic string, notes string) error {
+	_, meta, err := Notes(pic)
 	if err != nil {
 		return err
 	}
 
-	data, err := json.Marshal(pic)
+	data := []byte{}
+	if meta != nil {
+		data, err = json.Marshal(meta)
+		if err != nil {
+			return err
+		}
+		data = append(data, '\n')
+	}
+
+	err = ioutil.WriteFile(NotesPath(pic), append(data, []byte(notes)...), 0644)
 	if err != nil {
 		return err
 	}
-	_, err = l.Db.Put(path.Join(l.metaDir, pic.Meta), bytes.NewReader(data))
-	return err
+	return nil
+}
+
+func WriteMeta(pic string, m *Meta) error {
+	notes, _, err := Notes(pic)
+	if err != nil {
+		return err
+	}
+
+	data := []byte{}
+	if m != nil {
+		data, err = json.Marshal(m)
+		if err != nil {
+			return err
+		}
+		data = append(data, '\n')
+	}
+
+	return ioutil.WriteFile(NotesPath(pic), append(data, []byte(notes)...), 0644)
+}
+
+func Checksum(pic string) ([]byte, error) {
+	f, err := os.Open(Filepath(pic))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	h := sha1.New()
+	_, err = io.Copy(h, f)
+	if err != nil {
+		return nil, err
+	}
+
+	return h.Sum(nil), nil
+}
+
+func SaveChecksum(pic string) error {
+	_, meta, err := Notes(pic)
+	if err != nil {
+		return err
+	} else if meta != nil && len(meta.Sha1) > 0 {
+		return nil
+	}
+
+	sum, err := Checksum(pic)
+	if err != nil {
+		return err
+	}
+
+	meta.Sha1 = fmt.Sprintf("%x", sum)
+	return WriteMeta(pic, meta)
+}
+
+type NoSumErr string
+
+func (s NoSumErr) Error() string {
+	return fmt.Sprintf("%v has no checksum to validate", string(s))
+}
+
+func IsNoSum(err error) bool {
+	_, ok := err.(NoSumErr)
+	return ok
+}
+
+func Validate(pic string) error {
+	_, meta, err := Notes(pic)
+	if err != nil {
+		return err
+	} else if meta == nil || len(meta.Sha1) == 0 {
+		return NoSumErr(pic)
+	}
+
+	sum, err := Checksum(pic)
+	if err != nil {
+		return err
+	}
+
+	if meta.Sha1 != fmt.Sprintf("%x", sum) {
+		return fmt.Errorf("%v failed validation", pic)
+	}
+
+	return nil
+}
+
+func MakeThumb(pic string, w, h uint) error {
+	if _, err := os.Stat(ThumbPath(pic)); err == nil {
+		return fmt.Errorf("%v already has a thumbnail")
+	}
+
+	f, err := os.Open(Filepath(pic))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return err
+	}
+
+	m := resize.Resize(w, h, img, resize.Bicubic)
+
+	dst, err := os.Create(ThumbPath(pic))
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	return jpeg.Encode(dst, m, nil)
 }
