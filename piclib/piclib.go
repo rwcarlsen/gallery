@@ -130,34 +130,53 @@ func Add(pic string, rename bool) (newname string, err error) {
 	}
 
 	// check if dst path exists
+	canon, err := CanonicalName(pic)
+	if err != nil {
+		return "", err
+	}
+
 	dstpath := filepath.Join(Path, filepath.Base(pic))
+	if rename {
+		name, err := CanonicalName(pic)
+		if err != nil {
+			fmt.Println("spot1")
+			return "", err
+		}
+		dstpath = filepath.Join(Path, name)
+	}
 	if _, err := os.Stat(dstpath); err == nil {
 		return "", DupErr(pic)
 	} else if !os.IsNotExist(err) {
+		fmt.Println("spot2")
+		return "", err
+	} else if _, err := os.Stat(filepath.Join(Path, canon)); err == nil {
+		return "", DupErr(pic)
+	} else if !os.IsNotExist(err) {
+		fmt.Println("spot3")
 		return "", err
 	}
 
 	dst, err := os.Create(dstpath)
 	if err != nil {
+		fmt.Println("spot4")
 		return "", err
 	}
 	defer dst.Close()
 
 	src, err := os.Open(pic)
 	if err != nil {
+		fmt.Println("spot5")
 		return "", err
 	}
 	defer src.Close()
 
 	_, err = io.Copy(dst, src)
 	if err != nil {
+		fmt.Println("spot6")
 		return "", err
 	}
 
-	if rename {
-		return Rename(dstpath)
-	}
-	return pic, nil
+	return filepath.Base(dstpath), nil
 }
 
 func Rename(pic string) (newname string, err error) {
@@ -175,13 +194,13 @@ func Rename(pic string) (newname string, err error) {
 }
 
 func CanonicalName(pic string) (string, error) {
-	dir := filepath.Dir(pic)
 	b := filepath.Base(pic)
 	if i := strings.Index(b, "-sep-"); i != -1 {
 		b = b[i+len("-sep-"):]
 	}
 
 	t := Taken(pic)
+
 	tm := t.Format(nameTimeFmt)
 	if t.IsZero() {
 		sum, err := Checksum(pic)
@@ -189,11 +208,13 @@ func CanonicalName(pic string) (string, error) {
 			return "", err
 		}
 		tm = fmt.Sprintf("%x", sum)
-		return filepath.Join(dir, NoDate+tm+b), nil
+		return NoDate + tm + b, nil
 	}
-	return filepath.Join(dir, tm+"_"+b), nil
+	return tm + "_" + b, nil
 }
 
+// Taken returns the date taken of the given pic path.  No library searching -
+// pic must be a correct filepath.
 func Taken(pic string) time.Time {
 	// use meta data date taken if it exists
 	if _, meta, err := Notes(pic); err == nil && meta != nil {
@@ -202,7 +223,7 @@ func Taken(pic string) time.Time {
 		}
 	}
 
-	f, err := os.Open(Filepath(pic))
+	f, err := os.Open(pic)
 	if err != nil {
 		return time.Time{}
 	}
@@ -339,8 +360,10 @@ func WriteMeta(pic string, m *Meta) error {
 	return ioutil.WriteFile(NotesPath(pic), append(data, []byte(notes)...), 0644)
 }
 
+// Checksum returns the sha1 sum of the named pic.  Note that pic can reside
+// anywhere and must be a valid path - no searching is done in the library.
 func Checksum(pic string) ([]byte, error) {
-	f, err := os.Open(Filepath(pic))
+	f, err := os.Open(pic) // this should not call Filepath
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +386,7 @@ func SaveChecksum(pic string) error {
 		return nil
 	}
 
-	sum, err := Checksum(pic)
+	sum, err := Checksum(Filepath(pic))
 	if err != nil {
 		return err
 	}
@@ -403,9 +426,20 @@ func Validate(pic string) error {
 	return nil
 }
 
+type DupThumbErr string
+
+func (s DupThumbErr) Error() string {
+	return fmt.Sprintf("%v already has a thumbnail", string(s))
+}
+
+func IsDupThumb(err error) bool {
+	_, ok := err.(DupThumbErr)
+	return ok
+}
+
 func MakeThumb(pic string, w, h uint) error {
 	if _, err := os.Stat(ThumbPath(pic)); err == nil {
-		return fmt.Errorf("%v already has a thumbnail")
+		return DupThumbErr(pic)
 	}
 
 	f, err := os.Open(Filepath(pic))

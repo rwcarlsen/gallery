@@ -142,18 +142,17 @@ func put(cmd string, args []string) {
 			continue
 		} else {
 			fmt.Printf("[ADD] %v\n", p)
-		}
-
-		if *thumb {
-			err := piclib.MakeThumb(newname, 1000, 0)
-			if err != nil {
-				log.Printf("[ERR] %v", err)
+			if *thumb {
+				err := piclib.MakeThumb(newname, 1000, 0)
+				if err != nil && !piclib.IsDupThumb(err) {
+					log.Printf("[ERR] %v", err)
+				}
 			}
-		}
 
-		if *sum {
-			if err := piclib.SaveChecksum(newname); err != nil {
-				log.Printf("[ERR] %v\n", err)
+			if *sum {
+				if err := piclib.SaveChecksum(newname); err != nil {
+					log.Printf("[ERR] %v\n", err)
+				}
 			}
 		}
 	}

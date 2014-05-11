@@ -149,7 +149,7 @@ func loadPics() {
 			Name:   filepath.Base(name),
 			Path:   piclib.Filepath(name),
 			Notes:  notes,
-			Taken:  piclib.Taken(name),
+			Taken:  piclib.Taken(piclib.Filepath(name)),
 			Orient: piclib.Orientation(name),
 		}
 		allPhotos = append(allPhotos, p)
