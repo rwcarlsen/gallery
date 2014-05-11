@@ -305,11 +305,20 @@ func WriteNotes(pic string, notes string) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(NotesPath(pic), []byte(notes), 0644)
+	data := []byte{}
+	if meta != nil {
+		data, err = json.Marshal(meta)
+		if err != nil {
+			return err
+		}
+		data = append(data, '\n')
+	}
+
+	err = ioutil.WriteFile(NotesPath(pic), append(data, []byte(notes)...), 0644)
 	if err != nil {
 		return err
 	}
-	return WriteMeta(pic, meta)
+	return nil
 }
 
 func WriteMeta(pic string, m *Meta) error {
@@ -324,9 +333,10 @@ func WriteMeta(pic string, m *Meta) error {
 		if err != nil {
 			return err
 		}
+		data = append(data, '\n')
 	}
 
-	return ioutil.WriteFile(NotesPath(pic), append([]byte(notes), data...), 0644)
+	return ioutil.WriteFile(NotesPath(pic), append(data, []byte(notes)...), 0644)
 }
 
 func Checksum(pic string) ([]byte, error) {

@@ -30,15 +30,15 @@ var (
 )
 
 var (
-	zoomTmpl = template.Must(template.ParseFiles("zoompic.html", "util.html"))
-	gridTmpl = template.Must(template.ParseFiles("index.html", "util.html"))
-	utilTmpl = template.Must(template.ParseFiles("util.html"))
+	zoomTmpl *template.Template
+	gridTmpl *template.Template
+	utilTmpl *template.Template
 )
 
 var (
 	resPath   = os.Getenv("WEBPICS")
-	allPhotos = []Photo{}
-	picMap    = map[string]Photo{}
+	allPhotos = []*Photo{}
+	picMap    = map[string]*Photo{}
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
 	slidepage []byte // slideshow.html
@@ -63,6 +63,20 @@ func (p Photo) Style() string {
 	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
 }
 
+func init() {
+	if resPath == "" {
+		resPath = "."
+	}
+
+	zt := filepath.Join(resPath, "zoompic.html")
+	ut := filepath.Join(resPath, "util.html")
+	it := filepath.Join(resPath, "index.html")
+
+	zoomTmpl = template.Must(template.ParseFiles(zt, ut))
+	gridTmpl = template.Must(template.ParseFiles(it, ut))
+	utilTmpl = template.Must(template.ParseFiles(ut))
+}
+
 func main() {
 	flag.Parse()
 	var err error
@@ -73,10 +87,6 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-	}
-
-	if resPath == "" {
-		resPath = "."
 	}
 
 	slidepage, err = ioutil.ReadFile(filepath.Join(resPath, "slideshow.html"))
@@ -135,7 +145,7 @@ func loadPics() {
 			log.Fatal(err)
 		}
 
-		p := Photo{
+		p := &Photo{
 			Name:   filepath.Base(name),
 			Path:   piclib.Filepath(name),
 			Notes:  notes,
@@ -147,7 +157,7 @@ func loadPics() {
 	}
 }
 
-type newFirst []Photo
+type newFirst []*Photo
 
 func (pl newFirst) Less(i, j int) bool {
 	itm := pl[i].Taken

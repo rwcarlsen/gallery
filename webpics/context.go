@@ -12,13 +12,13 @@ import (
 )
 
 type context struct {
-	photos    []Photo
+	photos    []*Photo
 	CurrPage  string
 	random    []int
 	randIndex int
 }
 
-func newContext(pics []Photo) *context {
+func newContext(pics []*Photo) *context {
 	c := &context{
 		photos:   pics,
 		CurrPage: "1",
@@ -39,7 +39,8 @@ func (c *context) saveNotes(r *http.Request, picIndex string) error {
 	r.Body.Close()
 
 	p := c.photos[i]
-	err = piclib.WriteNotes(p.Path, string(data))
+	p.Notes = string(data)
+	err = piclib.WriteNotes(p.Path, p.Notes)
 	if err != nil {
 		return err
 	}
@@ -72,8 +73,9 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 	end := min(start+picsPerPage, len(c.photos))
 	list := make([]Photo, end-start)
 	for i, p := range c.photos[start:end] {
-		p.Index = i + start
-		list[i] = p
+		pp := *p
+		pp.Index = i + start
+		list[i] = pp
 	}
 
 	if err = utilTmpl.ExecuteTemplate(w, "picgrid", list); err != nil {
@@ -85,7 +87,7 @@ func (c *context) servePage(w http.ResponseWriter, pg string) error {
 
 func (c *context) serveZoom(w http.ResponseWriter, index string) error {
 	i, _ := strconv.Atoi(index)
-	p := c.photos[i]
+	p := *c.photos[i]
 	p.Index = i
 	return zoomTmpl.Execute(w, p)
 }
@@ -114,13 +116,22 @@ func (c *context) serveStat(w http.ResponseWriter, stat string) {
 	}
 }
 
+func (c *context) findMinYear() int {
+	for i := len(c.photos) - 1; i > 0; i-- {
+		if !c.photos[i].Taken.IsZero() {
+			return c.photos[i].Taken.Year()
+		}
+	}
+	return 2000
+}
+
 func (c *context) serveTimeNav(w http.ResponseWriter) error {
 	if len(c.photos) == 0 {
 		return nil
 	}
 	years := make([]*year, 0)
 	maxYear := c.photos[0].Taken.Year()
-	minYear := c.photos[len(c.photos)-1].Taken.Year()
+	minYear := c.findMinYear()
 	lastMinMonth := c.photos[len(c.photos)-1].Taken.Month()
 	if maxYear-minYear > 20 {
 		minYear = maxYear - 20
