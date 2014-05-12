@@ -239,6 +239,10 @@ func Taken(pic string) time.Time {
 	if err != nil {
 		return time.Time{}
 	}
+
+	if t.After(time.Now()) {
+		return time.Time{}
+	}
 	return t
 }
 

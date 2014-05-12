@@ -127,7 +127,7 @@ func loadPics() {
 	files := flag.Args()
 	if *all {
 		var err error
-		files, err = piclib.List(-1, "")
+		files, err = piclib.List(-1, "", ".mov", ".avi", ".m4v")
 		if err != nil {
 			log.Fatal(err)
 		}
