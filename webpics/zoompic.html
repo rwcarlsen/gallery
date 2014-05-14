@@ -2,7 +2,13 @@
 
 <div class="container black">
   <div class="row" style="text-align: center;">
-      <a href="/"><img class="zoom-img" data-dismiss="modal" src="/photo/thumb/{{.Name}}" style="{{.Style}}"></a>
+      {{if .IsVid}}
+      <video class="zoom-vid" src="/photo/orig/{{.Name}}" controls></video>
+      {{else}}
+      <a href="/">
+          <img class="zoom-img" data-dismiss="modal" src="/photo/thumb/{{.Name}}" style="{{.Style}}">
+      </a>
+      {{end}}
   </div>
 </div>
 
