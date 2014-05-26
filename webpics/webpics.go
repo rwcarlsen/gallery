@@ -122,13 +122,13 @@ func main() {
 	}
 }
 
-var skipext = []string{"", ".mov", ".m4v", ".go"}
+var skipext = []string{"", ".avi", ".m4v", ".go"}
 
 func loadPics() {
 	files := flag.Args()
 	if *all {
 		var err error
-		files, err = piclib.List(-1, "", ".avi", ".m4v")
+		files, err = piclib.List(-1, skipext...)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -147,13 +147,13 @@ func loadPics() {
 		}
 
 		p := &Photo{
-			Name:   filepath.Base(name),
+			Name:   filepath.Base(piclib.Filepath(name)),
 			Path:   piclib.Filepath(name),
 			Notes:  notes,
 			Taken:  piclib.Taken(piclib.Filepath(name)),
 			Orient: piclib.Orientation(name),
 		}
-		if strings.ToLower(filepath.Ext(name)) == ".mov" {
+		if filepath.Ext(strings.ToLower(p.Name)) == ".mov" {
 			p.IsVid = true
 		}
 		allPhotos = append(allPhotos, p)
