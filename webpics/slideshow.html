@@ -55,7 +55,7 @@
     newPic.toggleClass('hidden')
     $.post('/dynamic/slide-style', function(data) {
       oldPic.attr('style', data)
-      oldPic.attr('src', '/dynamic/next-slide')
+      oldPic.attr('src', '/dynamic/next-slide?' + new Date().getTime())
     })
 
     //call function "slideit()" in 5.2 seconds
