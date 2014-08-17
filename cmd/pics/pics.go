@@ -21,6 +21,7 @@ type CmdFunc func(cmd string, args []string)
 
 var cmds = map[string]CmdFunc{
 	"put":      put,
+	"fix":      fix,
 	"validate": validate,
 	"dups":     dups,
 	"find":     find,
@@ -30,7 +31,7 @@ var cmds = map[string]CmdFunc{
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
 	fs := flag.NewFlagSet("put", flag.ExitOnError)
 	fs.Usage = func() {
-		log.Printf("Usage: pic %s [OPTION] %s\n%s\n", cmd, args, desc)
+		log.Printf("Usage: pics %s [OPTION] %s\n%s\n", cmd, args, desc)
 		fs.PrintDefaults()
 	}
 	return fs
@@ -111,12 +112,56 @@ func dups(cmd string, args []string) {
 	}
 }
 
+func fix(cmd string, args []string) {
+	desc := "fix things"
+	fs := newFlagSet("fix", "[FILE...]", desc)
+	all := fs.Bool("all", false, "true to check every file in the library")
+	sum := fs.Bool("sum", false, "update the sum to actual value (warning - this can be dangerous)")
+	date := fs.Bool("date", false, "fix the cached date in the notes file to match EXIF data")
+	thumb := fs.Bool("thumb", false, "create and add a thumbnail")
+	fs.Parse(args)
+
+	files := fs.Args()
+	if *all {
+		list, err := piclib.List(-1, "", ".go")
+		if err != nil {
+			log.Printf("[ERR] %v\n", err)
+			return
+		}
+		files = append(files, list...)
+	} else if len(files) == 0 {
+		data, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatal(err)
+		}
+		files = strings.Fields(string(data))
+	}
+
+	for _, pic := range files {
+		if *date {
+			if err := piclib.SaveDate(pic); err != nil {
+				log.Printf("[ERR] %v\n", err)
+			}
+		}
+		if *thumb {
+			err := piclib.MakeThumb(pic, 1000, 0)
+			if err != nil && !piclib.IsDupThumb(err) {
+				log.Printf("[ERR] %v", err)
+			}
+		}
+		if *sum {
+			if err := piclib.SaveChecksum(pic); err != nil {
+				log.Printf("[ERR] %v\n", err)
+			}
+		}
+	}
+}
+
 func put(cmd string, args []string) {
 	desc := "copies given files to the library path. If no args are given, reads a list of files from stdin."
 	fs := newFlagSet("put", "[FILE...]", desc)
 	norename := fs.Bool("norename", false, "true to not rename files with an exif date or sha1 hash prefix")
 	sum := fs.Bool("sum", true, "true to include a sha1 hash in a notes file")
-	date := fs.Bool("date", true, "true to cache the date in the notes file")
 	thumb := fs.Bool("thumb", true, "true to create and add a thumbnail also")
 	fs.Parse(args)
 
@@ -136,12 +181,6 @@ func put(cmd string, args []string) {
 		}
 
 		newname, err := piclib.Add(p, !*norename)
-
-		if *date {
-			if err := piclib.SaveDate(newname); err != nil {
-				log.Printf("[ERR] %v\n", err)
-			}
-		}
 
 		if piclib.IsDup(err) {
 			fmt.Printf("[SKIP] %v\n", err)

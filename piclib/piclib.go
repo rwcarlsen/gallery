@@ -107,6 +107,7 @@ func List(n int, skipext ...string) (pics []string, err error) {
 				break
 			}
 		}
+
 		if !skip {
 			paths = append(paths, filepath.Join(Path, name))
 		}
@@ -381,6 +382,8 @@ func SaveDate(pic string) error {
 		return err
 	} else if meta != nil && !meta.Taken.IsZero() {
 		return nil
+	} else if meta == nil {
+		meta = &Meta{}
 	}
 
 	meta.Taken = Taken(pic)
