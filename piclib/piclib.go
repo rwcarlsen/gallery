@@ -198,14 +198,16 @@ func CanonicalName(pic string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		tm = fmt.Sprintf("%x", sum)
+		tm = fmt.Sprintf("%x-", sum)
 		return NoDate + tm + b, nil
 	}
 	return tm + "_" + b, nil
 }
 
 // Taken returns the date taken of the given pic path.  No library searching -
-// pic must be a correct filepath.
+// pic must be a correct filepath.  Returns the date cached in the pictures
+// notes file (if it has one). Otherwise, returns the EXIF encoded date if it
+// has one.  Otherwise returns the zero time.
 func Taken(pic string) time.Time {
 	// use meta data date taken if it exists
 	if _, meta, err := Notes(pic); err == nil && meta != nil {
@@ -371,6 +373,22 @@ func Checksum(pic string) ([]byte, error) {
 	}
 
 	return h.Sum(nil), nil
+}
+
+func SaveDate(pic string) error {
+	_, meta, err := Notes(pic)
+	if err != nil {
+		return err
+	} else if meta != nil && !meta.Taken.IsZero() {
+		return nil
+	}
+
+	meta.Taken = Taken(pic)
+	if meta.Taken.IsZero() {
+		return nil
+	}
+
+	return WriteMeta(pic, meta)
 }
 
 func SaveChecksum(pic string) error {
