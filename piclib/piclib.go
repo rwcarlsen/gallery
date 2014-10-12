@@ -2,17 +2,21 @@
 package piclib
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"image"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/png"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
+	_ "github.com/mxk/go-sqlite/sqlite3"
+	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
 )
 
@@ -67,48 +71,136 @@ type Lib struct {
 
 func Open(path string) (*Lib, error) {
 	dbpath := filepath.Join(path, libname)
-	db, err := db.Open(dbpath)
+	db, err := sql.Open("sqlite3", dbpath)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY,sum BLOB,name TEXT,added INTEGER,modified INTEGER,taken INTEGER,orient INTEGER,thumb BLOB);")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY,sum BLOB,name TEXT,added INTEGER,modified INTEGER,taken INTEGER,orient INTEGER,thumb BLOB);")
 	if err != nil {
 		return nil, err
 	}
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS meta (id INTEGER,time INTEGER,field TEXT,value TEXT);")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS meta (id INTEGER,time INTEGER,field TEXT,value TEXT);")
 	if err != nil {
 		return nil, err
 	}
 	return &Lib{Path: path, db: db}, nil
 }
 
-func (l *Lib) List(n int, skipext ...string) (pics []Pic, err error) {
+type Pic struct {
+	id       int
+	lib      *Lib
+	Sum      []byte
+	Name     string
+	Added    time.Time
+	Modified time.Time
+	Taken    time.Time
+	Orient   int
 }
 
-func (l *Lib) stdname(name string, r io.Reader) (name string, sum []byte, err error) {
-	sum, err := Sha256(r)
+func (p *Pic) Filepath() string {
+	return filepath.Join(p.lib.Path, diskname(p.Name, p.Sum))
+}
+
+func (p *Pic) Open() (io.ReadCloser, error) {
+	return os.Open(p.Filepath())
+}
+
+func (p *Pic) Meta(field string) (string, error) {
+	s := "SELECT value FROM meta WHERE id=? ORDER BY time DESC LIMIT 1;"
+	val := ""
+	err := p.lib.db.QueryRow(s, p.id).Scan(&val)
+	if err != nil {
+		return "", err
+	}
+	return val, nil
+}
+
+func (p *Pic) Validate() error {
+	rc, err := p.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	sum, err := Sha256(rc)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(sum, p.Sum) {
+		return BadSumErr(*p)
+	}
+	return nil
+}
+
+func (p *Pic) Thumb() ([]byte, error) {
+	s := "SELECT thumb FROM files WHERE id=?"
+	data := []byte{}
+	err := p.lib.db.QueryRow(s, p.id).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (l *Lib) List(limit, offset int) (pics []*Pic, err error) {
+	s := "SELECT id,sum,name,added,modified,taken,orient FROM files ORDER BY (taken,added)"
+	var rows *sql.Rows
+	if limit > 0 {
+		s += "LIMIT ? OFFSET ?"
+		rows, err = l.db.Query(s, limit, offset)
+	} else {
+		s += "OFFSET ?"
+		rows, err = l.db.Query(s, offset)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		p := &Pic{}
+		err := rows.Scan(&p.id, &p.Sum, &p.Name, &p.Added,
+			&p.Modified, &p.Taken, &p.Orient)
+		if err != nil {
+			return nil, err
+		}
+		pics = append(pics, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return pics, nil
+}
+
+func diskname(name string, sum []byte) string {
+	return fmt.Sprintf("%x%s", sum, filepath.Ext(name))
+}
+
+func (l *Lib) stdpath(name string, r io.Reader) (path string, sum []byte, err error) {
+	sum, err = Sha256(r)
 	if err != nil {
 		return "", nil, err
 	}
-	fname := fmt.Sprintf("%x%s", sum, filepath.Ext(name))
+	fname := diskname(name, sum)
 	return filepath.Join(l.Path, fname), sum, nil
 }
 
 func (l *Lib) Exists(sum []byte) (exists bool, name string, err error) {
-	name := ""
-	err := db.QueryRow("SELECT name FROM files WHERE sum=?", sum).Scan(&name)
+	err = l.db.QueryRow("SELECT name FROM files WHERE sum=?", sum).Scan(&name)
 	if err != nil {
 		return false, "", err
 	}
 	return name != "", name, nil
 }
 
-// Add copies a picture to the current library
+// Add copies the picture into and adds it to the current library
 func (l *Lib) Add(pic string) error {
 	// make pic lib dir if it doesn't exist
 	if err := os.MkdirAll(l.Path, 0755); err != nil {
-		return "", err
+		return err
 	}
 
 	// check if file exists in libary
@@ -116,7 +208,7 @@ func (l *Lib) Add(pic string) error {
 	if err != nil {
 		return err
 	}
-	newname, sum, err := stdname(pic, f)
+	newname, sum, err := l.stdpath(pic, f)
 	f.Close()
 	if err != nil {
 		return err
@@ -141,7 +233,7 @@ func (l *Lib) Add(pic string) error {
 	}
 	defer f2.Close()
 
-	_, err := io.Copy(f2, f1)
+	_, err = io.Copy(f2, f1)
 	if err != nil {
 		return err
 	}
@@ -150,7 +242,7 @@ func (l *Lib) Add(pic string) error {
 	// id, sum, name, added, modified, taken, orient, thumb
 	added := time.Now()
 	modified := time.Now()
-	taken := int64(0)
+	taken := time.Time{}
 	orient := 0
 
 	// exif metadata
@@ -162,7 +254,7 @@ func (l *Lib) Add(pic string) error {
 		}
 		tag, err := x.Get(exif.Orientation)
 		if err == nil {
-			v, _ := tg.Int(0)
+			v, _ := tag.Int(0)
 			orient = rots[int(v)]
 		}
 	}
@@ -181,58 +273,19 @@ func (l *Lib) Add(pic string) error {
 	thumb, _ := MakeThumb(f3, w, h)
 
 	sql := "INSERT INTO files (sum, name, added, modified, taken, orient, thumb) VALUES (?,?,?,?,?,?,?);"
-	_, err := l.db.Exec(sql, sum, filepath.Base(pic), added, modified, taken, orient, thumb)
+	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, modified, taken, orient, thumb)
 	return err
 }
 
-func (l *Lib) Validate(pic string) error {
-	_, meta, err := Notes(pic)
-	if err != nil {
-		return err
-	} else if meta == nil || len(meta.Sha1) == 0 {
-		return NoSumErr(pic)
-	}
+type BadSumErr Pic
 
-	sum, err := Checksum(pic)
-	if err != nil {
-		return err
-	}
-
-	if meta.Sha1 != fmt.Sprintf("%x", sum) {
-		return fmt.Errorf("%v failed validation", pic)
-	}
-
-	return nil
+func (e BadSumErr) Error() string {
+	p := Pic(e)
+	return fmt.Sprintf("file '%v' (pic '%v') failed checksum validation", p.Filepath(), p.Sum)
 }
 
-func canonicalName(pic string) (string, error) {
-	b := filepath.Base(pic)
-	if i := strings.Index(b, "-sep-"); i != -1 {
-		b = b[i+len("-sep-"):]
-	}
-
-	t := Taken(pic)
-
-	tm := t.Format(nameTimeFmt)
-	if t.IsZero() {
-		sum, err := Checksum(pic)
-		if err != nil {
-			return "", err
-		}
-		tm = fmt.Sprintf("%x-", sum)
-		return NoDate + tm + b, nil
-	}
-	return tm + "_" + b, nil
-}
-
-type NoSumErr string
-
-func (s NoSumErr) Error() string {
-	return fmt.Sprintf("%v has no checksum to validate", string(s))
-}
-
-func IsNoSum(err error) bool {
-	_, ok := err.(NoSumErr)
+func IsBadSum(err error) bool {
+	_, ok := err.(BadSumErr)
 	return ok
 }
 
@@ -252,16 +305,26 @@ func IsDup(err error) bool {
 
 func Sha256(r io.Reader) (sum []byte, err error) {
 	h := sha256.New()
-	f, err := os.Open(pic)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	_, err := io.Copy(h, f)
+	_, err = io.Copy(h, r)
 	if err != nil {
 		return nil, err
 	}
 
 	return h.Sum(nil), nil
+}
+
+func MakeThumb(r io.Reader, w, h int) ([]byte, error) {
+	img, _, err := image.Decode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	m := resize.Resize(uint(w), uint(h), img, resize.Bicubic)
+
+	var buf bytes.Buffer
+	err = jpeg.Encode(&buf, m, nil)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
