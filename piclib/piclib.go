@@ -106,7 +106,7 @@ func (p *Pic) Open() (io.ReadCloser, error) {
 	return os.Open(p.Filepath())
 }
 
-func (p *Pic) Meta(field string) (string, error) {
+func (p *Pic) GetMeta(field string) (string, error) {
 	s := "SELECT value FROM meta WHERE id=? ORDER BY time DESC LIMIT 1;"
 	val := ""
 	err := p.lib.db.QueryRow(s, p.id).Scan(&val)
@@ -114,6 +114,12 @@ func (p *Pic) Meta(field string) (string, error) {
 		return "", err
 	}
 	return val, nil
+}
+
+func (p *Pic) SetMeta(field, val string) error {
+	s := "INSERT INTO meta (id,time,field,value) VALUES (?,?,?,?);"
+	_, err := p.lib.db.Exec(s, p.id, time.Now(), field, val)
+	return err
 }
 
 func (p *Pic) Validate() error {
