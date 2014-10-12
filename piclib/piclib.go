@@ -1,19 +1,30 @@
 // Package piclib provides tools backend-agnostic management of large photo collections.
 package piclib
 
+// TODO: mount groups of pics named nicely (maybe in nice dir structure) with
+// softlinks
+
+// TODO: update cli commands to use new library
+
+// TODO: add list methods that take 'exclude' and 'include' text filters.
+// still have webpics take a piped in list of files (or ids?).  Then it will
+
+// TODO: update webpics to
+
 import (
 	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
-	"image"
-	_ "image/gif"
-	"image/jpeg"
-	_ "image/png"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
+
+	"image"
+	_ "image/gif"
+	"image/jpeg"
+	_ "image/png"
 
 	_ "github.com/mxk/go-sqlite/sqlite3"
 	"github.com/nfnt/resize"
@@ -87,67 +98,14 @@ func Open(path string) (*Lib, error) {
 	return &Lib{Path: path, db: db}, nil
 }
 
-type Pic struct {
-	id       int
-	lib      *Lib
-	Sum      []byte
-	Name     string
-	Added    time.Time
-	Modified time.Time
-	Taken    time.Time
-	Orient   int
-}
-
-func (p *Pic) Filepath() string {
-	return filepath.Join(p.lib.Path, diskname(p.Name, p.Sum))
-}
-
-func (p *Pic) Open() (io.ReadCloser, error) {
-	return os.Open(p.Filepath())
-}
-
-func (p *Pic) GetMeta(field string) (string, error) {
-	s := "SELECT value FROM meta WHERE id=? ORDER BY time DESC LIMIT 1;"
-	val := ""
-	err := p.lib.db.QueryRow(s, p.id).Scan(&val)
-	if err != nil {
-		return "", err
-	}
-	return val, nil
-}
-
-func (p *Pic) SetMeta(field, val string) error {
-	s := "INSERT INTO meta (id,time,field,value) VALUES (?,?,?,?);"
-	_, err := p.lib.db.Exec(s, p.id, time.Now(), field, val)
-	return err
-}
-
-func (p *Pic) Validate() error {
-	rc, err := p.Open()
-	if err != nil {
-		return err
-	}
-	defer rc.Close()
-
-	sum, err := Sha256(rc)
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(sum, p.Sum) {
-		return BadSumErr(*p)
-	}
-	return nil
-}
-
-func (p *Pic) Thumb() ([]byte, error) {
-	s := "SELECT thumb FROM files WHERE id=?"
-	data := []byte{}
-	err := p.lib.db.QueryRow(s, p.id).Scan(&data)
+func (l *Lib) Open(id int) (*Pic, error) {
+	s := "SELECT id,sum,name,added,modified,taken,orient FROM files WHERE id=?"
+	p := &Pic{}
+	err := l.db.QueryRow(s, id).Scan(&p.id, &p.Sum, &p.Name, &p.Added, &p.Modified, &p.Taken, &p.Orient)
 	if err != nil {
 		return nil, err
 	}
-	return data, nil
+	return p, nil
 }
 
 func (l *Lib) List(limit, offset int) (pics []*Pic, err error) {
@@ -281,6 +239,69 @@ func (l *Lib) Add(pic string) error {
 	sql := "INSERT INTO files (sum, name, added, modified, taken, orient, thumb) VALUES (?,?,?,?,?,?,?);"
 	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, modified, taken, orient, thumb)
 	return err
+}
+
+type Pic struct {
+	id       int
+	lib      *Lib
+	Sum      []byte
+	Name     string
+	Added    time.Time
+	Modified time.Time
+	Taken    time.Time
+	Orient   int
+}
+
+func (p *Pic) Filepath() string {
+	return filepath.Join(p.lib.Path, diskname(p.Name, p.Sum))
+}
+
+func (p *Pic) Open() (io.ReadCloser, error) {
+	return os.Open(p.Filepath())
+}
+
+func (p *Pic) GetMeta(field string) (string, error) {
+	s := "SELECT value FROM meta WHERE id=? ORDER BY time DESC LIMIT 1;"
+	val := ""
+	err := p.lib.db.QueryRow(s, p.id).Scan(&val)
+	if err != nil {
+		return "", err
+	}
+	return val, nil
+}
+
+func (p *Pic) SetMeta(field, val string) error {
+	s := "INSERT INTO meta (id,time,field,value) VALUES (?,?,?,?);"
+	_, err := p.lib.db.Exec(s, p.id, time.Now(), field, val)
+	return err
+}
+
+func (p *Pic) Validate() error {
+	rc, err := p.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	sum, err := Sha256(rc)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(sum, p.Sum) {
+		return BadSumErr(*p)
+	}
+	return nil
+}
+
+func (p *Pic) Thumb() ([]byte, error) {
+	s := "SELECT thumb FROM files WHERE id=?"
+	data := []byte{}
+	err := p.lib.db.QueryRow(s, p.id).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 type BadSumErr Pic
