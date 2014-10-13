@@ -2,8 +2,11 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,7 +18,7 @@ import (
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
-var lib = flag.String("lib", "", "path to picture library (blank => env PICLIB => $HOME/piclib)")
+var libpath = flag.String("lib", piclib.DefaultPath(), "path to picture library")
 
 type CmdFunc func(cmd string, args []string)
 
@@ -23,9 +26,7 @@ var cmds = map[string]CmdFunc{
 	"put":      put,
 	"fix":      fix,
 	"validate": validate,
-	"dups":     dups,
 	"find":     find,
-	"thumb":    thumb,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -36,6 +37,8 @@ func newFlagSet(cmd, args, desc string) *flag.FlagSet {
 	}
 	return fs
 }
+
+var lib *piclib.Lib
 
 func main() {
 	log.SetFlags(0)
@@ -50,17 +53,15 @@ func main() {
 
 	flag.Parse()
 
-	if *lib != "" {
-		var err error
-		piclib.Path, err = filepath.Abs(*lib)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	if len(flag.Args()) == 0 {
 		flag.Usage()
 		return
+	}
+
+	var err error
+	lib, err = piclib.Open(*libpath)
+	if err != nil {
+		log.Fatal(lib)
 	}
 
 	cmd, ok := cmds[flag.Arg(0)]
@@ -69,47 +70,6 @@ func main() {
 		return
 	}
 	cmd(flag.Arg(0), flag.Args()[1:])
-}
-
-func dups(cmd string, args []string) {
-	desc := "Print duplicate files from the list. If no args are given, reads a list of files from stdin."
-	fs := newFlagSet("dups", "[FILE...]", desc)
-	all := fs.Bool("all", false, "true to check every file in the library")
-	quiet := fs.Bool("quiet", false, "true to only print file names")
-	fs.Parse(args)
-
-	files := fs.Args()
-	if *all {
-		var err error
-		files, err = piclib.List(-1)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else if len(files) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			log.Fatal(err)
-		}
-		files = strings.Fields(string(data))
-	}
-
-	sums := map[string]string{}
-	for _, file := range files {
-		sum, err := piclib.Checksum(file)
-		if err != nil {
-			log.Fatal(err)
-		}
-		s := fmt.Sprintf("%x", sum)
-		if orig, ok := sums[s]; ok {
-			if *quiet {
-				fmt.Println(file)
-			} else {
-				fmt.Printf("[DUP] %v is duplicate of %v\n", file, orig)
-			}
-		} else {
-			sums[s] = file
-		}
-	}
 }
 
 func fix(cmd string, args []string) {
@@ -160,9 +120,6 @@ func fix(cmd string, args []string) {
 func put(cmd string, args []string) {
 	desc := "copies given files to the library path. If no args are given, reads a list of files from stdin."
 	fs := newFlagSet("put", "[FILE...]", desc)
-	norename := fs.Bool("norename", false, "true to not rename files with an exif date or sha1 hash prefix")
-	sum := fs.Bool("sum", true, "true to include a sha1 hash in a notes file")
-	thumb := fs.Bool("thumb", true, "true to create and add a thumbnail also")
 	fs.Parse(args)
 
 	files := fs.Args()
@@ -180,62 +137,13 @@ func put(cmd string, args []string) {
 			continue
 		}
 
-		newname, err := piclib.Add(p, !*norename)
-
+		p, err := lib.Add(p)
 		if piclib.IsDup(err) {
 			fmt.Printf("[SKIP] %v\n", err)
 		} else if err != nil {
 			log.Printf("[ERR] %v\n", err)
-			continue
 		} else {
-			fmt.Printf("[ADD] %v\n", p)
-			if *thumb {
-				err := piclib.MakeThumb(newname, 1000, 0)
-				if err != nil && !piclib.IsDupThumb(err) {
-					log.Printf("[ERR] %v", err)
-				}
-			}
-
-			if *sum {
-				if err := piclib.SaveChecksum(newname); err != nil {
-					log.Printf("[ERR] %v\n", err)
-				}
-			}
-		}
-	}
-}
-
-func thumb(cmd string, args []string) {
-	desc := "creates thumbnail images for the given files. If no args are given, reads a list of files from stdin."
-	fs := newFlagSet("thumb", "[FILE...]", desc)
-	w := fs.Uint("w", 1000, "thumb width (px). 0 to preserve aspect ratio based on height.")
-	h := fs.Uint("h", 0, "thumb height (px). 0 to preserve aspect ratio based on width.")
-	fs.Parse(args)
-
-	files := fs.Args()
-	if len(files) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			log.Fatal(err)
-		}
-		files = strings.Fields(string(data))
-	}
-
-	if *w == 0 && *h == 0 {
-		log.Fatal("either width or height must be non-zero")
-	}
-
-	for _, path := range files {
-		p := strings.TrimSpace(path)
-		if p == "" {
-			continue
-		}
-
-		err := piclib.MakeThumb(p, *w, *h)
-		if err != nil {
-			log.Print("[ERR] %v", err)
-		} else {
-			fmt.Printf("[THUMB] %v\n", p)
+			fmt.Printf("[ADD] %v\n", p.Name)
 		}
 	}
 }
@@ -244,23 +152,33 @@ func validate(cmd string, args []string) {
 	desc := "verifies checksums of given files. If no args are given, reads a list of files from stdin."
 	fs := newFlagSet("validate", "[FILE...]", desc)
 	all := fs.Bool("all", false, "true validate every file in the library")
-	calc := fs.Bool("calc", false, "true to calculate and store the checksum if it doesn't exist")
 	v := fs.Bool("v", false, "verbose output")
 	fs.Parse(args)
 
-	files := fs.Args()
+	var err error
+	var pics []*piclib.Pic
 	if *all {
-		var err error
-		files, err = piclib.List(-1)
+		pics, err = lib.List(0, 0)
 		if err != nil {
 			log.Fatal(err)
 		}
 	} else if len(files) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			log.Fatal(err)
+		dec := json.NewDecoder(bufio.NewReader(os.Stdin))
+		for {
+			p := &piclib.Pic{}
+			err = dec.Decode(&p)
+			if err != nil {
+				break
+			}
+			preal, err := lib.Open(p.Id)
+			if err != nil {
+				log.Fatal(err)
+			}
+			pics == append(pics, preal)
 		}
-		files = strings.Fields(string(data))
+		if err != io.EOF {
+			log.Fatalf(err)
+		}
 	}
 
 	for _, path := range files {

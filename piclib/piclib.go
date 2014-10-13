@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -58,7 +59,6 @@ func DefaultLibpath() string {
 // 	- sum BLOB
 // 	- name TEXT
 // 	- added INTEGER
-// 	- modified INTEGER
 // 	- taken INTEGER
 // 	- orient INTEGER
 // 	- thumb BLOB
@@ -87,7 +87,7 @@ func Open(path string) (*Lib, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY,sum BLOB,name TEXT,added INTEGER,modified INTEGER,taken INTEGER,orient INTEGER,thumb BLOB);")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY,sum BLOB,name TEXT,added INTEGER,taken INTEGER,orient INTEGER,thumb BLOB);")
 	if err != nil {
 		return nil, err
 	}
@@ -99,17 +99,18 @@ func Open(path string) (*Lib, error) {
 }
 
 func (l *Lib) Open(id int) (*Pic, error) {
-	s := "SELECT id,sum,name,added,modified,taken,orient FROM files WHERE id=?"
+	s := "SELECT id,sum,name,added,taken,orient FROM files WHERE id=?"
 	p := &Pic{}
-	err := l.db.QueryRow(s, id).Scan(&p.id, &p.Sum, &p.Name, &p.Added, &p.Modified, &p.Taken, &p.Orient)
+	err := l.db.QueryRow(s, id).Scan(&p.id, &p.Sum, &p.Name, &p.Added, &p.Taken, &p.Orient)
 	if err != nil {
 		return nil, err
 	}
+	p.Id = p.id
 	return p, nil
 }
 
 func (l *Lib) List(limit, offset int) (pics []*Pic, err error) {
-	s := "SELECT id,sum,name,added,modified,taken,orient FROM files ORDER BY (taken,added)"
+	s := "SELECT id,sum,name,added,taken,orient FROM files ORDER BY (taken,added)"
 	var rows *sql.Rows
 	if limit > 0 {
 		s += "LIMIT ? OFFSET ?"
@@ -127,10 +128,11 @@ func (l *Lib) List(limit, offset int) (pics []*Pic, err error) {
 	for rows.Next() {
 		p := &Pic{}
 		err := rows.Scan(&p.id, &p.Sum, &p.Name, &p.Added,
-			&p.Modified, &p.Taken, &p.Orient)
+			&p.Taken, &p.Orient)
 		if err != nil {
 			return nil, err
 		}
+		p.Id = p.id
 		pics = append(pics, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -161,51 +163,50 @@ func (l *Lib) Exists(sum []byte) (exists bool, name string, err error) {
 }
 
 // Add copies the picture into and adds it to the current library
-func (l *Lib) Add(pic string) error {
+func (l *Lib) Add(pic string) (p *Pic, err error) {
 	// make pic lib dir if it doesn't exist
 	if err := os.MkdirAll(l.Path, 0755); err != nil {
-		return err
+		return nil, err
 	}
 
 	// check if file exists in libary
 	f, err := os.Open(pic)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	newname, sum, err := l.stdpath(pic, f)
 	f.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if exists, name, err := l.Exists(sum); err == nil && exists {
-		return DupErr{pic, name}
+		return nil, DupErr{pic, name}
 	} else if err != nil {
-		return err
+		return nil, err
 	}
 
 	// copy file into library path
 	f1, err := os.Open(pic)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f1.Close()
 
 	f2, err := os.Create(newname)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f2.Close()
 
 	_, err = io.Copy(f2, f1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	/////// add entry to meta database ////////
-	// id, sum, name, added, modified, taken, orient, thumb
+	// id, sum, name, added, taken, orient, thumb
 	added := time.Now()
-	modified := time.Now()
 	taken := time.Time{}
 	orient := 0
 
@@ -226,7 +227,7 @@ func (l *Lib) Add(pic string) error {
 	// make thumb
 	f3, err := os.Open(pic)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f3.Close()
 
@@ -236,20 +237,36 @@ func (l *Lib) Add(pic string) error {
 	}
 	thumb, _ := MakeThumb(f3, w, h)
 
-	sql := "INSERT INTO files (sum, name, added, modified, taken, orient, thumb) VALUES (?,?,?,?,?,?,?);"
-	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, modified, taken, orient, thumb)
-	return err
+	sql := "INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?,?);"
+	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, taken, orient, thumb)
+	if err != nil {
+		return nil, err
+	}
+
+	var id int
+	err = l.db.QueryRow("SELECT id FROM files WHERE sum=?;", sum).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+	return l.Open(id)
 }
 
 type Pic struct {
-	id       int
-	lib      *Lib
-	Sum      []byte
-	Name     string
-	Added    time.Time
-	Modified time.Time
-	Taken    time.Time
-	Orient   int
+	id     int // for protection
+	Id     int // for marshalling
+	lib    *Lib
+	Sum    []byte
+	Name   string
+	Added  time.Time
+	Taken  time.Time
+	Orient int
+}
+
+func (p *Pic) Marshal() ([]byte, error) {
+	if p.id != p.Id {
+		return nil, fmt.Errorf("Pic id has been corrupted")
+	}
+	return json.Marshal(p)
 }
 
 func (p *Pic) Filepath() string {
