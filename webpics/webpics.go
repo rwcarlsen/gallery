@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -10,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
+	"strconv"
 	"text/template"
 	"time"
 
@@ -22,12 +24,17 @@ import (
 const picsPerPage = 24
 
 var (
-	addr   = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
-	noedit = flag.Bool("noedit", false, "don't allow editing of anything in library")
-	lib    = flag.String("lib", "", "path to picture library (blank => env PICLIB => $HOME/piclib)")
-	all    = flag.Bool("all", false, "true to view every file in the library")
-	dosort = flag.Bool("sort", true, "true to sort files in reverse chronological order")
+	addr    = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
+	noedit  = flag.Bool("noedit", false, "don't allow editing of anything in library")
+	libpath = flag.String("lib", piclib.DefaultPath(), "path to picture library")
+	all     = flag.Bool("all", false, "true to view every file in the library")
+	dosort  = flag.Bool("sort", true, "true to sort files in reverse chronological order")
 )
+
+type Photo struct {
+	*piclib.Pic
+	Index int
+}
 
 var (
 	zoomTmpl *template.Template
@@ -42,17 +49,8 @@ var (
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
 	slidepage []byte // slideshow.html
+	lib       *piclib.Lib
 )
-
-type Photo struct {
-	Name   string
-	Path   string
-	Notes  string
-	Taken  time.Time
-	Index  int
-	Orient int
-	IsVid  bool
-}
 
 func (p Photo) Date() string {
 	return p.Taken.Format("Jan 2, 2006")
@@ -80,14 +78,12 @@ func init() {
 
 func main() {
 	flag.Parse()
+	log.SetFlags(log.Lshortfile)
 	var err error
 
-	if *lib != "" {
-		var err error
-		piclib.Path, err = filepath.Abs(*lib)
-		if err != nil {
-			log.Fatal(err)
-		}
+	lib, err = piclib.Open(*libpath)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	slidepage, err = ioutil.ReadFile(filepath.Join(resPath, "slideshow.html"))
@@ -125,39 +121,48 @@ func main() {
 var skipext = []string{"", ".avi", ".m4v", ".go"}
 
 func loadPics() {
-	files := flag.Args()
+	var pics []*piclib.Pic
+	var err error
 	if *all {
-		var err error
-		files, err = piclib.List(-1, skipext...)
+		pics, err = lib.List(0, 0)
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else if len(files) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			log.Fatalf("failed to read names from stdin: %v", err)
+	} else if len(flag.Args()) == 0 {
+		dec := json.NewDecoder(bufio.NewReader(os.Stdin))
+		for {
+			p := &piclib.Pic{}
+			err = dec.Decode(&p)
+			if err != nil {
+				break
+			}
+			preal, err := lib.Open(p.Id)
+			if err != nil {
+				log.Fatal(err)
+			}
+			pics = append(pics, preal)
 		}
-		files = strings.Fields(string(data))
+		if err != io.EOF {
+			log.Fatal(err)
+		}
+	} else {
+		for _, idstr := range flag.Args() {
+			id, err := strconv.Atoi(idstr)
+			if err != nil {
+				log.Fatal(err)
+			}
+			p, err := lib.Open(id)
+			if err != nil {
+				log.Fatal(err)
+			}
+			pics = append(pics, p)
+		}
 	}
 
-	for _, name := range files {
-		notes, _, err := piclib.Notes(name)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		p := &Photo{
-			Name:   filepath.Base(piclib.Filepath(name)),
-			Path:   piclib.Filepath(name),
-			Notes:  notes,
-			Taken:  piclib.Taken(piclib.Filepath(name)),
-			Orient: piclib.Orientation(name),
-		}
-		if filepath.Ext(strings.ToLower(p.Name)) == ".mov" {
-			p.IsVid = true
-		}
-		allPhotos = append(allPhotos, p)
-		picMap[p.Name] = p
+	for _, p := range pics {
+		photo := &Photo{Pic: p}
+		allPhotos = append(allPhotos, photo)
+		picMap[p.Name] = photo
 	}
 }
 
@@ -215,22 +220,23 @@ func writeImg(w io.Writer, name string, thumb bool) error {
 		return fmt.Errorf("%v is not a valid pic", name)
 	}
 
-	var data []byte
-	var err error
 	if thumb {
-		data, err = ioutil.ReadFile(piclib.ThumbFile(p.Name))
-	} else {
-		data, err = ioutil.ReadFile(p.Path)
+		data, err := p.Thumb()
+		if err != nil {
+			return err
+		}
+		w.Write(data)
+		return nil
 	}
+
+	r, err := p.Open()
 	if err != nil {
 		return err
 	}
+	defer r.Close()
 
-	if _, err := w.Write(data); err != nil {
-		return err
-	}
-
-	return nil
+	_, err = io.Copy(w, r)
+	return err
 }
 
 ///////////////////////////////////////////////////////////

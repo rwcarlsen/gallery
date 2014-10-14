@@ -23,7 +23,7 @@
 <li>
   <div style="{{$photo.Style}}">
     <a href="/dynamic/zoom/{{$photo.Index}}">
-      {{if $photo.IsVid}}
+      {{if eq $photo.Ext ".mov"}}
       <video class="zoom-vid" src="/photo/orig/{{.Name}}"></video>
       {{else}}
       <img class="img-rounded" src="/photo/thumb/{{$photo.Name}}">

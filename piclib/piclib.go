@@ -44,7 +44,7 @@ var rots = map[int]int{
 	8: 270,
 }
 
-func DefaultLibpath() string {
+func DefaultPath() string {
 	s := os.Getenv("PICLIB")
 	if s != "" {
 		return s
@@ -71,6 +71,7 @@ func DefaultLibpath() string {
 const Version = "0.1"
 const nameTimeFmt = "2006-01-02-15-04-05"
 const libname = "meta.sqlite"
+const NotesField = "Notes"
 const thumbw = 1000
 const thumbh = 0
 
@@ -100,7 +101,7 @@ func Open(path string) (*Lib, error) {
 
 func (l *Lib) Open(id int) (*Pic, error) {
 	s := "SELECT id,sum,name,added,taken,orient FROM files WHERE id=?"
-	p := &Pic{}
+	p := &Pic{lib: l}
 	err := l.db.QueryRow(s, id).Scan(&p.id, &p.Sum, &p.Name, &p.Added, &p.Taken, &p.Orient)
 	if err != nil {
 		return nil, err
@@ -109,15 +110,39 @@ func (l *Lib) Open(id int) (*Pic, error) {
 	return p, nil
 }
 
+func (l *Lib) ListTime(start, end time.Time) (pics []*Pic, err error) {
+	s := "SELECT id,sum,name,added,taken,orient FROM files"
+	s += " WHERE taken >= ? AND taken <= ? ORDER BY taken DESC;"
+	rows, err := l.db.Query(s, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		p := &Pic{lib: l}
+		err := rows.Scan(&p.id, &p.Sum, &p.Name, &p.Added,
+			&p.Taken, &p.Orient)
+		if err != nil {
+			return nil, err
+		}
+		p.Id = p.id
+		pics = append(pics, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return pics, nil
+}
+
 func (l *Lib) List(limit, offset int) (pics []*Pic, err error) {
-	s := "SELECT id,sum,name,added,taken,orient FROM files ORDER BY (taken,added)"
+	s := "SELECT id,sum,name,added,taken,orient FROM files ORDER BY taken DESC,added DESC"
 	var rows *sql.Rows
 	if limit > 0 {
-		s += "LIMIT ? OFFSET ?"
+		s += " LIMIT ? OFFSET ?"
 		rows, err = l.db.Query(s, limit, offset)
 	} else {
-		s += "OFFSET ?"
-		rows, err = l.db.Query(s, offset)
+		rows, err = l.db.Query(s)
 	}
 
 	if err != nil {
@@ -126,7 +151,7 @@ func (l *Lib) List(limit, offset int) (pics []*Pic, err error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		p := &Pic{}
+		p := &Pic{lib: l}
 		err := rows.Scan(&p.id, &p.Sum, &p.Name, &p.Added,
 			&p.Taken, &p.Orient)
 		if err != nil {
@@ -156,14 +181,16 @@ func (l *Lib) stdpath(name string, r io.Reader) (path string, sum []byte, err er
 
 func (l *Lib) Exists(sum []byte) (exists bool, name string, err error) {
 	err = l.db.QueryRow("SELECT name FROM files WHERE sum=?", sum).Scan(&name)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return false, "", nil
+	} else if err != nil {
 		return false, "", err
 	}
-	return name != "", name, nil
+	return true, name, nil
 }
 
 // Add copies the picture into and adds it to the current library
-func (l *Lib) Add(pic string) (p *Pic, err error) {
+func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 	// make pic lib dir if it doesn't exist
 	if err := os.MkdirAll(l.Path, 0755); err != nil {
 		return nil, err
@@ -216,11 +243,12 @@ func (l *Lib) Add(pic string) (p *Pic, err error) {
 		t, err := x.DateTime()
 		if err == nil {
 			taken = t
-		}
-		tag, err := x.Get(exif.Orientation)
-		if err == nil {
-			v, _ := tag.Int(0)
-			orient = rots[int(v)]
+		} else {
+			tag, err := x.Get(exif.Orientation)
+			if err == nil {
+				v, _ := tag.Int(0)
+				orient = rots[int(v)]
+			}
 		}
 	}
 
@@ -237,7 +265,7 @@ func (l *Lib) Add(pic string) (p *Pic, err error) {
 	}
 	thumb, _ := MakeThumb(f3, w, h)
 
-	sql := "INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?,?);"
+	sql := "INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?);"
 	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, taken, orient, thumb)
 	if err != nil {
 		return nil, err
@@ -262,16 +290,22 @@ type Pic struct {
 	Orient int
 }
 
-func (p *Pic) Marshal() ([]byte, error) {
+func (p *Pic) Marshal() (string, error) {
 	if p.id != p.Id {
-		return nil, fmt.Errorf("Pic id has been corrupted")
+		return "", fmt.Errorf("Pic id has been corrupted")
 	}
-	return json.Marshal(p)
+	data, err := json.Marshal(p)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func (p *Pic) Filepath() string {
 	return filepath.Join(p.lib.Path, diskname(p.Name, p.Sum))
 }
+
+func (p *Pic) Ext() string { return filepath.Ext(p.Name) }
 
 func (p *Pic) Open() (io.ReadCloser, error) {
 	return os.Open(p.Filepath())
@@ -292,6 +326,9 @@ func (p *Pic) SetMeta(field, val string) error {
 	_, err := p.lib.db.Exec(s, p.id, time.Now(), field, val)
 	return err
 }
+
+func (p *Pic) SetNotes(val string) error { return p.SetMeta(NotesField, val) }
+func (p *Pic) GetNotes() (string, error) { return p.GetMeta(NotesField) }
 
 func (p *Pic) Validate() error {
 	rc, err := p.Open()
