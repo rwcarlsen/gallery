@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,7 @@ var cmds = map[string]CmdFunc{
 	"put":      put,
 	"validate": validate,
 	"list":     list,
+	"fix":      fix,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -152,7 +154,7 @@ func validate(cmd string, args []string) {
 		if err != nil {
 			log.Printf("[ERR] %v\n", err)
 		} else if *v {
-			fmt.Printf("[VALID] %v\n", p)
+			fmt.Printf("[VALID] %v (%v)\n", p.Filepath(), p.Name)
 		}
 	}
 }
@@ -161,6 +163,95 @@ type picmeta struct {
 	Id    int
 	Taken time.Time
 	Notes string
+}
+
+func Untracked() []string {
+	dir, err := os.Open(*libpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer dir.Close()
+
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pics, err := lib.List(0, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	picmap := map[string]bool{piclib.Libname: true}
+	for _, p := range pics {
+		picmap[filepath.Base(p.Filepath())] = true
+	}
+
+	untracked := []string{}
+	for _, name := range names {
+		_, ok := picmap[name]
+		if !ok {
+			untracked = append(untracked, name)
+		}
+	}
+	return untracked
+}
+
+func fix(cmd string, args []string) {
+	desc := "perform library maintenance"
+	fs := newFlagSet("fix", "", desc)
+	untracked := fs.Bool("untracked", false, "print untracked files in the library directory")
+	fnames := fs.Bool("fnames", false, "fix miss-named files in the library directory")
+	fs.Parse(args)
+
+	if *untracked {
+		names := Untracked()
+		for _, name := range names {
+			fmt.Println(filepath.Join(*libpath, name))
+		}
+		return
+	}
+
+	if *fnames {
+		pics, err := lib.List(0, 0)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		names := Untracked()
+		files := map[[32]byte]string{}
+		var sum [32]byte
+		for _, name := range names {
+			f, err := os.Open(filepath.Join(*libpath, name))
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			sm, err := piclib.Sha256(f)
+			if err != nil {
+				log.Fatal(err)
+			}
+			copy(sum[:], sm)
+
+			files[sum] = filepath.Join(*libpath, name)
+			f.Close()
+		}
+
+		for _, p := range pics {
+			err := p.Validate()
+			if err != nil {
+				copy(sum[:], p.Sum)
+				fpath, ok := files[sum]
+				if ok {
+					err := os.Rename(fpath, p.Filepath())
+					if err != nil {
+						log.Fatal(err)
+					}
+					fmt.Printf("renamed '%v' to '%v'\n", fpath, p.Filepath())
+				}
+			}
+		}
+	}
 }
 
 func list(cmd string, args []string) {

@@ -61,7 +61,7 @@ func DefaultPath() string {
 // 	- value TEXT
 
 const Version = "0.1"
-const libname = "piclib.sqlite"
+const Libname = "piclib.sqlite"
 const NotesField = "Notes"
 const thumbw = 1000
 const thumbh = 0
@@ -77,7 +77,7 @@ func Open(path string) (*Lib, error) {
 		return nil, err
 	}
 
-	dbpath := filepath.Join(path, libname)
+	dbpath := filepath.Join(path, Libname)
 	db, err := sql.Open("sqlite3", dbpath)
 	if err != nil {
 		return nil, err
