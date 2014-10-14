@@ -3,10 +3,10 @@
 <div class="container black">
   <div class="row" style="text-align: center;">
       {{if eq .Ext ".mov"}}
-      <video class="zoom-vid" src="/photo/orig/{{.Name}}" controls></video>
+      <video class="zoom-vid" src="/photo/orig/{{.Id}}" controls></video>
       {{else}}
       <a href="/">
-          <img class="zoom-img" data-dismiss="modal" src="/photo/thumb/{{.Name}}" style="{{.Style}}">
+          <img class="zoom-img" data-dismiss="modal" src="/photo/thumb/{{.Id}}" style="{{.Style}}">
       </a>
       {{end}}
   </div>
@@ -16,12 +16,12 @@
   <div class="navbar-inner">
     <div class="container">
       <ul class="nav">
-        <li><textarea id="pic-notes{{.Index}}">{{.Notes}}</textarea></li>
+        <li><textarea id="pic-notes{{.Index}}">{{.GetNotes}}</textarea></li>
         <li><div><a href="#" class="btn" style="margin-left: 10px" onclick="saveNotes({{.Index}})">Save Notes</a></div></li>
       </ul>
       <ul class="nav pull-right">
         <li><a href="#" disabled>Taken {{.Date}}</a></li>
-        <li><div><a class="btn" href="/photo/orig/{{.Name}}">Original</a></div></li>
+        <li><div><a class="btn" href="/photo/orig/{{.Id}}">Original</a></div></li>
       </ul>
     </div>
   </div>

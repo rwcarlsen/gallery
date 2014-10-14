@@ -53,7 +53,7 @@ func (c *context) serveSlide(w http.ResponseWriter) error {
 	if c.randIndex++; c.randIndex == len(c.photos) {
 		c.randIndex = 0
 	}
-	return writeImg(w, p.Name, false)
+	return writeImg(w, p.Id, false)
 }
 
 func (c *context) servePage(w http.ResponseWriter, pg string) error {

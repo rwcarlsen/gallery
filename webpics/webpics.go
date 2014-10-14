@@ -45,7 +45,7 @@ var (
 var (
 	resPath   = os.Getenv("WEBPICS")
 	allPhotos = []*Photo{}
-	picMap    = map[string]*Photo{}
+	picMap    = map[int]*Photo{}
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
 	slidepage []byte // slideshow.html
@@ -99,7 +99,7 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
 	r.HandleFunc("/static/{path:.*}", StaticHandler)
-	r.HandleFunc("/photo/{type}/{name}", PhotoHandler)
+	r.HandleFunc("/photo/{type}/{id}", PhotoHandler)
 	r.HandleFunc("/dynamic/pg{pg:[0-9]*}", PageHandler)
 	r.HandleFunc("/dynamic/zoom/{index:[0-9]+}", ZoomHandler)
 	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
@@ -162,7 +162,7 @@ func loadPics() {
 	for _, p := range pics {
 		photo := &Photo{Pic: p}
 		allPhotos = append(allPhotos, photo)
-		picMap[p.Name] = photo
+		picMap[p.Id] = photo
 	}
 }
 
@@ -193,20 +193,27 @@ func StaticHandler(w http.ResponseWriter, r *http.Request) {
 
 func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	p, ok := picMap[vars["name"]]
+
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	p, ok := picMap[id]
 	if !ok {
 		log.Print("pic %v not valid", p.Name)
 		return
 	}
 
-	var err error
 	switch vars["type"] {
 	case "orig":
-		err = writeImg(w, p.Name, false)
+		err = writeImg(w, p.Id, false)
 	case "thumb":
-		err = writeImg(w, p.Name, true)
+		err = writeImg(w, p.Id, true)
 	default:
 		log.Print("invalid pic type %v", vars["type"])
+		return
 	}
 
 	if err != nil {
@@ -214,10 +221,10 @@ func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func writeImg(w io.Writer, name string, thumb bool) error {
-	p, ok := picMap[name]
+func writeImg(w io.Writer, id int, thumb bool) error {
+	p, ok := picMap[id]
 	if !ok {
-		return fmt.Errorf("%v is not a valid pic", name)
+		return fmt.Errorf("%v is not a valid pic id", id)
 	}
 
 	if thumb {

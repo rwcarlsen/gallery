@@ -60,7 +60,7 @@ func main() {
 	var err error
 	lib, err = piclib.Open(*libpath)
 	if err != nil {
-		log.Fatal(lib)
+		log.Fatal(err)
 	}
 
 	cmd, ok := cmds[flag.Arg(0)]
@@ -72,7 +72,7 @@ func main() {
 }
 
 func put(cmd string, args []string) {
-	desc := "copies given files to the library path. If no args are given, reads a list of files from stdin."
+	desc := "copies given files into the library. Uses given args or reads a list of files from stdin."
 	fs := newFlagSet("put", "[FILE...]", desc)
 	fs.Parse(args)
 

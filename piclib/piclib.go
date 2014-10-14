@@ -4,12 +4,7 @@ package piclib
 // TODO: mount groups of pics named nicely (maybe in nice dir structure) with
 // softlinks
 
-// TODO: update cli commands to use new library
-
-// TODO: add list methods that take 'exclude' and 'include' text filters.
-// still have webpics take a piped in list of files (or ids?).  Then it will
-
-// TODO: update webpics to
+// TODO: update webpics
 
 import (
 	"bytes"
@@ -69,8 +64,7 @@ func DefaultPath() string {
 // 	- value TEXT
 
 const Version = "0.1"
-const nameTimeFmt = "2006-01-02-15-04-05"
-const libname = "meta.sqlite"
+const libname = "piclib.sqlite"
 const NotesField = "Notes"
 const thumbw = 1000
 const thumbh = 0
@@ -82,6 +76,10 @@ type Lib struct {
 }
 
 func Open(path string) (*Lib, error) {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return nil, err
+	}
+
 	dbpath := filepath.Join(path, libname)
 	db, err := sql.Open("sqlite3", dbpath)
 	if err != nil {
@@ -102,10 +100,14 @@ func Open(path string) (*Lib, error) {
 func (l *Lib) Open(id int) (*Pic, error) {
 	s := "SELECT id,sum,name,added,taken,orient FROM files WHERE id=?"
 	p := &Pic{lib: l}
-	err := l.db.QueryRow(s, id).Scan(&p.id, &p.Sum, &p.Name, &p.Added, &p.Taken, &p.Orient)
+	var taken, added int64
+	err := l.db.QueryRow(s, id).Scan(&p.id, &p.Sum, &p.Name, &added, &taken, &p.Orient)
 	if err != nil {
 		return nil, err
 	}
+
+	p.Taken = time.Unix(taken, 0)
+	p.Added = time.Unix(added, 0)
 	p.Id = p.id
 	return p, nil
 }
@@ -119,14 +121,16 @@ func (l *Lib) ListTime(start, end time.Time) (pics []*Pic, err error) {
 	}
 	defer rows.Close()
 
+	var added, taken int64
 	for rows.Next() {
 		p := &Pic{lib: l}
-		err := rows.Scan(&p.id, &p.Sum, &p.Name, &p.Added,
-			&p.Taken, &p.Orient)
+		err := rows.Scan(&p.id, &p.Sum, &p.Name, &added, &taken, &p.Orient)
 		if err != nil {
 			return nil, err
 		}
 		p.Id = p.id
+		p.Taken = time.Unix(taken, 0)
+		p.Added = time.Unix(added, 0)
 		pics = append(pics, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -150,14 +154,16 @@ func (l *Lib) List(limit, offset int) (pics []*Pic, err error) {
 	}
 	defer rows.Close()
 
+	var added, taken int64
 	for rows.Next() {
 		p := &Pic{lib: l}
-		err := rows.Scan(&p.id, &p.Sum, &p.Name, &p.Added,
-			&p.Taken, &p.Orient)
+		err := rows.Scan(&p.id, &p.Sum, &p.Name, &added, &taken, &p.Orient)
 		if err != nil {
 			return nil, err
 		}
 		p.Id = p.id
+		p.Taken = time.Unix(taken, 0)
+		p.Added = time.Unix(added, 0)
 		pics = append(pics, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -179,54 +185,49 @@ func (l *Lib) stdpath(name string, r io.Reader) (path string, sum []byte, err er
 	return filepath.Join(l.Path, fname), sum, nil
 }
 
-func (l *Lib) Exists(sum []byte) (exists bool, name string, err error) {
+func (l *Lib) Exists(sum []byte) (exists bool, err error) {
+	name := ""
 	err = l.db.QueryRow("SELECT name FROM files WHERE sum=?", sum).Scan(&name)
 	if err == sql.ErrNoRows {
-		return false, "", nil
+		return false, nil
 	} else if err != nil {
-		return false, "", err
+		return false, err
 	}
-	return true, name, nil
+	return true, nil
 }
 
 // Add copies the picture into and adds it to the current library
 func (l *Lib) AddFile(pic string) (p *Pic, err error) {
-	// make pic lib dir if it doesn't exist
-	if err := os.MkdirAll(l.Path, 0755); err != nil {
-		return nil, err
-	}
-
 	// check if file exists in libary
 	f, err := os.Open(pic)
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	newname, sum, err := l.stdpath(pic, f)
-	f.Close()
 	if err != nil {
 		return nil, err
 	}
 
-	if exists, name, err := l.Exists(sum); err == nil && exists {
-		return nil, DupErr{pic, name}
+	if exists, err := l.Exists(sum); err == nil && exists {
+		return nil, DupErr{pic}
 	} else if err != nil {
 		return nil, err
 	}
 
 	// copy file into library path
-	f1, err := os.Open(pic)
+	_, err = f.Seek(0, os.SEEK_SET)
 	if err != nil {
 		return nil, err
 	}
-	defer f1.Close()
 
-	f2, err := os.Create(newname)
+	dst, err := os.Create(newname)
 	if err != nil {
 		return nil, err
 	}
-	defer f2.Close()
+	defer dst.Close()
 
-	_, err = io.Copy(f2, f1)
+	_, err = io.Copy(dst, f)
 	if err != nil {
 		return nil, err
 	}
@@ -238,17 +239,22 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 	orient := 0
 
 	// exif metadata
+	_, err = f.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return nil, err
+	}
+
 	x, err := exif.Decode(f)
 	if err == nil {
-		t, err := x.DateTime()
+		tm, err := x.DateTime()
 		if err == nil {
-			taken = t
-		} else {
-			tag, err := x.Get(exif.Orientation)
-			if err == nil {
-				v, _ := tag.Int(0)
-				orient = rots[int(v)]
-			}
+			taken = tm
+		}
+
+		tag, err := x.Get(exif.Orientation)
+		if err == nil {
+			v, _ := tag.Int(0)
+			orient = rots[int(v)]
 		}
 	}
 
@@ -315,7 +321,7 @@ func (p *Pic) GetMeta(field string) (string, error) {
 	s := "SELECT value FROM meta WHERE id=? ORDER BY time DESC LIMIT 1;"
 	val := ""
 	err := p.lib.db.QueryRow(s, p.id).Scan(&val)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return "", err
 	}
 	return val, nil
@@ -371,12 +377,11 @@ func IsBadSum(err error) bool {
 }
 
 type DupErr struct {
-	pic  string
-	prev string
+	pic string
 }
 
 func (s DupErr) Error() string {
-	return fmt.Sprintf("%v already exists as %v in the library", s.pic, s.prev)
+	return fmt.Sprintf("%v already exists in the library", s.pic)
 }
 
 func IsDup(err error) bool {

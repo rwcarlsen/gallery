@@ -32,7 +32,7 @@ func main() {
 		path := strings.TrimSpace(line)
 		fmt.Printf("adding %v\n", path)
 
-		pic, err := lib.Add(path)
+		pic, err := lib.AddFile(path)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -42,7 +42,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		err := pic.SetNotes(notes)
+		err = pic.SetNotes(notes)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -53,6 +53,8 @@ func main() {
 	}
 	fmt.Printf("added %v pics to library\n", i)
 }
+
+type Meta struct{}
 
 func Notes(path string) (notes string, m *Meta, err error) {
 	data, err := ioutil.ReadFile(path)
