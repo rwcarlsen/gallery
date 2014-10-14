@@ -4,13 +4,10 @@ package piclib
 // TODO: mount groups of pics named nicely (maybe in nice dir structure) with
 // softlinks
 
-// TODO: update webpics
-
 import (
 	"bytes"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -294,17 +291,6 @@ type Pic struct {
 	Added  time.Time
 	Taken  time.Time
 	Orient int
-}
-
-func (p *Pic) Marshal() (string, error) {
-	if p.id != p.Id {
-		return "", fmt.Errorf("Pic id has been corrupted")
-	}
-	data, err := json.Marshal(p)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 func (p *Pic) Filepath() string {

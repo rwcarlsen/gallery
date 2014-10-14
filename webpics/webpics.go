@@ -78,7 +78,6 @@ func init() {
 
 func main() {
 	flag.Parse()
-	log.SetFlags(log.Lshortfile)
 	var err error
 
 	lib, err = piclib.Open(*libpath)

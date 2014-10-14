@@ -40,7 +40,7 @@ func newFlagSet(cmd, args, desc string) *flag.FlagSet {
 var lib *piclib.Lib
 
 func main() {
-	log.SetFlags(log.Lshortfile)
+	log.SetFlags(0)
 	flag.Usage = func() {
 		log.Printf("Usage: pic [opts] <subcommand> [opts] [args]\n")
 		flag.PrintDefaults()
@@ -157,6 +157,12 @@ func validate(cmd string, args []string) {
 	}
 }
 
+type picmeta struct {
+	Id    int
+	Taken time.Time
+	Notes string
+}
+
 func list(cmd string, args []string) {
 	desc := "Find and list pictures."
 	fs := newFlagSet("list", "", desc)
@@ -190,10 +196,19 @@ func list(cmd string, args []string) {
 	}
 
 	for _, p := range pics {
-		s, err := p.Marshal()
+		notes, err := p.GetNotes()
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(s)
+		m := &picmeta{
+			Id:    p.Id,
+			Taken: p.Taken,
+			Notes: notes,
+		}
+		data, err := json.Marshal(m)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(string(data))
 	}
 }
