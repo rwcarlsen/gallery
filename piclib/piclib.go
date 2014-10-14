@@ -1,33 +1,27 @@
 // Package piclib provides tools backend-agnostic management of large photo collections.
 package piclib
 
+// TODO: mount groups of pics named nicely (maybe in nice dir structure) with
+// softlinks
+
 import (
 	"bytes"
-	"crypto/sha1"
-	"encoding/json"
+	"crypto/sha256"
+	"database/sql"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"time"
+
 	"image"
 	_ "image/gif"
 	"image/jpeg"
 	_ "image/png"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 
+	_ "github.com/mxk/go-sqlite/sqlite3"
 	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
-)
-
-const Version = "0.1"
-
-const (
-	NoDate      = "nodate-sha1-"
-	NotesExt    = ".notes"
-	ThumbExt    = ".thumb"
-	nameTimeFmt = "2006-01-02-15-04-05"
 )
 
 // rots holds mappings from exif orientation tag to degrees clockwise needed
@@ -42,25 +36,338 @@ var rots = map[int]int{
 	8: 270,
 }
 
-type Meta struct {
-	Sha1   string
+func DefaultPath() string {
+	s := os.Getenv("PICLIB")
+	if s != "" {
+		return s
+	}
+	return filepath.Join(os.Getenv("HOME"), "piclib")
+}
+
+// db schema:
+//
+// * files
+// 	- id INTEGER
+// 	- sum BLOB
+// 	- name TEXT
+// 	- added INTEGER
+// 	- taken INTEGER
+// 	- orient INTEGER
+// 	- thumb BLOB
+// * meta
+// 	- id INTEGER
+// 	- time INTEGER
+// 	- field TEXT
+// 	- value TEXT
+
+const Version = "0.1"
+const Libname = "piclib.sqlite"
+const NotesField = "Notes"
+const thumbw = 1000
+const thumbh = 0
+
+type Lib struct {
+	Path           string
+	db             *sql.DB
+	ThumbW, ThumbH int
+}
+
+func Open(path string) (*Lib, error) {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return nil, err
+	}
+
+	dbpath := filepath.Join(path, Libname)
+	db, err := sql.Open("sqlite3", dbpath)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY,sum BLOB,name TEXT,added INTEGER,taken INTEGER,orient INTEGER,thumb BLOB);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS meta (id INTEGER,time INTEGER,field TEXT,value TEXT);")
+	if err != nil {
+		return nil, err
+	}
+	return &Lib{Path: path, db: db}, nil
+}
+
+func (l *Lib) Open(id int) (*Pic, error) {
+	s := "SELECT id,sum,name,added,taken,orient FROM files WHERE id=?"
+	p := &Pic{lib: l}
+	var taken, added int64
+	err := l.db.QueryRow(s, id).Scan(&p.id, &p.Sum, &p.Name, &added, &taken, &p.Orient)
+	if err != nil {
+		return nil, err
+	}
+
+	p.Taken = time.Unix(taken, 0)
+	p.Added = time.Unix(added, 0)
+	p.Id = p.id
+	return p, nil
+}
+
+func (l *Lib) ListTime(start, end time.Time) (pics []*Pic, err error) {
+	s := "SELECT id,sum,name,added,taken,orient FROM files"
+	s += " WHERE taken >= ? AND taken <= ? ORDER BY taken DESC;"
+	rows, err := l.db.Query(s, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var added, taken int64
+	for rows.Next() {
+		p := &Pic{lib: l}
+		err := rows.Scan(&p.id, &p.Sum, &p.Name, &added, &taken, &p.Orient)
+		if err != nil {
+			return nil, err
+		}
+		p.Id = p.id
+		p.Taken = time.Unix(taken, 0)
+		p.Added = time.Unix(added, 0)
+		pics = append(pics, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return pics, nil
+}
+
+func (l *Lib) List(limit, offset int) (pics []*Pic, err error) {
+	s := "SELECT id,sum,name,added,taken,orient FROM files ORDER BY taken DESC,added DESC"
+	var rows *sql.Rows
+	if limit > 0 {
+		s += " LIMIT ? OFFSET ?"
+		rows, err = l.db.Query(s, limit, offset)
+	} else {
+		rows, err = l.db.Query(s)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var added, taken int64
+	for rows.Next() {
+		p := &Pic{lib: l}
+		err := rows.Scan(&p.id, &p.Sum, &p.Name, &added, &taken, &p.Orient)
+		if err != nil {
+			return nil, err
+		}
+		p.Id = p.id
+		p.Taken = time.Unix(taken, 0)
+		p.Added = time.Unix(added, 0)
+		pics = append(pics, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return pics, nil
+}
+
+func diskname(name string, sum []byte) string {
+	return fmt.Sprintf("%x%s", sum, filepath.Ext(name))
+}
+
+func (l *Lib) stdpath(name string, r io.Reader) (path string, sum []byte, err error) {
+	sum, err = Sha256(r)
+	if err != nil {
+		return "", nil, err
+	}
+	fname := diskname(name, sum)
+	return filepath.Join(l.Path, fname), sum, nil
+}
+
+func (l *Lib) Exists(sum []byte) (exists bool, err error) {
+	name := ""
+	err = l.db.QueryRow("SELECT name FROM files WHERE sum=?", sum).Scan(&name)
+	if err == sql.ErrNoRows {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// Add copies the picture into and adds it to the current library
+func (l *Lib) AddFile(pic string) (p *Pic, err error) {
+	// check if file exists in libary
+	f, err := os.Open(pic)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	newname, sum, err := l.stdpath(pic, f)
+	if err != nil {
+		return nil, err
+	}
+
+	if exists, err := l.Exists(sum); err == nil && exists {
+		return nil, DupErr{pic}
+	} else if err != nil {
+		return nil, err
+	}
+
+	// copy file into library path
+	_, err = f.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return nil, err
+	}
+
+	dst, err := os.Create(newname)
+	if err != nil {
+		return nil, err
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, f)
+	if err != nil {
+		return nil, err
+	}
+
+	/////// add entry to meta database ////////
+	// id, sum, name, added, taken, orient, thumb
+	added := time.Now()
+	taken := time.Time{}
+	orient := 0
+
+	// exif metadata
+	_, err = f.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return nil, err
+	}
+
+	x, err := exif.Decode(f)
+	if err == nil {
+		tm, err := x.DateTime()
+		if err == nil {
+			taken = tm
+		}
+
+		tag, err := x.Get(exif.Orientation)
+		if err == nil {
+			v, _ := tag.Int(0)
+			orient = rots[int(v)]
+		}
+	}
+
+	// make thumb
+	f3, err := os.Open(pic)
+	if err != nil {
+		return nil, err
+	}
+	defer f3.Close()
+
+	w, h := l.ThumbW, l.ThumbH
+	if w == 0 && h == 0 {
+		w, h = thumbw, thumbh
+	}
+	thumb, _ := MakeThumb(f3, w, h)
+
+	sql := "INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?);"
+	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, taken, orient, thumb)
+	if err != nil {
+		return nil, err
+	}
+
+	var id int
+	err = l.db.QueryRow("SELECT id FROM files WHERE sum=?;", sum).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+	return l.Open(id)
+}
+
+type Pic struct {
+	id     int // for protection
+	Id     int // for marshalling
+	lib    *Lib
+	Sum    []byte
+	Name   string
+	Added  time.Time
 	Taken  time.Time
 	Orient int
 }
 
-var Path = filepath.Join(os.Getenv("HOME"), "piclib")
-
-func init() {
-	s := os.Getenv("PICLIB")
-	if len(s) > 0 {
-		Path = s
-	}
+func (p *Pic) Filepath() string {
+	return filepath.Join(p.lib.Path, diskname(p.Name, p.Sum))
 }
 
-type DupErr string
+func (p *Pic) Ext() string { return filepath.Ext(p.Name) }
+
+func (p *Pic) Open() (io.ReadCloser, error) {
+	return os.Open(p.Filepath())
+}
+
+func (p *Pic) GetMeta(field string) (string, error) {
+	s := "SELECT value FROM meta WHERE id=? ORDER BY time DESC LIMIT 1;"
+	val := ""
+	err := p.lib.db.QueryRow(s, p.id).Scan(&val)
+	if err != nil && err != sql.ErrNoRows {
+		return "", err
+	}
+	return val, nil
+}
+
+func (p *Pic) SetMeta(field, val string) error {
+	s := "INSERT INTO meta (id,time,field,value) VALUES (?,?,?,?);"
+	_, err := p.lib.db.Exec(s, p.id, time.Now(), field, val)
+	return err
+}
+
+func (p *Pic) SetNotes(val string) error { return p.SetMeta(NotesField, val) }
+func (p *Pic) GetNotes() (string, error) { return p.GetMeta(NotesField) }
+
+func (p *Pic) Validate() error {
+	rc, err := p.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	sum, err := Sha256(rc)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(sum, p.Sum) {
+		return BadSumErr(*p)
+	}
+	return nil
+}
+
+func (p *Pic) Thumb() ([]byte, error) {
+	s := "SELECT thumb FROM files WHERE id=?"
+	data := []byte{}
+	err := p.lib.db.QueryRow(s, p.id).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+type BadSumErr Pic
+
+func (e BadSumErr) Error() string {
+	p := Pic(e)
+	return fmt.Sprintf("file '%v' (pic '%v') failed checksum validation", p.Filepath(), p.Sum)
+}
+
+func IsBadSum(err error) bool {
+	_, ok := err.(BadSumErr)
+	return ok
+}
+
+type DupErr struct {
+	pic string
+}
 
 func (s DupErr) Error() string {
-	return fmt.Sprintf("%v already exists in library", string(s))
+	return fmt.Sprintf("%v already exists in the library", s.pic)
 }
 
 func IsDup(err error) bool {
@@ -68,307 +375,9 @@ func IsDup(err error) bool {
 	return ok
 }
 
-func Filepath(pic string) string {
-	p := filepath.Base(pic)
-	if strings.HasSuffix(p, NotesExt) {
-		p = p[:len(p)-len(NotesExt)]
-	} else if strings.HasSuffix(p, ThumbExt) {
-		p = p[:len(p)-len(ThumbExt)]
-	}
-	return filepath.Join(Path, p)
-}
-
-func List(n int, skipext ...string) (pics []string, err error) {
-	f, err := os.Open(Path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	names, err := f.Readdirnames(n)
-	if err != nil {
-		return nil, err
-	}
-
-	skipext = append(skipext, NotesExt)
-	skipext = append(skipext, ThumbExt)
-	paths := []string{}
-	for _, name := range names {
-		if strings.HasPrefix(name, ".") {
-			continue
-		} else if fi, err := os.Stat(filepath.Join(Path, name)); err == nil && fi.IsDir() {
-			continue
-		}
-
-		skip := false
-		for _, ext := range skipext {
-			if strings.ToLower(filepath.Ext(name)) == ext {
-				skip = true
-				break
-			}
-		}
-
-		if !skip {
-			paths = append(paths, filepath.Join(Path, name))
-		}
-	}
-	return paths, nil
-}
-
-// Add copies a picture in the Path directory.  If rename is true, the copied
-// file is renamed to CanonicalName(pic).
-func Add(pic string, rename bool) (newname string, err error) {
-	// make pic lib dir if it doesn't exist
-	if err := os.MkdirAll(Path, 0755); err != nil {
-		return "", err
-	}
-
-	// check if pic path is already within library path
-	if abs, err := filepath.Abs(pic); err != nil {
-		return "", err
-	} else if strings.HasPrefix(abs, Path) {
-		return pic, nil
-	}
-
-	// check if dst path exists
-	canon, err := CanonicalName(pic)
-	if err != nil {
-		return "", err
-	}
-
-	dstpath := filepath.Join(Path, filepath.Base(pic))
-	if rename {
-		dstpath = filepath.Join(Path, canon)
-	}
-
-	if _, err := os.Stat(dstpath); err == nil {
-		return "", DupErr(pic)
-	} else if !os.IsNotExist(err) {
-		return "", err
-	} else if _, err := os.Stat(filepath.Join(Path, canon)); err == nil {
-		return "", DupErr(pic)
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-
-	dst, err := os.Create(dstpath)
-	if err != nil {
-		return "", err
-	}
-	defer dst.Close()
-
-	src, err := os.Open(pic)
-	if err != nil {
-		return "", err
-	}
-	defer src.Close()
-
-	_, err = io.Copy(dst, src)
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Base(dstpath), nil
-}
-
-func Rename(pic string) (newname string, err error) {
-	name, err := CanonicalName(pic)
-	if err != nil {
-		return "", err
-	} else if name == pic {
-		return pic, nil
-	}
-	err = os.Rename(pic, name)
-	if err != nil {
-		return "", err
-	}
-	return name, nil
-}
-
-func CanonicalName(pic string) (string, error) {
-	b := filepath.Base(pic)
-	if i := strings.Index(b, "-sep-"); i != -1 {
-		b = b[i+len("-sep-"):]
-	}
-
-	t := Taken(pic)
-
-	tm := t.Format(nameTimeFmt)
-	if t.IsZero() {
-		sum, err := Checksum(pic)
-		if err != nil {
-			return "", err
-		}
-		tm = fmt.Sprintf("%x-", sum)
-		return NoDate + tm + b, nil
-	}
-	return tm + "_" + b, nil
-}
-
-// Taken returns the date taken of the given pic path.  No library searching -
-// pic must be a correct filepath.  Returns the date cached in the pictures
-// notes file (if it has one). Otherwise, returns the EXIF encoded date if it
-// has one.  Otherwise returns the zero time.
-func Taken(pic string) time.Time {
-	// use meta data date taken if it exists
-	if _, meta, err := Notes(pic); err == nil && meta != nil {
-		if !meta.Taken.IsZero() {
-			return meta.Taken
-		}
-	}
-
-	f, err := os.Open(pic)
-	if err != nil {
-		return time.Time{}
-	}
-	defer f.Close()
-
-	x, err := exif.Decode(f)
-	if err != nil {
-		return time.Time{}
-	}
-
-	tg, err := x.Get(exif.DateTimeOriginal)
-	if err != nil {
-		if tg, err = x.Get(exif.DateTime); err != nil {
-			return time.Time{}
-		}
-	}
-	if tg == nil {
-		return time.Time{}
-	}
-
-	t, err := time.Parse("2006:01:02 15:04:05", tg.StringVal())
-	if err != nil {
-		return time.Time{}
-	}
-
-	if t.After(time.Now()) {
-		return time.Time{}
-	}
-	return t
-}
-
-func Orientation(pic string) int {
-	// use meta data orientation if it exists
-	if _, meta, err := Notes(pic); err == nil && meta != nil {
-		if meta.Orient != 0 {
-			return meta.Orient
-		}
-	}
-
-	f, err := os.Open(Filepath(pic))
-	if err != nil {
-		return 0
-	}
-	defer f.Close()
-
-	x, err := exif.Decode(f)
-	if err != nil {
-		return 0
-	}
-
-	tg, err := x.Get(exif.Orientation)
-	if err != nil {
-		return 0
-	}
-	return rots[int(tg.Int(0))]
-}
-
-func NotesPath(pic string) string {
-	return Filepath(pic) + NotesExt
-}
-
-func ThumbPath(pic string) string {
-	return Filepath(pic) + ThumbExt
-}
-
-// ThumbFile returns the thumnail filepath for pic if it exists, otherwise,
-// returns the pic filepath.
-func ThumbFile(pic string) string {
-	if _, err := os.Stat(ThumbPath(pic)); err != nil {
-		return Filepath(pic)
-	}
-	return ThumbPath(pic)
-}
-
-func Notes(pic string) (notes string, m *Meta, err error) {
-	data, err := ioutil.ReadFile(NotesPath(pic))
-	if os.IsNotExist(err) {
-		return "", &Meta{}, nil
-	} else if err != nil {
-		return "", nil, err
-	}
-
-	notes = string(data)
-
-	buf := bytes.NewBuffer(data)
-	dec := json.NewDecoder(buf)
-	m = &Meta{}
-	if err := dec.Decode(&m); err == nil {
-		data, err := ioutil.ReadAll(dec.Buffered())
-		if err != nil {
-			return "", nil, err
-		}
-		notes = string(data)
-	} else {
-		m = nil
-	}
-
-	return notes, m, nil
-}
-
-func WriteNotes(pic string, notes string) error {
-	_, meta, err := Notes(pic)
-	if err != nil {
-		return err
-	}
-
-	data := []byte{}
-	if meta != nil {
-		data, err = json.Marshal(meta)
-		if err != nil {
-			return err
-		}
-		data = append(data, '\n')
-	}
-
-	err = ioutil.WriteFile(NotesPath(pic), append(data, []byte(notes)...), 0644)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func WriteMeta(pic string, m *Meta) error {
-	notes, _, err := Notes(pic)
-	if err != nil {
-		return err
-	}
-
-	data := []byte{}
-	if m != nil {
-		data, err = json.Marshal(m)
-		if err != nil {
-			return err
-		}
-		data = append(data, '\n')
-	}
-
-	return ioutil.WriteFile(NotesPath(pic), append(data, []byte(notes)...), 0644)
-}
-
-// Checksum returns the sha1 sum of the named pic.  Note that pic can reside
-// anywhere and must be a valid path - no searching is done in the library.
-func Checksum(pic string) ([]byte, error) {
-	f, err := os.Open(pic) // this should not call Filepath
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	h := sha1.New()
-	_, err = io.Copy(h, f)
+func Sha256(r io.Reader) (sum []byte, err error) {
+	h := sha256.New()
+	_, err = io.Copy(h, r)
 	if err != nil {
 		return nil, err
 	}
@@ -376,106 +385,18 @@ func Checksum(pic string) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-func SaveDate(pic string) error {
-	_, meta, err := Notes(pic)
+func MakeThumb(r io.Reader, w, h int) ([]byte, error) {
+	img, _, err := image.Decode(r)
 	if err != nil {
-		return err
-	} else if meta != nil && !meta.Taken.IsZero() {
-		return nil
-	} else if meta == nil {
-		meta = &Meta{}
+		return nil, err
 	}
 
-	meta.Taken = Taken(pic)
-	if meta.Taken.IsZero() {
-		return nil
-	}
+	m := resize.Resize(uint(w), uint(h), img, resize.Bicubic)
 
-	return WriteMeta(pic, meta)
-}
-
-func SaveChecksum(pic string) error {
-	_, meta, err := Notes(pic)
+	var buf bytes.Buffer
+	err = jpeg.Encode(&buf, m, nil)
 	if err != nil {
-		return err
-	} else if meta != nil && len(meta.Sha1) > 0 {
-		return nil
+		return nil, err
 	}
-
-	sum, err := Checksum(Filepath(pic))
-	if err != nil {
-		return err
-	}
-
-	meta.Sha1 = fmt.Sprintf("%x", sum)
-	return WriteMeta(pic, meta)
-}
-
-type NoSumErr string
-
-func (s NoSumErr) Error() string {
-	return fmt.Sprintf("%v has no checksum to validate", string(s))
-}
-
-func IsNoSum(err error) bool {
-	_, ok := err.(NoSumErr)
-	return ok
-}
-
-func Validate(pic string) error {
-	_, meta, err := Notes(pic)
-	if err != nil {
-		return err
-	} else if meta == nil || len(meta.Sha1) == 0 {
-		return NoSumErr(pic)
-	}
-
-	sum, err := Checksum(pic)
-	if err != nil {
-		return err
-	}
-
-	if meta.Sha1 != fmt.Sprintf("%x", sum) {
-		return fmt.Errorf("%v failed validation", pic)
-	}
-
-	return nil
-}
-
-type DupThumbErr string
-
-func (s DupThumbErr) Error() string {
-	return fmt.Sprintf("%v already has a thumbnail", string(s))
-}
-
-func IsDupThumb(err error) bool {
-	_, ok := err.(DupThumbErr)
-	return ok
-}
-
-func MakeThumb(pic string, w, h uint) error {
-	if _, err := os.Stat(ThumbPath(pic)); err == nil {
-		return DupThumbErr(pic)
-	}
-
-	f, err := os.Open(Filepath(pic))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	img, _, err := image.Decode(f)
-	if err != nil {
-		return err
-	}
-
-	m := resize.Resize(w, h, img, resize.Bicubic)
-
-	dst, err := os.Create(ThumbPath(pic))
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-
-	return jpeg.Encode(dst, m, nil)
+	return buf.Bytes(), nil
 }

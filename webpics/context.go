@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/rwcarlsen/gallery/piclib"
 )
 
 type context struct {
@@ -39,12 +37,7 @@ func (c *context) saveNotes(r *http.Request, picIndex string) error {
 	r.Body.Close()
 
 	p := c.photos[i]
-	p.Notes = string(data)
-	err = piclib.WriteNotes(p.Path, p.Notes)
-	if err != nil {
-		return err
-	}
-	return nil
+	return p.SetNotes(string(data))
 }
 
 func (c *context) initRand() {
@@ -60,7 +53,7 @@ func (c *context) serveSlide(w http.ResponseWriter) error {
 	if c.randIndex++; c.randIndex == len(c.photos) {
 		c.randIndex = 0
 	}
-	return writeImg(w, p.Name, false)
+	return writeImg(w, p.Id, false)
 }
 
 func (c *context) servePage(w http.ResponseWriter, pg string) error {
