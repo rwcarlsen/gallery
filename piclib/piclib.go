@@ -354,7 +354,7 @@ type BadSumErr Pic
 
 func (e BadSumErr) Error() string {
 	p := Pic(e)
-	return fmt.Sprintf("file '%v' (pic '%v') failed checksum validation", p.Filepath(), p.Sum)
+	return fmt.Sprintf("file '%v' (pic '%v') failed checksum validation", p.Filepath(), p.Name)
 }
 
 func IsBadSum(err error) bool {
