@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"image"
@@ -88,6 +89,10 @@ func Open(path string) (*Lib, error) {
 		return nil, err
 	}
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS meta (id INTEGER,time INTEGER,field TEXT,value TEXT);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS files_taken ON files (taken);")
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +302,7 @@ func (p *Pic) Filepath() string {
 	return filepath.Join(p.lib.Path, diskname(p.Name, p.Sum))
 }
 
-func (p *Pic) Ext() string { return filepath.Ext(p.Name) }
+func (p *Pic) Ext() string { return strings.ToLower(filepath.Ext(p.Name)) }
 
 func (p *Pic) Open() (io.ReadCloser, error) {
 	return os.Open(p.Filepath())
