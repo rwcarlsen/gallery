@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -27,13 +28,20 @@ func main() {
 
 	i := 0
 	for {
-		i++
 		line, buferr := r.ReadString('\n')
+
 		path := strings.TrimSpace(line)
+		if line == "" && buferr == io.EOF {
+			break
+		}
+		i++
+
 		fmt.Printf("adding %v\n", path)
 
-		pic, err := lib.AddFile(path)
-		if err != nil {
+		pic, err := lib.AddFileConvert(path)
+		if piclib.IsDup(err) {
+			continue
+		} else if err != nil {
 			log.Fatal(err)
 		}
 
@@ -57,7 +65,7 @@ func main() {
 type Meta struct{}
 
 func Notes(path string) (notes string, m *Meta, err error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := ioutil.ReadFile(path + ".notes")
 	if os.IsNotExist(err) {
 		return "", &Meta{}, nil
 	} else if err != nil {
