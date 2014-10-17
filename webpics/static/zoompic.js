@@ -30,7 +30,7 @@ function getStats() {
     // this webpage
     $(window).bind('beforeunload', function(){
       $.ajax({
-        url: "/dynamic/set-page/" + Math.ceil(currPic / picsPerPage).toString(),
+        url: "/dynamic/set-page/" + Math.max(Math.ceil(currPic / picsPerPage), 1).toString(),
         async: false
       });
     });
