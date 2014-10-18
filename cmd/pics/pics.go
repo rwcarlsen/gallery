@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -230,10 +231,17 @@ func fix(cmd string, args []string) {
 	}
 }
 
+type Piclist []*piclib.Pic
+
+func (l Piclist) Len() int           { return len(l) }
+func (l Piclist) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l Piclist) Less(i, j int) bool { return l[i].Taken.Before(l[j].Taken) }
+
 func link(cmd string, args []string) {
 	desc := "create nicely named sym-links to the identified pics (pipe from list subcmd is supported)"
 	fs := newFlagSet(cmd, "[PIC_ID...]", desc)
 	dst := fs.String("dst", ".", "destination directory for sym-links")
+	tree := fs.Bool("tree", false, "build a date-tree of the images")
 	fs.Parse(args)
 
 	pics := []*piclib.Pic{}
@@ -254,15 +262,39 @@ func link(cmd string, args []string) {
 	err = os.MkdirAll(*dst, 0755)
 	check(err)
 
-	for _, p := range pics {
-		pname := fmt.Sprintf("%v-%v", p.Name, p.Id)
-		linkpath := filepath.Join(*dst, pname)
-		_, err := os.Stat(linkpath)
-		if err == nil {
-			log.Fatalf("destination file '%v' exists", linkpath)
+	if *tree {
+		prevpath := ""
+		sort.Sort(Piclist(pics))
+		for _, p := range pics {
+			mo := p.Taken.Month().String()
+			yr := fmt.Sprint(p.Taken.Year())
+			currpath := filepath.Join(*dst, yr, mo)
+			if currpath != prevpath {
+				err = os.MkdirAll(currpath, 0755)
+				check(err)
+				prevpath = currpath
+			}
+
+			pname := fmt.Sprintf("%v-%v", p.Name, p.Id)
+			linkpath := filepath.Join(currpath, pname)
+			_, err := os.Stat(linkpath)
+			if err == nil {
+				log.Fatalf("destination file '%v' exists", linkpath)
+			}
+			err = os.Symlink(p.Filepath(), linkpath)
+			check(err)
 		}
-		err = os.Symlink(p.Filepath(), linkpath)
-		check(err)
+	} else {
+		for _, p := range pics {
+			pname := fmt.Sprintf("%v-%v", p.Name, p.Id)
+			linkpath := filepath.Join(*dst, pname)
+			_, err := os.Stat(linkpath)
+			if err == nil {
+				log.Fatalf("destination file '%v' exists", linkpath)
+			}
+			err = os.Symlink(p.Filepath(), linkpath)
+			check(err)
+		}
 	}
 }
 

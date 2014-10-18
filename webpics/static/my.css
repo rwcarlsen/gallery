@@ -16,7 +16,7 @@ ul.thumb-grid>li:nth-child(6n) {
 
 ul.thumb-grid>li>div>a>img {
 	max-width: 100%;
-    max-height: 100%;
+    max-height: 90%;
 }
 ul.thumb-grid>li>div {
     text-align: center;
