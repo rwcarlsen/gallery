@@ -1,60 +1,24 @@
-// Package piclib provides tools backend-agnostic management of large photo collections.
 package piclib
 
-// TODO: mount groups of pics named nicely (maybe in nice dir structure) with
-// softlinks
-
 import (
-	"bytes"
-	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
-	"image"
-	_ "image/gif"
-	"image/jpeg"
-	_ "image/png"
-
-	"github.com/disintegration/imaging"
 	_ "github.com/mxk/go-sqlite/sqlite3"
-	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
 )
 
-func DefaultPath() string {
-	s := os.Getenv("PICLIB")
-	if s != "" {
-		return s
-	}
-	return filepath.Join(os.Getenv("HOME"), "piclib")
-}
+const (
+	Version    = "0.1"
+	Libname    = "piclib.sqlite"
+	NotesField = "Notes"
+)
 
-// db schema:
-//
-// * files
-// 	- id INTEGER
-// 	- sum BLOB
-// 	- name TEXT
-// 	- added INTEGER
-// 	- taken INTEGER
-// 	- orient INTEGER
-// 	- thumb BLOB
-// * meta
-// 	- id INTEGER
-// 	- time INTEGER
-// 	- field TEXT
-// 	- value TEXT
-
-const Version = "0.1"
-const Libname = "piclib.sqlite"
-const NotesField = "Notes"
-const thumbw = 1000
-const thumbh = 0
+const thumbw, thumbh = 1000, 0
 
 type Lib struct {
 	Path           string
@@ -189,7 +153,7 @@ func (l *Lib) Exists(sum []byte) (exists bool, err error) {
 
 // Add copies the picture into and adds it to the current library
 func (l *Lib) AddFile(pic string) (p *Pic, err error) {
-	// check if file exists in libary
+
 	f, err := os.Open(pic)
 	if err != nil {
 		return nil, err
@@ -206,7 +170,6 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 		return nil, err
 	}
 
-	// copy file into library path
 	_, err = f.Seek(0, os.SEEK_SET)
 	if err != nil {
 		return nil, err
@@ -223,13 +186,10 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 		return nil, err
 	}
 
-	/////// add entry to meta database ////////
-	// id, sum, name, added, taken, orient, thumb
 	added := time.Now()
 	taken := time.Time{}
 	orient := 0
 
-	// exif metadata
 	_, err = f.Seek(0, os.SEEK_SET)
 	if err != nil {
 		return nil, err
@@ -249,7 +209,6 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 		}
 	}
 
-	// make thumb
 	f3, err := os.Open(pic)
 	if err != nil {
 		return nil, err
@@ -276,86 +235,6 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 	return l.Open(id)
 }
 
-type Pic struct {
-	id     int // for protection
-	Id     int // for marshalling
-	lib    *Lib
-	Sum    []byte
-	Name   string
-	Added  time.Time
-	Taken  time.Time
-	Orient int // EXIF orientation (1 through 8)
-}
-
-func (p *Pic) Filepath() string {
-	return filepath.Join(p.lib.Path, diskname(p.Name, p.Sum))
-}
-
-func (p *Pic) Ext() string { return strings.ToLower(filepath.Ext(p.Name)) }
-
-func (p *Pic) Open() (io.ReadCloser, error) {
-	return os.Open(p.Filepath())
-}
-
-func (p *Pic) GetMeta(field string) (string, error) {
-	s := "SELECT value FROM meta WHERE id=? ORDER BY time DESC LIMIT 1;"
-	val := ""
-	err := p.lib.db.QueryRow(s, p.id).Scan(&val)
-	if err != nil && err != sql.ErrNoRows {
-		return "", err
-	}
-	return val, nil
-}
-
-func (p *Pic) SetMeta(field, val string) error {
-	s := "INSERT INTO meta (id,time,field,value) VALUES (?,?,?,?);"
-	_, err := p.lib.db.Exec(s, p.id, time.Now(), field, val)
-	return err
-}
-
-func (p *Pic) SetNotes(val string) error { return p.SetMeta(NotesField, val) }
-func (p *Pic) GetNotes() (string, error) { return p.GetMeta(NotesField) }
-
-func (p *Pic) Validate() error {
-	rc, err := p.Open()
-	if err != nil {
-		return err
-	}
-	defer rc.Close()
-
-	sum, err := Sha256(rc)
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(sum, p.Sum) {
-		return BadSumErr(*p)
-	}
-	return nil
-}
-
-func (p *Pic) Thumb() ([]byte, error) {
-	s := "SELECT thumb FROM files WHERE id=?"
-	data := []byte{}
-	err := p.lib.db.QueryRow(s, p.id).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-type BadSumErr Pic
-
-func (e BadSumErr) Error() string {
-	p := Pic(e)
-	return fmt.Sprintf("file '%v' (pic '%v') failed checksum validation", p.Filepath(), p.Name)
-}
-
-func IsBadSum(err error) bool {
-	_, ok := err.(BadSumErr)
-	return ok
-}
-
 type DupErr struct {
 	pic string
 }
@@ -367,44 +246,4 @@ func (s DupErr) Error() string {
 func IsDup(err error) bool {
 	_, ok := err.(DupErr)
 	return ok
-}
-
-func Sha256(r io.Reader) (sum []byte, err error) {
-	h := sha256.New()
-	_, err = io.Copy(h, r)
-	if err != nil {
-		return nil, err
-	}
-
-	return h.Sum(nil), nil
-}
-
-func MakeThumb(r io.Reader, w, h int, orient int) ([]byte, error) {
-	img, _, err := image.Decode(r)
-	if err != nil {
-		return nil, err
-	}
-
-	m := resize.Resize(uint(w), uint(h), img, resize.Bicubic)
-
-	switch orient {
-	case 3, 4:
-		m = imaging.Rotate180(m)
-	case 5, 6:
-		m = imaging.Rotate270(m)
-	case 7, 8:
-		m = imaging.Rotate90(m)
-	}
-
-	switch orient {
-	case 2, 5, 4, 7:
-		m = imaging.FlipH(m)
-	}
-
-	var buf bytes.Buffer
-	err = jpeg.Encode(&buf, m, nil)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }
