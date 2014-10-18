@@ -21,7 +21,7 @@
 <ul class="thumb-grid group">
 {{range $index, $photo := .}}
 <li>
-  <div style="{{$photo.Style}}">
+  <div>
     <a href="/dynamic/zoom/{{$photo.Index}}">
       {{if eq $photo.Ext ".mov"}}
       <video class="zoom-vid" src="/photo/orig/{{$photo.Id}}"></video>

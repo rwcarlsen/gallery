@@ -31,9 +31,16 @@ var (
 	dosort  = flag.Bool("sort", true, "true to sort files in reverse chronological order")
 )
 
-type Photo struct {
-	*piclib.Pic
-	Index int
+// rots holds mappings from exif orientation tag to degrees clockwise needed
+var rots = map[int]int{
+	1: 0,
+	2: 0,
+	3: 180,
+	4: 180,
+	5: 90,
+	6: 90,
+	7: 270,
+	8: 270,
 }
 
 var (
@@ -52,12 +59,17 @@ var (
 	lib       *piclib.Lib
 )
 
+type Photo struct {
+	*piclib.Pic
+	Index int
+}
+
 func (p Photo) Date() string {
 	return p.Taken.Format("Jan 2, 2006")
 }
 
 func (p Photo) Style() string {
-	t := fmt.Sprintf("transform:rotate(%vdeg)", p.Orient)
+	t := fmt.Sprintf("transform:rotate(%vdeg)", rots[p.Orient])
 	//Cross-browser
 	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
 }
@@ -199,17 +211,11 @@ func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, ok := picMap[id]
-	if !ok {
-		log.Print("pic %v not valid", p.Name)
-		return
-	}
-
 	switch vars["type"] {
 	case "orig":
-		err = writeImg(w, p.Id, false)
+		err = writeImg(w, id, false)
 	case "thumb":
-		err = writeImg(w, p.Id, true)
+		err = writeImg(w, id, true)
 	default:
 		log.Print("invalid pic type %v", vars["type"])
 		return

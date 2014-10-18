@@ -20,22 +20,11 @@ import (
 	"image/jpeg"
 	_ "image/png"
 
+	"github.com/disintegration/imaging"
 	_ "github.com/mxk/go-sqlite/sqlite3"
 	"github.com/nfnt/resize"
 	"github.com/rwcarlsen/goexif/exif"
 )
-
-// rots holds mappings from exif orientation tag to degrees clockwise needed
-var rots = map[int]int{
-	1: 0,
-	2: 0,
-	3: 180,
-	4: 180,
-	5: 90,
-	6: 90,
-	7: 270,
-	8: 270,
-}
 
 func DefaultPath() string {
 	s := os.Getenv("PICLIB")
@@ -256,7 +245,7 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 		tag, err := x.Get(exif.Orientation)
 		if err == nil {
 			v, _ := tag.Int(0)
-			orient = rots[int(v)]
+			orient = int(v)
 		}
 	}
 
@@ -271,7 +260,7 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 	if w == 0 && h == 0 {
 		w, h = thumbw, thumbh
 	}
-	thumb, _ := MakeThumb(f3, w, h)
+	thumb, _ := MakeThumb(f3, w, h, orient)
 
 	sql := "INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?);"
 	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, taken, orient, thumb)
@@ -295,7 +284,7 @@ type Pic struct {
 	Name   string
 	Added  time.Time
 	Taken  time.Time
-	Orient int
+	Orient int // EXIF orientation (1 through 8)
 }
 
 func (p *Pic) Filepath() string {
@@ -390,13 +379,27 @@ func Sha256(r io.Reader) (sum []byte, err error) {
 	return h.Sum(nil), nil
 }
 
-func MakeThumb(r io.Reader, w, h int) ([]byte, error) {
+func MakeThumb(r io.Reader, w, h int, orient int) ([]byte, error) {
 	img, _, err := image.Decode(r)
 	if err != nil {
 		return nil, err
 	}
 
 	m := resize.Resize(uint(w), uint(h), img, resize.Bicubic)
+
+	switch orient {
+	case 3, 4:
+		m = imaging.Rotate180(m)
+	case 5, 6:
+		m = imaging.Rotate270(m)
+	case 7, 8:
+		m = imaging.Rotate90(m)
+	}
+
+	switch orient {
+	case 2, 5, 4, 7:
+		m = imaging.FlipH(m)
+	}
 
 	var buf bytes.Buffer
 	err = jpeg.Encode(&buf, m, nil)
