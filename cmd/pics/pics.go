@@ -1,4 +1,4 @@
-// picput recursively walks passed dirs and photos and adds them to a library.
+// picadd recursively walks passed dirs and photos and adds them to a library.
 package main
 
 import (
@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,14 +25,15 @@ var libpath = flag.String("lib", piclib.DefaultPath(), "path to picture library"
 type CmdFunc func(cmd string, args []string)
 
 var cmds = map[string]CmdFunc{
-	"put":      put,
+	"add":      add,
 	"validate": validate,
 	"list":     list,
 	"fix":      fix,
+	"link":     link,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
-	fs := flag.NewFlagSet("put", flag.ExitOnError)
+	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 	fs.Usage = func() {
 		log.Printf("Usage: pics %s [OPTION] %s\n%s\n", cmd, args, desc)
 		fs.PrintDefaults()
@@ -61,29 +63,25 @@ func main() {
 
 	var err error
 	lib, err = piclib.Open(*libpath)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
 	cmd, ok := cmds[flag.Arg(0)]
 	if !ok {
 		flag.Usage()
 		return
 	}
-	cmd(flag.Arg(0), flag.Args()[1:])
+	cmd(path.Base(flag.Arg(0)), flag.Args()[1:])
 }
 
-func put(cmd string, args []string) {
+func add(cmd string, args []string) {
 	desc := "copies given files into the library. Uses given args or reads a list of files from stdin."
-	fs := newFlagSet("put", "[FILE...]", desc)
+	fs := newFlagSet(cmd, "[FILE...]", desc)
 	fs.Parse(args)
 
 	files := fs.Args()
 	if len(files) == 0 {
 		data, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 		files = strings.Fields(string(data))
 	}
 
@@ -106,18 +104,16 @@ func put(cmd string, args []string) {
 
 func validate(cmd string, args []string) {
 	desc := "verifies checksums of given files. If no args are given, reads a list of files from stdin."
-	fs := newFlagSet("validate", "[FILE...]", desc)
+	fs := newFlagSet(cmd, "[FILE...]", desc)
 	all := fs.Bool("all", false, "true validate every file in the library")
-	v := fs.Bool("v", false, "verbose output")
+	v := fs.Bool("v", false, "verbose outadd")
 	fs.Parse(args)
 
 	var err error
 	var pics []*piclib.Pic
 	if *all {
 		pics, err = lib.List(0, 0)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 	} else if len(fs.Args()) == 0 {
 		dec := json.NewDecoder(bufio.NewReader(os.Stdin))
 		for {
@@ -127,9 +123,7 @@ func validate(cmd string, args []string) {
 				break
 			}
 			preal, err := lib.Open(p.Id)
-			if err != nil {
-				log.Fatal(err)
-			}
+			check(err)
 			pics = append(pics, preal)
 		}
 		if err != io.EOF {
@@ -138,13 +132,9 @@ func validate(cmd string, args []string) {
 	} else {
 		for _, idstr := range fs.Args() {
 			id, err := strconv.Atoi(idstr)
-			if err != nil {
-				log.Fatal(err)
-			}
+			check(err)
 			p, err := lib.Open(id)
-			if err != nil {
-				log.Fatal(err)
-			}
+			check(err)
 			pics = append(pics, p)
 		}
 	}
@@ -167,20 +157,14 @@ type picmeta struct {
 
 func Untracked() []string {
 	dir, err := os.Open(*libpath)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 	defer dir.Close()
 
 	names, err := dir.Readdirnames(-1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
 	pics, err := lib.List(0, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
 	picmap := map[string]bool{piclib.Libname: true}
 	for _, p := range pics {
@@ -199,7 +183,7 @@ func Untracked() []string {
 
 func fix(cmd string, args []string) {
 	desc := "perform library maintenance"
-	fs := newFlagSet("fix", "", desc)
+	fs := newFlagSet(cmd, "", desc)
 	untracked := fs.Bool("untracked", false, "print untracked files in the library directory")
 	fnames := fs.Bool("fnames", false, "fix miss-named files in the library directory")
 	fs.Parse(args)
@@ -214,23 +198,17 @@ func fix(cmd string, args []string) {
 
 	if *fnames {
 		pics, err := lib.List(0, 0)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 
 		names := Untracked()
 		files := map[[32]byte]string{}
 		var sum [32]byte
 		for _, name := range names {
 			f, err := os.Open(filepath.Join(*libpath, name))
-			if err != nil {
-				log.Fatal(err)
-			}
+			check(err)
 
 			sm, err := piclib.Sha256(f)
-			if err != nil {
-				log.Fatal(err)
-			}
+			check(err)
 			copy(sum[:], sm)
 
 			files[sum] = filepath.Join(*libpath, name)
@@ -244,9 +222,7 @@ func fix(cmd string, args []string) {
 				fpath, ok := files[sum]
 				if ok {
 					err := os.Rename(fpath, p.Filepath())
-					if err != nil {
-						log.Fatal(err)
-					}
+					check(err)
 					fmt.Printf("renamed '%v' to '%v'\n", fpath, p.Filepath())
 				}
 			}
@@ -254,9 +230,45 @@ func fix(cmd string, args []string) {
 	}
 }
 
+func link(cmd string, args []string) {
+	desc := "create nicely named sym-links to the identified pics (pipe from list subcmd is supported)"
+	fs := newFlagSet(cmd, "[PIC_ID...]", desc)
+	dst := fs.String("dst", ".", "destination directory for sym-links")
+	fs.Parse(args)
+
+	pics := []*piclib.Pic{}
+	var err error
+	if len(fs.Args()) == 0 {
+		pics, err = piclib.LoadStream(lib, os.Stdin)
+		check(err)
+	} else {
+		for _, idstr := range fs.Args() {
+			id, err := strconv.Atoi(idstr)
+			check(err)
+			p, err := lib.Open(id)
+			check(err)
+			pics = append(pics, p)
+		}
+	}
+
+	err = os.MkdirAll(*dst, 0755)
+	check(err)
+
+	for _, p := range pics {
+		pname := fmt.Sprintf("%v-%v", p.Name, p.Id)
+		linkpath := filepath.Join(*dst, pname)
+		_, err := os.Stat(linkpath)
+		if err == nil {
+			log.Fatalf("destination file '%v' exists", linkpath)
+		}
+		err = os.Symlink(p.Filepath(), linkpath)
+		check(err)
+	}
+}
+
 func list(cmd string, args []string) {
 	desc := "Find and list pictures."
-	fs := newFlagSet("list", "", desc)
+	fs := newFlagSet(cmd, "", desc)
 	after := fs.String("from", "", "only show photos after date")
 	before := fs.String("to", "", "only show photos before date")
 	fs.Parse(args)
@@ -301,5 +313,11 @@ func list(cmd string, args []string) {
 			log.Fatal(err)
 		}
 		fmt.Println(string(data))
+	}
+}
+
+func check(err error) {
+	if err != nil {
+		log.Fatal(err)
 	}
 }

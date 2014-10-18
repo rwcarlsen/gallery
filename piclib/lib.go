@@ -153,7 +153,7 @@ func (l *Lib) Exists(sum []byte) (exists bool, err error) {
 
 // Add copies the picture into and adds it to the current library
 func (l *Lib) AddFile(pic string) (p *Pic, err error) {
-
+	// check if file exists
 	f, err := os.Open(pic)
 	if err != nil {
 		return nil, err
@@ -170,6 +170,7 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 		return nil, err
 	}
 
+	// copy file into library
 	_, err = f.Seek(0, os.SEEK_SET)
 	if err != nil {
 		return nil, err
@@ -185,7 +186,12 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 	if err != nil {
 		return nil, err
 	}
+	err = dst.Chmod(0444)
+	if err != nil {
+		return nil, err
+	}
 
+	// get meta data and make thumb
 	added := time.Now()
 	taken := time.Time{}
 	orient := 0
@@ -221,6 +227,7 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 	}
 	thumb, _ := MakeThumb(f3, w, h, orient)
 
+	// store meta data in db and return new Pic
 	sql := "INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?);"
 	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, taken, orient, thumb)
 	if err != nil {

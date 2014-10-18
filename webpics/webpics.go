@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -140,20 +138,8 @@ func loadPics() {
 			log.Fatal(err)
 		}
 	} else if len(flag.Args()) == 0 {
-		dec := json.NewDecoder(bufio.NewReader(os.Stdin))
-		for {
-			p := &piclib.Pic{}
-			err = dec.Decode(&p)
-			if err != nil {
-				break
-			}
-			preal, err := lib.Open(p.Id)
-			if err != nil {
-				log.Fatal(err)
-			}
-			pics = append(pics, preal)
-		}
-		if err != io.EOF {
+		pics, err = piclib.LoadStream(lib, os.Stdin)
+		if err != nil {
 			log.Fatal(err)
 		}
 	} else {
