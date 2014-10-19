@@ -31,6 +31,7 @@ var cmds = map[string]CmdFunc{
 	"list":     list,
 	"fix":      fix,
 	"link":     link,
+	"copy":     cpy,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -240,7 +241,7 @@ func (l Piclist) Less(i, j int) bool { return l[i].Taken.Before(l[j].Taken) }
 func link(cmd string, args []string) {
 	desc := "create nicely named sym-links to the identified pics (pipe from list subcmd is supported)"
 	fs := newFlagSet(cmd, "[PIC_ID...]", desc)
-	dst := fs.String("dst", ".", "destination directory for sym-links")
+	dst := fs.String("dst", "./link-pics", "destination directory for sym-links")
 	tree := fs.Bool("tree", false, "build a date-tree of the images")
 	fs.Parse(args)
 
@@ -295,6 +296,50 @@ func link(cmd string, args []string) {
 			err = os.Symlink(p.Filepath(), linkpath)
 			check(err)
 		}
+	}
+}
+
+func cpy(cmd string, args []string) {
+	desc := "copy identified pics out of the library (pipe from list subcmd is supported)"
+	fs := newFlagSet(cmd, "[PIC_ID...]", desc)
+	dst := fs.String("dst", "./copy-pics", "destination directory for the copies")
+	fs.Parse(args)
+
+	pics := []*piclib.Pic{}
+	var err error
+	if len(fs.Args()) == 0 {
+		pics, err = piclib.LoadStream(lib, os.Stdin)
+		check(err)
+	} else {
+		for _, idstr := range fs.Args() {
+			id, err := strconv.Atoi(idstr)
+			check(err)
+			p, err := lib.Open(id)
+			check(err)
+			pics = append(pics, p)
+		}
+	}
+
+	err = os.MkdirAll(*dst, 0755)
+	check(err)
+
+	for _, p := range pics {
+		pname := fmt.Sprintf("%v-%v", p.Name, p.Id)
+		copypath := filepath.Join(*dst, pname)
+		_, err := os.Stat(copypath)
+		if err == nil {
+			log.Fatalf("destination file '%v' exists", copypath)
+		}
+
+		f, err := os.Create(copypath)
+		check(err)
+		r, err := p.Open()
+		check(err)
+		_, err = io.Copy(f, r)
+		check(err)
+
+		f.Close()
+		r.Close()
 	}
 }
 
