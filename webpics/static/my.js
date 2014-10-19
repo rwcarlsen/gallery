@@ -24,6 +24,14 @@ function pageTo(page) {
   $("#pic-gallery").load("/dynamic/pg" + currPage.toString(), setAttr)
 }
 
+function pageFirst() {
+    pageTo(1);
+}
+
+function pageLast() {
+    pageTo(numPages);
+}
+
 function pagePrev() {
   if (currPage > 1) {
     pageTo(currPage - 1)
@@ -88,7 +96,7 @@ function keydown() {
 }
 
 // configurable
-var maxDisplayPages = 15
+var maxDisplayPages = 12
 // end configurable
 
 var startPage = 1

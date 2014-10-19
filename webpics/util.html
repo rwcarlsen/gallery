@@ -23,7 +23,7 @@
 <li>
   <div>
     <a href="/dynamic/zoom/{{$photo.Index}}">
-      {{if eq $photo.Ext ".mov"}}
+      {{if eq $photo.Ext ".mov" ".avi"}}
       <video class="zoom-vid" src="/photo/orig/{{$photo.Id}}"></video>
       {{else}}
       <img class="img-rounded" src="/photo/thumb/{{$photo.Id}}">
@@ -41,13 +41,17 @@
 {{define "pagenav"}}
 <div class="pagination pagination-centered">
 <ul>
-  <li id="pgprev" ><a href="#" onclick="pagePrev()">Newer</a></li>
+  <li><a href="#" disabled>newer</a></li>
+  <li><a href="#" onclick="pageFirst()">&#060;&#060;</a></li>
+  <li><a href="#" onclick="pagePrev()">&#060;</a></li>
   {{range $i, $pgNum := .}}
   <li id="pg{{$pgNum}}" class="pglink">
     <a class="pga" href="#" onclick="pageTo({{$pgNum}})"><p class="pgp">{{$pgNum}}</p></a>
   </li>
   {{end}}
-  <li id="pgnext"><a href="#" onclick="pageNext()">Older</a></li>
+  <li><a href="#" onclick="pageNext()">&#062;</a></li>
+  <li><a href="#" onclick="pageLast()">&#062;&#062;</a></li>
+  <li><a href="#" disabled>older</a></li>
 </ul>
 </div>
 {{end}}

@@ -1,7 +1,7 @@
 {{template "header"}}
 
 <div class="row" style="text-align: center;">
-  {{if eq .Ext ".mov"}}
+  {{if eq .Ext ".mov" ".avi"}}
   <video class="zoom-vid" src="/photo/orig/{{.Id}}" controls></video>
   {{else}}
   <a href="/">
