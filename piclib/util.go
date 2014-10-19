@@ -22,7 +22,7 @@ func DefaultPath() string {
 	if s != "" {
 		return s
 	}
-	return filepath.Join(os.Getenv("HOME"), "piclib")
+	return filepath.Join(os.Getenv("HOME"), ".piclib")
 }
 
 func Sha256(r io.Reader) (sum []byte, err error) {
