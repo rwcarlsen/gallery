@@ -153,6 +153,7 @@ func validate(cmd string, args []string) {
 
 type picmeta struct {
 	Id    int
+	Name  string
 	Taken time.Time
 	Notes string
 }
@@ -382,6 +383,7 @@ func list(cmd string, args []string) {
 		}
 		m := &picmeta{
 			Id:    p.Id,
+			Name:  p.Name,
 			Taken: p.Taken,
 			Notes: notes,
 		}
