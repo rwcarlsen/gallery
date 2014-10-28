@@ -157,6 +157,9 @@ func loadPics() {
 	}
 
 	for _, p := range pics {
+		if p.Ext() == ".avi" || p.Ext() == ".m4v" {
+			continue
+		}
 		photo := &Photo{Pic: p}
 		allPhotos = append(allPhotos, photo)
 		picMap[p.Id] = photo
