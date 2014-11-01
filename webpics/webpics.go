@@ -4,12 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"sort"
+	"path"
 	"strconv"
 	"text/template"
 	"time"
@@ -26,7 +24,6 @@ var (
 	noedit  = flag.Bool("noedit", false, "don't allow editing of anything in library")
 	libpath = flag.String("lib", piclib.DefaultPath(), "path to picture library")
 	all     = flag.Bool("all", false, "true to view every file in the library")
-	dosort  = flag.Bool("sort", true, "true to sort files in reverse chronological order")
 )
 
 // rots holds mappings from exif orientation tag to degrees clockwise needed
@@ -48,7 +45,6 @@ var (
 )
 
 var (
-	resPath   = os.Getenv("WEBPICS")
 	allPhotos = []*Photo{}
 	picMap    = map[int]*Photo{}
 	contexts  = make(map[string]*context)
@@ -73,17 +69,22 @@ func (p Photo) Style() string {
 }
 
 func init() {
-	if resPath == "" {
-		resPath = "."
+	zt, err := Asset("data/zoompic.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+	ut, err := Asset("data/util.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+	it, err := Asset("data/index.html")
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	zt := filepath.Join(resPath, "zoompic.html")
-	ut := filepath.Join(resPath, "util.html")
-	it := filepath.Join(resPath, "index.html")
-
-	zoomTmpl = template.Must(template.ParseFiles(zt, ut))
-	gridTmpl = template.Must(template.ParseFiles(it, ut))
-	utilTmpl = template.Must(template.ParseFiles(ut))
+	zoomTmpl = template.Must(template.New("zoompic").Parse(string(append(zt, ut...))))
+	gridTmpl = template.Must(template.New("index").Parse(string(append(it, ut...))))
+	utilTmpl = template.Must(template.New("util").Parse(string(ut)))
 }
 
 func main() {
@@ -95,15 +96,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	slidepage, err = ioutil.ReadFile(filepath.Join(resPath, "slideshow.html"))
+	slidepage, err = Asset("data/slideshow.html")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	loadPics()
-	if *dosort && len(allPhotos) > 0 {
-		sort.Sort(newFirst(allPhotos))
-	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
@@ -166,16 +164,6 @@ func loadPics() {
 	}
 }
 
-type newFirst []*Photo
-
-func (pl newFirst) Less(i, j int) bool {
-	itm := pl[i].Taken
-	jtm := pl[j].Taken
-	return itm.After(jtm)
-}
-func (pl newFirst) Len() int      { return len(pl) }
-func (pl newFirst) Swap(i, j int) { pl[i], pl[j] = pl[j], pl[i] }
-
 ///////////////////////////////////////////////////////////
 ///// static content handlers /////////////////////////////
 ///////////////////////////////////////////////////////////
@@ -188,7 +176,18 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 func StaticHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	http.ServeFile(w, r, filepath.Join(resPath, "static", vars["path"]))
+	data, err := Asset(path.Join("data/static", vars["path"]))
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	switch ext := path.Ext(vars["path"]); ext {
+	case ".js":
+		w.Header().Set("Content-Type", "text/javascript")
+	case ".css":
+		w.Header().Set("Content-Type", "text/css")
+	}
+	w.Write(data)
 }
 
 func PhotoHandler(w http.ResponseWriter, r *http.Request) {
