@@ -32,6 +32,7 @@ var cmds = map[string]CmdFunc{
 	"fix":      fix,
 	"link":     link,
 	"copy":     cpy,
+	"serve":    serve,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {

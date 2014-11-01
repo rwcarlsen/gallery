@@ -19,13 +19,6 @@ import (
 
 const picsPerPage = 24
 
-var (
-	addr    = flag.String("addr", "127.0.0.1:7777", "ip and port to listen on")
-	noedit  = flag.Bool("noedit", false, "don't allow editing of anything in library")
-	libpath = flag.String("lib", piclib.DefaultPath(), "path to picture library")
-	all     = flag.Bool("all", false, "true to view every file in the library")
-)
-
 // rots holds mappings from exif orientation tag to degrees clockwise needed
 var rots = map[int]int{
 	1: 0,
@@ -50,7 +43,6 @@ var (
 	contexts  = make(map[string]*context)
 	store     = sessions.NewCookieStore([]byte("my-secret"))
 	slidepage []byte // slideshow.html
-	lib       *piclib.Lib
 )
 
 type Photo struct {
@@ -87,15 +79,21 @@ func init() {
 	utilTmpl = template.Must(template.New("util").Parse(string(ut)))
 }
 
-func main() {
-	flag.Parse()
+var (
+	noedit bool
+	addr   string
+	all    bool
+)
+
+func serve(cmd string, args []string) {
+	desc := "Run a browser-based picture gallery of listed pics (or piped from stdin)"
+	fs := newFlagSet(cmd, "[PIC-ID...]", desc)
+	fs.StringVar(&addr, "addr", "127.0.0.1:7777", "ip and port to listen on")
+	fs.BoolVar(&noedit, "noedit", false, "don't allow editing of anything in library")
+	fs.BoolVar(&all, "all", false, "true to view every file in the library")
+	fs.Parse(args)
+
 	var err error
-
-	lib, err = piclib.Open(*libpath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	slidepage, err = Asset("data/slideshow.html")
 	if err != nil {
 		log.Fatal(err)
@@ -119,8 +117,8 @@ func main() {
 	r.HandleFunc("/dynamic/slide-style", SlideStyleHandler)
 
 	http.Handle("/", r)
-	log.Printf("listening on %v", *addr)
-	if err := http.ListenAndServe(*addr, nil); err != nil {
+	log.Printf("listening on %v", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -130,7 +128,7 @@ var skipext = []string{"", ".avi", ".m4v", ".go"}
 func loadPics() {
 	var pics []*piclib.Pic
 	var err error
-	if *all {
+	if all {
 		pics, err = lib.List(0, 0)
 		if err != nil {
 			log.Fatal(err)
@@ -255,7 +253,7 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func NotesHandler(w http.ResponseWriter, r *http.Request) {
-	if *noedit {
+	if noedit {
 		return
 	}
 	c, vars := getContext(w, r)
