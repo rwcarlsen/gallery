@@ -49,6 +49,10 @@ func Open(path string) (*Lib, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS files_sum ON files (sum);")
+	if err != nil {
+		return nil, err
+	}
 	return &Lib{Path: path, db: db}, nil
 }
 
