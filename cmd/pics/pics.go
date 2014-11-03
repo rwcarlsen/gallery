@@ -77,7 +77,7 @@ func main() {
 }
 
 func add(cmd string, args []string) {
-	desc := "copies given files into the library. Uses given args or reads a list of files from stdin."
+	desc := "copies given files into the library (file names can be piped from stdin)"
 	fs := newFlagSet(cmd, "[FILE...]", desc)
 	fs.Parse(args)
 
@@ -98,7 +98,7 @@ func add(cmd string, args []string) {
 		if piclib.IsDup(err) {
 			fmt.Printf("[SKIP] %v\n", err)
 		} else if err != nil {
-			log.Printf("[ERR] %v\n", err)
+			log.Printf("[ERROR] %v\n", err)
 		} else {
 			fmt.Printf("[ADD] %v\n", p.Name)
 		}
@@ -106,8 +106,8 @@ func add(cmd string, args []string) {
 }
 
 func validate(cmd string, args []string) {
-	desc := "verifies checksums of given files. If no args are given, reads a list of files from stdin."
-	fs := newFlagSet(cmd, "[FILE...]", desc)
+	desc := "verifies checksums of given files (piped from list subcmd is supported)"
+	fs := newFlagSet(cmd, "[PIC-ID...]", desc)
 	all := fs.Bool("all", false, "true validate every file in the library")
 	v := fs.Bool("v", false, "verbose outadd")
 	fs.Parse(args)
@@ -145,7 +145,7 @@ func validate(cmd string, args []string) {
 	for _, p := range pics {
 		err := p.Validate()
 		if err != nil {
-			log.Printf("[ERR] %v\n", err)
+			log.Printf("[ERROR] %v\n", err)
 		} else if *v {
 			fmt.Printf("[VALID] %v (%v)\n", p.Filepath(), p.Name)
 		}
@@ -242,7 +242,7 @@ func (l Piclist) Less(i, j int) bool { return l[i].Taken.Before(l[j].Taken) }
 
 func link(cmd string, args []string) {
 	desc := "create nicely named sym-links to the identified pics (pipe from list subcmd is supported)"
-	fs := newFlagSet(cmd, "[PIC_ID...]", desc)
+	fs := newFlagSet(cmd, "[PIC-ID...]", desc)
 	dst := fs.String("dst", "./link-pics", "destination directory for sym-links")
 	tree := fs.Bool("tree", false, "build a date-tree of the images")
 	fs.Parse(args)
@@ -303,7 +303,7 @@ func link(cmd string, args []string) {
 
 func cpy(cmd string, args []string) {
 	desc := "copy identified pics out of the library (pipe from list subcmd is supported)"
-	fs := newFlagSet(cmd, "[PIC_ID...]", desc)
+	fs := newFlagSet(cmd, "[PIC-ID...]", desc)
 	dst := fs.String("dst", "./copy-pics", "destination directory for the copies")
 	fs.Parse(args)
 
@@ -398,6 +398,6 @@ func list(cmd string, args []string) {
 
 func check(err error) {
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("[ERROR] ", err)
 	}
 }
