@@ -152,13 +152,6 @@ func validate(cmd string, args []string) {
 	}
 }
 
-type picmeta struct {
-	Id    int
-	Name  string
-	Taken time.Time
-	Notes string
-}
-
 func Untracked() []string {
 	dir, err := os.Open(*libpath)
 	check(err)
@@ -247,22 +240,9 @@ func link(cmd string, args []string) {
 	tree := fs.Bool("tree", false, "build a date-tree of the images")
 	fs.Parse(args)
 
-	pics := []*piclib.Pic{}
-	var err error
-	if len(fs.Args()) == 0 {
-		pics, err = piclib.LoadStream(lib, os.Stdin)
-		check(err)
-	} else {
-		for _, idstr := range fs.Args() {
-			id, err := strconv.Atoi(idstr)
-			check(err)
-			p, err := lib.Open(id)
-			check(err)
-			pics = append(pics, p)
-		}
-	}
+	pics := idsOrStdin(fs.Args())
 
-	err = os.MkdirAll(*dst, 0755)
+	err := os.MkdirAll(*dst, 0755)
 	check(err)
 
 	if *tree {
@@ -307,22 +287,9 @@ func cpy(cmd string, args []string) {
 	dst := fs.String("dst", "./copy-pics", "destination directory for the copies")
 	fs.Parse(args)
 
-	pics := []*piclib.Pic{}
-	var err error
-	if len(fs.Args()) == 0 {
-		pics, err = piclib.LoadStream(lib, os.Stdin)
-		check(err)
-	} else {
-		for _, idstr := range fs.Args() {
-			id, err := strconv.Atoi(idstr)
-			check(err)
-			p, err := lib.Open(id)
-			check(err)
-			pics = append(pics, p)
-		}
-	}
+	pics := idsOrStdin(fs.Args())
 
-	err = os.MkdirAll(*dst, 0755)
+	err := os.MkdirAll(*dst, 0755)
 	check(err)
 
 	for _, p := range pics {
@@ -377,23 +344,8 @@ func list(cmd string, args []string) {
 		log.Fatal(err)
 	}
 
-	for _, p := range pics {
-		notes, err := p.GetNotes()
-		if err != nil {
-			log.Fatal(err)
-		}
-		m := &picmeta{
-			Id:    p.Id,
-			Name:  p.Name,
-			Taken: p.Taken,
-			Notes: notes,
-		}
-		data, err := json.Marshal(m)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(string(data))
-	}
+	err = WriteLines(os.Stdout, pics...)
+	check(err)
 }
 
 func check(err error) {

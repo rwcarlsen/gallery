@@ -1,10 +1,8 @@
 package piclib
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"image"
 	_ "image/gif"
 	"image/jpeg"
@@ -63,26 +61,4 @@ func MakeThumb(r io.Reader, w, h int, orient int) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-func LoadStream(l *Lib, r io.Reader) ([]*Pic, error) {
-	dec := json.NewDecoder(bufio.NewReader(r))
-	var err error
-	pics := []*Pic{}
-	for {
-		p := &Pic{}
-		err = dec.Decode(&p)
-		if err != nil {
-			break
-		}
-		preal, err := l.Open(p.Id)
-		if err != nil {
-			return nil, err
-		}
-		pics = append(pics, preal)
-	}
-	if err != io.EOF {
-		return nil, err
-	}
-	return pics, nil
 }

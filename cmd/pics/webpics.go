@@ -1,12 +1,10 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"path"
 	"strconv"
 	"text/template"
@@ -62,17 +60,11 @@ func (p Photo) Style() string {
 
 func init() {
 	zt, err := Asset("data/zoompic.html")
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 	ut, err := Asset("data/util.html")
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 	it, err := Asset("data/index.html")
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
 	zoomTmpl = template.Must(template.New("zoompic").Parse(string(append(zt, ut...))))
 	gridTmpl = template.Must(template.New("index").Parse(string(append(it, ut...))))
@@ -95,11 +87,9 @@ func serve(cmd string, args []string) {
 
 	var err error
 	slidepage, err = Asset("data/slideshow.html")
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 
-	loadPics()
+	loadPics(fs.Args())
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
@@ -118,38 +108,20 @@ func serve(cmd string, args []string) {
 
 	http.Handle("/", r)
 	log.Printf("listening on %v", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		log.Fatal(err)
-	}
+	err = http.ListenAndServe(addr, nil)
+	check(err)
 }
 
 var skipext = []string{"", ".avi", ".m4v", ".go"}
 
-func loadPics() {
+func loadPics(args []string) {
 	var pics []*piclib.Pic
 	var err error
 	if all {
 		pics, err = lib.List(0, 0)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else if len(flag.Args()) == 0 {
-		pics, err = piclib.LoadStream(lib, os.Stdin)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 	} else {
-		for _, idstr := range flag.Args() {
-			id, err := strconv.Atoi(idstr)
-			if err != nil {
-				log.Fatal(err)
-			}
-			p, err := lib.Open(id)
-			if err != nil {
-				log.Fatal(err)
-			}
-			pics = append(pics, p)
-		}
+		pics = idsOrStdin(args)
 	}
 
 	for _, p := range pics {
