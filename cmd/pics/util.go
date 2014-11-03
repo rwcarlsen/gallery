@@ -25,13 +25,20 @@ func WriteLines(w io.Writer, pics ...*piclib.Pic) error {
 		if err != nil {
 			return err
 		}
-		data, err := json.Marshal(notes)
+		data, err := json.Marshal(strings.TrimSpace(notes))
 		if err != nil {
 			return err
 		}
 		notes = string(data[1 : len(data)-1])
+
+		// truncate pic name
+		nm := p.Name
+		if len(p.Name) > 17 {
+			nm = "..." + p.Name[len(p.Name)-17:]
+		}
+
 		tm := p.Taken
-		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n", p.Id, tm.Unix(), tm.Format("2006/1/2"), notes)
+		fmt.Fprintf(tw, "%v\t%v\t%v\t\"%v\"\t%v\n", p.Id, tm.Unix(), tm.Format("2006/1/2"), nm, notes)
 	}
 	return nil
 }
