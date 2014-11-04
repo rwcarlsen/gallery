@@ -31,10 +31,10 @@ func WriteLines(w io.Writer, pics ...*piclib.Pic) error {
 		}
 		notes = string(data[1 : len(data)-1])
 
-		// truncate pic name
+		// truncate long pic name
 		nm := p.Name
-		if len(p.Name) > 17 {
-			nm = "..." + p.Name[len(p.Name)-17:]
+		if len(p.Name) > 22 {
+			nm = "..." + p.Name[len(p.Name)-22:]
 		}
 
 		tm := p.Taken
