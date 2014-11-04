@@ -2,8 +2,6 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -13,7 +11,6 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -117,29 +114,8 @@ func validate(cmd string, args []string) {
 	if *all {
 		pics, err = lib.List(0, 0)
 		check(err)
-	} else if len(fs.Args()) == 0 {
-		dec := json.NewDecoder(bufio.NewReader(os.Stdin))
-		for {
-			p := &piclib.Pic{}
-			err = dec.Decode(&p)
-			if err != nil {
-				break
-			}
-			preal, err := lib.Open(p.Id)
-			check(err)
-			pics = append(pics, preal)
-		}
-		if err != io.EOF {
-			log.Fatal(err)
-		}
 	} else {
-		for _, idstr := range fs.Args() {
-			id, err := strconv.Atoi(idstr)
-			check(err)
-			p, err := lib.Open(id)
-			check(err)
-			pics = append(pics, p)
-		}
+		pics = idsOrStdin(fs.Args())
 	}
 
 	for _, p := range pics {
