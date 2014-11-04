@@ -30,6 +30,7 @@ var cmds = map[string]CmdFunc{
 	"link":     link,
 	"copy":     cpy,
 	"serve":    serve,
+	"note":     note,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -324,8 +325,34 @@ func list(cmd string, args []string) {
 	check(err)
 }
 
-func check(err error) {
-	if err != nil {
-		log.Fatal("[ERROR] ", err)
+func note(cmd string, args []string) {
+	desc := "view or modify pictures' notes (piped from list subcmd is supported)"
+	fs := newFlagSet(cmd, "", desc)
+	replace := fs.Bool("replace", false, "replace notes instead of appending")
+	text := fs.String("text", "", "text to append or replace notes")
+	fs.Parse(args)
+
+	pics := idsOrStdin(fs.Args())
+
+	if *text == "" && !*replace { // just print notes
+		if len(pics) == 1 {
+			notes, err := pics[0].GetNotes()
+			check(err)
+			fmt.Println(notes)
+		} else {
+			WriteLines(os.Stdout, pics...)
+		}
+	} else if *replace {
+		for _, p := range pics {
+			err := p.SetNotes(*text)
+			check(err)
+		}
+	} else { // append text
+		for _, p := range pics {
+			notes, err := p.GetNotes()
+			check(err)
+			err = p.SetNotes(notes + "\n" + *text)
+			check(err)
+		}
 	}
 }

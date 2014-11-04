@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -12,6 +13,14 @@ import (
 
 	"github.com/rwcarlsen/gallery/piclib"
 )
+
+func EscapeNotes(s string) string {
+	data, err := json.Marshal(strings.TrimSpace(s))
+	if err != nil {
+		panic(err)
+	}
+	return string(data[1 : len(data)-1])
+}
 
 func WriteLines(w io.Writer, pics ...*piclib.Pic) error {
 	minwidth := 8
@@ -25,11 +34,7 @@ func WriteLines(w io.Writer, pics ...*piclib.Pic) error {
 		if err != nil {
 			return err
 		}
-		data, err := json.Marshal(strings.TrimSpace(notes))
-		if err != nil {
-			return err
-		}
-		notes = string(data[1 : len(data)-1])
+		notes = EscapeNotes(notes)
 
 		// truncate long pic name
 		nm := p.Name
@@ -92,4 +97,10 @@ func idsOrStdin(args []string) []*piclib.Pic {
 		pics = append(pics, p)
 	}
 	return pics
+}
+
+func check(err error) {
+	if err != nil {
+		log.Fatal("[ERROR] ", err)
+	}
 }
