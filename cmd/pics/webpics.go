@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/rwcarlsen/lru"
 )
 
 const picsPerPage = 24
@@ -115,8 +114,6 @@ func serve(cmd string, args []string) {
 
 var skipext = []string{"", ".avi", ".m4v", ".go"}
 
-var cache = lru.New(1000) // 1000 items
-
 func loadPics(args []string) {
 	var pics []*piclib.Pic
 	var err error
@@ -194,17 +191,9 @@ func writeImg(w io.Writer, id int, thumb bool) error {
 	}
 
 	if thumb {
-		var data []byte
-		idstr := strconv.Itoa(id)
-		v, err := cache.Get(idstr)
-		if err == nil {
-			data = v.([]byte)
-		} else {
-			data, err := p.Thumb()
-			if err != nil {
-				return err
-			}
-			cache.Set(idstr, data)
+		data, err := p.Thumb()
+		if err != nil {
+			return err
 		}
 		w.Write(data)
 		return nil
