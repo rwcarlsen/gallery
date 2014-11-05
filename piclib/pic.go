@@ -43,8 +43,15 @@ func (p *Pic) GetMeta(field string) (string, error) {
 }
 
 func (p *Pic) SetMeta(field, val string) error {
+	curr, err := p.GetMeta(field)
+	if err != nil {
+		return err
+	} else if curr == val { // value is already the same
+		return nil
+	}
+
 	s := "INSERT INTO meta (id,time,field,value) VALUES (?,?,?,?);"
-	_, err := p.lib.db.Exec(s, p.id, time.Now(), field, val)
+	_, err = p.lib.db.Exec(s, p.id, time.Now(), field, val)
 	return err
 }
 
