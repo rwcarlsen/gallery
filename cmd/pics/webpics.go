@@ -175,7 +175,7 @@ func PhotoHandler(w http.ResponseWriter, r *http.Request) {
 	case "thumb":
 		err = writeImg(w, id, true)
 	default:
-		log.Print("invalid pic type %v", vars["type"])
+		log.Printf("invalid pic type %v", vars["type"])
 		return
 	}
 
