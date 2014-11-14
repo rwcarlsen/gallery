@@ -36,7 +36,10 @@ func Open(path string) (*Lib, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	_, err = db.Exec("PRAGMA page_size = 8192;")
+	if err != nil {
+		return nil, err
+	}
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY,sum BLOB,name TEXT,added INTEGER,taken INTEGER,orient INTEGER,thumb BLOB);")
 	if err != nil {
 		return nil, err
@@ -45,11 +48,15 @@ func Open(path string) (*Lib, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Exec("CREATE INDEX IF NOT EXISTS files_taken ON files (taken);")
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS files_taken ON files (taken,id,sum,name,added,orient);")
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Exec("CREATE INDEX IF NOT EXISTS files_sum ON files (sum);")
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS files_sum ON files (sum,id,name,added,taken,orient);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS files_id ON files (id,sum,name,added,taken,orient);")
 	if err != nil {
 		return nil, err
 	}
