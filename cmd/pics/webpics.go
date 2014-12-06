@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"path"
 	"strconv"
@@ -77,19 +78,12 @@ var (
 	all    bool
 )
 
-func serve(cmd string, args []string) {
-	desc := "Run a browser-based picture gallery of listed pics (or piped from stdin)"
-	fs := newFlagSet(cmd, "[PIC-ID...]", desc)
-	fs.StringVar(&addr, "addr", "127.0.0.1:7777", "ip and port to listen on")
-	fs.BoolVar(&noedit, "noedit", false, "don't allow editing of anything in library")
-	fs.BoolVar(&all, "all", false, "true to view every file in the library")
-	fs.Parse(args)
-
+func runserve(l net.Listener, args []string) {
 	var err error
 	slidepage, err = Asset("data/slideshow.html")
 	check(err)
 
-	loadPics(fs.Args())
+	loadPics(args)
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
@@ -108,7 +102,9 @@ func serve(cmd string, args []string) {
 
 	http.Handle("/", r)
 	log.Printf("listening on %v", addr)
-	err = http.ListenAndServe(addr, nil)
+
+	server := &http.Server{Addr: addr}
+	err = server.Serve(l)
 	check(err)
 }
 

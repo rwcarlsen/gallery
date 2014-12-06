@@ -1,4 +1,3 @@
-// picadd recursively walks passed dirs and photos and adds them to a library.
 package main
 
 import (
@@ -7,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/kierdavis/dateparser"
 	"github.com/rwcarlsen/gallery/piclib"
+	"github.com/toqueteos/webbrowser"
 )
 
 var libpath = flag.String("lib", piclib.DefaultPath(), "path to picture library")
@@ -30,6 +31,7 @@ var cmds = map[string]CmdFunc{
 	"link":     link,
 	"copy":     cpy,
 	"serve":    serve,
+	"view":     view,
 	"note":     note,
 }
 
@@ -326,7 +328,7 @@ func list(cmd string, args []string) {
 }
 
 func note(cmd string, args []string) {
-	desc := "view or modify pictures' notes (piped from list subcmd is supported)"
+	desc := "print or modify pictures' notes (piped from list subcmd is supported)"
 	fs := newFlagSet(cmd, "", desc)
 	replace := fs.Bool("replace", false, "replace notes instead of appending")
 	text := fs.String("text", "", "text to append or replace notes")
@@ -355,4 +357,44 @@ func note(cmd string, args []string) {
 			check(err)
 		}
 	}
+}
+
+func serve(cmd string, args []string) {
+	desc := "serve listed pics in a browser-based picture gallery (or piped from stdin)"
+	fs := newFlagSet(cmd, "[PIC-ID...]", desc)
+	fs.StringVar(&addr, "addr", "127.0.0.1:7777", "ip and port to serve gallery at")
+	view := fs.Bool("view", false, "opens browser window to gallery page")
+	fs.BoolVar(&noedit, "noedit", false, "don't allow editing of anything in library")
+	fs.BoolVar(&all, "all", false, "true to view every file in the library")
+	fs.Parse(args)
+
+	l, err := net.Listen("tcp", addr)
+	check(err)
+	go runserve(l, fs.Args())
+
+	if *view {
+		err = webbrowser.Open(addr)
+		check(err)
+	}
+
+	select {}
+}
+
+func view(cmd string, args []string) {
+	desc := "view listed pictures in browser-based gallery (or piped from stdin)"
+	fs := newFlagSet(cmd, "[PIC-ID...]", desc)
+	fs.BoolVar(&noedit, "noedit", false, "don't allow editing of anything in library")
+	fs.StringVar(&addr, "addr", "127.0.0.1:", "ip and port to serve gallery at")
+	fs.BoolVar(&all, "all", false, "true to view every file in the library")
+	fs.Parse(args)
+
+	l, err := net.Listen("tcp", addr)
+	check(err)
+	addr = l.Addr().String()
+	go runserve(l, fs.Args())
+
+	err = webbrowser.Open(addr)
+	check(err)
+
+	select {}
 }
