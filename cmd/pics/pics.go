@@ -1,3 +1,5 @@
+//go:generate go-bindata ./data/...
+
 package main
 
 import (
