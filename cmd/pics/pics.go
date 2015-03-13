@@ -87,7 +87,7 @@ func add(cmd string, args []string) {
 	if len(files) == 0 {
 		data, err := ioutil.ReadAll(os.Stdin)
 		check(err)
-		files = strings.Split(string(data), "\n")
+		files = strings.Fields(string(data))
 	}
 
 	for _, path := range files {
