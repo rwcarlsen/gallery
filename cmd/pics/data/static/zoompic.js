@@ -1,13 +1,16 @@
 
-function keydown() {
-  if (event.which == keys.left) {
+function keydown(e) {
+  if (!e) {
+    e = window.event;
+  }
+  if (e.which == keys.left) {
     currPic -= 1
     if (currPic < 0) {
       currPic = 0
     }
     window.location.href = "/dynamic/zoom/" + currPic.toString()
     return false
-  } else if (event.which == keys.right) {
+  } else if (e.which == keys.right) {
     currPic += 1
     if (currPic >= numPhotos) {
       currPic = numPhotos - 1

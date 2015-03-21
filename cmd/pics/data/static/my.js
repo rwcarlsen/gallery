@@ -87,10 +87,13 @@ function updateNav() {
   })
 }
 
-function keydown() {
-  if (event.which == keys.left) {
+function keydown(e) {
+  if (!e) {
+    e = window.event;
+  }
+  if (e.which == keys.left) {
     pagePrev()
-  } else if (event.which == keys.right) {
+  } else if (e.which == keys.right) {
     pageNext()
   }
 }
