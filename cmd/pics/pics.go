@@ -274,7 +274,9 @@ func cpy(cmd string, args []string) {
 	check(err)
 
 	for _, p := range pics {
-		pname := fmt.Sprintf("%v-%v", p.Name, p.Id)
+		ext := filepath.Ext(p.Name)
+		pname := p.Name[:len(p.Name)-len(ext)]
+		pname = fmt.Sprintf("%v-%v%v", pname, p.Id, ext)
 		copypath := filepath.Join(*dst, pname)
 		_, err := os.Stat(copypath)
 		if err == nil {
