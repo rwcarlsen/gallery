@@ -26,7 +26,7 @@
       {{if eq $photo.Ext ".mov" ".avi"}}
       Video
       {{else}}
-      <img class="img-rounded" src="/photo/thumb/{{$photo.Id}}">
+      <img class="img-rounded" src="/photo/thumb/{{$photo.Id}}" oncontextmenu="saveName({{$photo.Id}}); return false;">
       {{end}}
     </a>
     <div class="caption">

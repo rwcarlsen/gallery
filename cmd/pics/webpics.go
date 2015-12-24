@@ -99,9 +99,9 @@ func runserve(l net.Listener, args []string) {
 	r.HandleFunc("/dynamic/slideshow", SlideshowHandler)
 	r.HandleFunc("/dynamic/next-slide", NextSlideHandler)
 	r.HandleFunc("/dynamic/slide-style", SlideStyleHandler)
+	r.HandleFunc("/dynamic/clickpic/{id}", clickpicHandler)
 
 	http.Handle("/", r)
-	log.Printf("listening on %v", addr)
 
 	server := &http.Server{Addr: addr}
 	err = server.Serve(l)
@@ -138,6 +138,11 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	if err := gridTmpl.Execute(w, nil); err != nil {
 		log.Print(err)
 	}
+}
+
+func clickpicHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fmt.Println(vars["id"])
 }
 
 func StaticHandler(w http.ResponseWriter, r *http.Request) {

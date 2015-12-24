@@ -376,6 +376,7 @@ func serve(cmd string, args []string) {
 	check(err)
 	go runserve(l, fs.Args())
 
+	log.Printf("serving on address %v", addr)
 	if *view {
 		err = webbrowser.Open(addr)
 		check(err)
@@ -396,6 +397,7 @@ func view(cmd string, args []string) {
 	check(err)
 	addr = l.Addr().String()
 	go runserve(l, fs.Args())
+	log.Printf("serving on address %v", addr)
 
 	err = webbrowser.Open(addr)
 	check(err)

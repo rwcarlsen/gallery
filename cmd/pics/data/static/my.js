@@ -24,6 +24,10 @@ function pageTo(page) {
   $("#pic-gallery").load("/dynamic/pg" + currPage.toString(), setAttr)
 }
 
+function saveName(picid) {
+  $.get("/dynamic/clickpic/" + picid.toString())
+}
+
 function pageFirst() {
     pageTo(1);
 }
