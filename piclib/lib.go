@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/mxk/go-sqlite/sqlite3"
+	_ "github.com/rwcarlsen/go-sqlite3"
 	"github.com/rwcarlsen/goexif/exif"
 )
 
