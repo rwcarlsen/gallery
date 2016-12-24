@@ -81,7 +81,7 @@ func (l *Lib) Open(id int) (*Pic, error) {
 func (l *Lib) ListTime(start, end time.Time) (pics []*Pic, err error) {
 	s := "SELECT id,sum,name,added,taken,orient FROM files"
 	s += " WHERE taken >= ? AND taken <= ? ORDER BY taken DESC;"
-	rows, err := l.db.Query(s, start, end)
+	rows, err := l.db.Query(s, start.Unix(), end.Unix())
 	if err != nil {
 		return nil, err
 	}
