@@ -51,7 +51,7 @@ var lib *piclib.Lib
 func main() {
 	log.SetFlags(0)
 	flag.Usage = func() {
-		log.Printf("Usage: pic [opts] <subcommand> [opts] [args]\n")
+		log.Printf("Usage: pics [opts] <subcommand> [opts] [args]\n")
 		flag.PrintDefaults()
 		log.Printf("Subcommands:\n")
 		for cmd, _ := range cmds {
@@ -100,7 +100,7 @@ func add(cmd string, args []string) {
 		if piclib.IsDup(err) {
 			fmt.Printf("[SKIP] %v\n", err)
 		} else if err != nil {
-			log.Printf("[ERROR] %v\n", err)
+			log.Printf("[ERROR] %v: %v\n", path, err)
 		} else {
 			fmt.Printf("[ADD] %v\n", p.Name)
 		}

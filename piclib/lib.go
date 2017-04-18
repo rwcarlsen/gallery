@@ -240,7 +240,7 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 
 	// store meta data in db and return new Pic
 	sql := "INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?);"
-	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added, taken, orient, thumb)
+	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added.Unix(), taken.Unix(), orient, thumb)
 	if err != nil {
 		return nil, err
 	}

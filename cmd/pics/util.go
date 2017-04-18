@@ -38,8 +38,10 @@ func WriteLines(w io.Writer, pics ...*piclib.Pic) error {
 
 		// truncate long pic name
 		nm := p.Name
-		if len(p.Name) > 22 {
-			nm = "..." + p.Name[len(p.Name)-22:]
+		//maxlen := 22
+		maxlen := 44
+		if len(p.Name) > maxlen {
+			nm = "..." + p.Name[len(p.Name)-maxlen:]
 		}
 
 		tm := p.Taken
