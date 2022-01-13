@@ -10,10 +10,10 @@ github.com/gorilla/sessions v0.0.0-20150417174705-f61c3ec2cf65 h1:bDPV+Nh80WIp0U
 github.com/gorilla/sessions v0.0.0-20150417174705-f61c3ec2cf65/go.mod h1:+WVp8kdw6VhyKExm03PAMRn2ZxnPtm58pV0dBVPdhHE=
 github.com/kierdavis/dateparser v0.0.0-20140728063653-eaaa6e75d7ae h1:TNfZvH4p4hcTkkghRKauPZcPkaj1lsbwnfpPFGo519Y=
 github.com/kierdavis/dateparser v0.0.0-20140728063653-eaaa6e75d7ae/go.mod h1:XP94QbUMzC3HtKrsILiXj2FSBEofyS5aT2tbrAwE7Is=
+github.com/mattn/go-sqlite3 v1.14.10 h1:MLn+5bFRlWMGoSRmJour3CL1w/qL96mvipqpwQW/Sfk=
+github.com/mattn/go-sqlite3 v1.14.10/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
 github.com/nfnt/resize v0.0.0-20160109112512-4d93a29130b1 h1:Gi7SMyKr6jDlZzNhBrTMD/1zFiHsd5NIQw2uAXDf3Jk=
 github.com/nfnt/resize v0.0.0-20160109112512-4d93a29130b1/go.mod h1:jpp1/29i3P1S/RLdc7JQKbRpFeM1dOBd8T9ki5s+AY8=
-github.com/rwcarlsen/go-sqlite3 v1.1.1-0.20160401160629-37846191def3 h1:3SLVtEumrr1PUbh0h96lZJqKAMGFz9CJTorOshGy4KU=
-github.com/rwcarlsen/go-sqlite3 v1.1.1-0.20160401160629-37846191def3/go.mod h1:bfJ+Kgku1XSKAOqfmwTTH1QiU5Lz5uQDcP2YfgAkhCg=
 github.com/rwcarlsen/goexif v0.0.0-20180518182100-8d986c03457a h1:ZDZdsnbMuRSoVbq1gR47o005lfn2OwODNCr23zh9gSk=
 github.com/rwcarlsen/goexif v0.0.0-20180518182100-8d986c03457a/go.mod h1:hPqNNc0+uJM6H+SuU8sEs5K5IQeKccPqeSjfgcKGgPk=
 github.com/toqueteos/webbrowser v0.0.0-20130830012402-4a77f4aa7da5 h1:vqTYBr9tALNJfNeAT/JsyMuvAoaoPJQ8byz+K0E7r1M=
