@@ -39,25 +39,21 @@ class PiclibCharm(CharmBase):
         self.framework.observe(self.on.start, self._on_start)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
 
-        self._stored.set_default(things=[], pid=-1)
+        self._stored.set_default(things=[])
 
-    def _restart_piclib(self, libpath='/tmp/piclib'):
-        pid = self._stored.pid
-        if pid > 0:
-            logger.debug('killing pics server with pid {}'.format(pid))
-            os.kill(pid, signal.SIGTERM)
-            time.sleep(1)
-            self._stored.pid = -1
+    def _restart_piclib(self, libpath='/piclib'):
+        os.system("killall pics");
+        logger.debug('killing pics server ')
+        time.sleep(1)
 
         # add execute permission to pics binary
-        binpath = self.model.resources.fetch("pics-binary")
         binpath = self.model.resources.fetch("pics-binary")
         curr_perms = stat.S_IMODE(os.lstat(binpath).st_mode)
         os.chmod(binpath, curr_perms | stat.S_IXGRP | stat.S_IXUSR | stat.S_IXOTH)
 
         try:
-            p = subprocess.Popen([binpath, "-lib", libpath, "serve", "-all", "-addr=0.0.0.0:7777"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self._stored.pid = p.pid
+            p = subprocess.Popen([binpath, "-lib", libpath, "serve", "-all", "-addr=0.0.0.0:7777"], close_fds=True)
+            logger.debug('started pics server')
         except CalledProcessError as e:
             # If the command returns a non-zero return code, put the charm in blocked state
             logger.debug("Starting pics server failed with return code %d:", e.returncode)
@@ -68,19 +64,22 @@ class PiclibCharm(CharmBase):
         # Everything is awesome
         self.unit.status = ActiveStatus()
 
-    def _install_piclib(self):
+    def _install_piclib(self, libpath):
+        logger.debug('installing initial picture library')
         piclib_tar = self.model.resources.fetch("initial-piclib")
-        libpath = '/piclib'
         os.makedirs(libpath, exist_ok=True)
         with tarfile.open(piclib_tar) as tar:
             tar.extractall(path=libpath)
 
     def _on_config_changed(self, event: ConfigChangedEvent) -> None:
-        self._install_piclib()
-        self._restart_piclib(libpath='/piclib')
+        libpath = '/piclib'
+        self._install_piclib(libpath)
+        self._restart_piclib(libpath=libpath)
 
     def _on_start(self, event: StartEvent) -> None:
-        self._restart_piclib()
+        libpath = '/piclib'
+        self._install_piclib(libpath)
+        self._restart_piclib(libpath=libpath)
 
 if __name__ == "__main__":
     main(PiclibCharm)
