@@ -12,23 +12,21 @@ develop a new k8s charm using the Operator Framework:
     https://discourse.charmhub.io/t/4208
 """
 
-import sys
 import os
-import signal
 import stat
 import logging
 import tarfile
 import time
+import subprocess
 
-from ops.charm import CharmBase, InstallEvent, StartEvent, ConfigChangedEvent
+from subprocess import CalledProcessError
+from ops.charm import CharmBase, StartEvent, ConfigChangedEvent
 from ops.framework import StoredState
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus
 
 logger = logging.getLogger(__name__)
 
-import subprocess
-from subprocess import CalledProcessError
 
 class PiclibCharm(CharmBase):
 
@@ -42,7 +40,7 @@ class PiclibCharm(CharmBase):
         self._stored.set_default(things=[])
 
     def _restart_piclib(self, libpath='/piclib'):
-        os.system("killall pics");
+        os.system("killall pics")
         logger.debug('killing pics server ')
         time.sleep(1)
 
@@ -52,7 +50,8 @@ class PiclibCharm(CharmBase):
         os.chmod(binpath, curr_perms | stat.S_IXGRP | stat.S_IXUSR | stat.S_IXOTH)
 
         try:
-            p = subprocess.Popen([binpath, "-lib", libpath, "serve", "-all", "-addr=0.0.0.0:7777"], close_fds=True)
+            subprocess.Popen(
+                [binpath, "-lib", libpath, "serve", "-all", "-addr=0.0.0.0:7777"], close_fds=True)
             logger.debug('started pics server')
         except CalledProcessError as e:
             # If the command returns a non-zero return code, put the charm in blocked state
@@ -80,6 +79,7 @@ class PiclibCharm(CharmBase):
         libpath = '/piclib'
         self._install_piclib(libpath)
         self._restart_piclib(libpath=libpath)
+
 
 if __name__ == "__main__":
     main(PiclibCharm)
