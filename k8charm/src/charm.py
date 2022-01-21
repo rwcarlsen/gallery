@@ -37,8 +37,8 @@ class K8PiclibCharm(CharmBase):
 
     def _restart_piclib(self, container, libpath):
         binpath = self.model.resources.fetch("pics-binary")
-        with open(binpath) as f:
-            self.model.push('/pics', f, permissions=0o777)
+        with open(binpath, 'rb') as f:
+            container.push('/pics', f, permissions=0o777)
 
         # Define an initial Pebble layer configuration
         pebble_layer = {
@@ -65,14 +65,14 @@ class K8PiclibCharm(CharmBase):
         # https://juju.is/docs/sdk/constructs#heading--statuses
         self.unit.status = ActiveStatus()
 
-    def _install_piclib(self, libpath):
+    def _install_piclib(self, container, libpath):
         logger.debug('installing initial picture library')
         piclib_tar = self.model.resources.fetch("initial-piclib")
         os.makedirs(libpath, exist_ok=True)
         dstpath=os.path.join(libpath, 'piclib.tar')
-        with open(piclib_tar) as f:
-            self.model.push(dstpath, f, make_dirs=True)
-        self.model.exec(['tar', '-xf', 'piclib.tar'], working_dir=libpath)
+        with open(piclib_tar, 'rb') as f:
+            container.push(dstpath, f, make_dirs=True)
+        container.exec(['tar', '-xf', 'piclib.tar'], working_dir=libpath)
 
     def _on_pebble_ready(self, event):
         """Define and start a workload using the Pebble API.
@@ -87,7 +87,7 @@ class K8PiclibCharm(CharmBase):
         # Get a reference the container attribute on the PebbleReadyEvent
         container = event.workload
         libpath = '/piclib'
-        self._install_piclib(libpath)
+        self._install_piclib(container, libpath)
         self._restart_piclib(container, libpath)
 
 
