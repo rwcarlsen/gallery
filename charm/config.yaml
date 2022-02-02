@@ -12,3 +12,7 @@ options:
     default: 🎁
     description: A thing used by the charm.
     type: string
+  libpath:
+    default: /piclib
+    description: local path to picture library
+    type: string

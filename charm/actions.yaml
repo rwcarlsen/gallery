@@ -7,10 +7,10 @@
 #
 # Learn more about actions at: https://juju.is/docs/sdk/actions
 
-fortune:
-  description: Returns a pithy phrase.
+revert:
+  description: print/show previous config state
   params:
-    fail:
-      description: "Fail with this message"
-      type: string
-      default: ""
+    snapshot:
+      description: "Must be negative indicating the number of steps back in config_changed to revert"
+      type: integer
+      default: -1
