@@ -10,7 +10,10 @@ require (
 	github.com/rwcarlsen/goexif v0.0.0-20180518182100-8d986c03457a
 	golang.org/x/crypto v0.26.0
 	golang.org/x/term v0.23.0
+	github.com/yalue/onnxruntime_go v1.21.0
 )
+
+replace github.com/yalue/onnxruntime_go => ./third_party/onnxruntime_go
 
 require (
 	golang.org/x/image v0.45.0 // indirect

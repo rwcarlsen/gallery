@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kierdavis/dateparser"
+	"github.com/rwcarlsen/gallery/internal/infer"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
@@ -32,6 +33,8 @@ var cmds = map[string]CmdFunc{
 	"view":     view,
 	"note":     note,
 	"user":     user,
+	"index":    index,
+	"person":   person,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -305,6 +308,11 @@ func list(cmd string, args []string) {
 	before := fs.String("to", "", "only show photos before date")
 	noteRE := fs.String("note", "", "regex filter on notes")
 	nameRE := fs.String("name", "", "regex filter on original filename")
+	similar := fs.String("similar", "", "CLIP text search")
+	like := fs.Int("like", 0, "CLIP search by picture id")
+	who := fs.String("person", "", "pics containing this person")
+	faceID := fs.Int("face", 0, "pics with faces similar to this face id")
+	minScore := fs.Float64("min", 0, "min cosine score for -similar/-like/-face (defaults: clip 0.2, face 0.35)")
 	fs.Parse(args)
 
 	var err error
@@ -334,6 +342,61 @@ func list(cmd string, args []string) {
 	pics, err = lib.FilterPics(pics, *noteRE, *nameRE)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if *who != "" {
+		ids, err := lib.PicsByPerson(*who)
+		check(err)
+		pics = piclib.IntersectIDs(pics, ids)
+	}
+	if *faceID != 0 {
+		f, err := lib.GetFace(*faceID)
+		check(err)
+		if f == nil {
+			log.Fatal("no such face")
+		}
+		min := float32(piclib.DefaultFaceMin)
+		if *minScore != 0 {
+			min = float32(*minScore)
+		}
+		hits, err := lib.SimilarFaces(f.Vec, min)
+		check(err)
+		ids := make([]int, 0, len(hits))
+		seen := map[int]bool{}
+		for _, h := range hits {
+			if !seen[h.PicID] {
+				seen[h.PicID] = true
+				ids = append(ids, h.PicID)
+			}
+		}
+		pics = piclib.OrderByIDs(pics, ids)
+	}
+	if *similar != "" || *like != 0 {
+		min := float32(piclib.DefaultClipMin)
+		if *minScore != 0 {
+			min = float32(*minScore)
+		}
+		var vec []float32
+		if *like != 0 {
+			v, _, err := lib.ClipVec(*like)
+			check(err)
+			if v == nil {
+				log.Fatal("picture is not CLIP-indexed; run pics index")
+			}
+			vec = v
+		} else {
+			eng, err := infer.Open(lib.ModelsDir(), true, false)
+			check(err)
+			vec, err = eng.EmbedText(*similar)
+			eng.Close()
+			check(err)
+		}
+		hits, err := lib.SimilarClip(vec, min)
+		check(err)
+		ids := make([]int, len(hits))
+		for i, h := range hits {
+			ids[i] = h.ID
+		}
+		pics = piclib.OrderByIDs(pics, ids)
 	}
 
 	err = WriteLines(os.Stdout, pics...)

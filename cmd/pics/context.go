@@ -24,6 +24,7 @@ var rots = map[int]int{
 
 type gallery struct {
 	user      *piclib.User
+	visible   []*Photo
 	photos    []*Photo
 	picMap    map[int]*Photo
 	CurrPage  string
@@ -56,7 +57,45 @@ func newGallery(u *piclib.User) *gallery {
 		c.photos = append(c.photos, ph)
 		c.picMap[p.Id] = ph
 	}
+	c.visible = append([]*Photo{}, c.photos...)
 	return c
+}
+
+func (c *gallery) rebuild() {
+	c.picMap = map[int]*Photo{}
+	for _, p := range c.photos {
+		c.picMap[p.Id] = p
+	}
+	c.CurrPage = "1"
+	c.random = nil
+}
+
+func (c *gallery) resetFilter() {
+	c.photos = append([]*Photo{}, c.visible...)
+	c.rebuild()
+}
+
+func (c *gallery) filterIDs(ids []int) {
+	byID := make(map[int]*Photo, len(c.visible))
+	for _, p := range c.visible {
+		byID[p.Id] = p
+	}
+	c.photos = c.photos[:0]
+	for _, id := range ids {
+		if p, ok := byID[id]; ok {
+			c.photos = append(c.photos, p)
+		}
+	}
+	c.rebuild()
+}
+
+func (c *gallery) visiblePic(id int) bool {
+	for _, p := range c.visible {
+		if p.Id == id {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *gallery) userName() string {

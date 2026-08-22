@@ -11,6 +11,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"bytes"
+	"encoding/json"
+	"image"
+	_ "image/jpeg"
+
+	"github.com/rwcarlsen/gallery/internal/infer"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
@@ -96,6 +102,13 @@ func runserve(l net.Listener, args []string) {
 	mux.HandleFunc("GET /dynamic/next-slide", auth(NextSlideHandler))
 	mux.HandleFunc("GET /dynamic/slide-style", auth(SlideStyleHandler))
 	mux.HandleFunc("GET /dynamic/clickpic/{id}", auth(clickpicHandler))
+	mux.HandleFunc("GET /dynamic/search", auth(SearchHandler))
+	mux.HandleFunc("GET /dynamic/faces/{picId}", auth(FacesHandler))
+	mux.HandleFunc("GET /dynamic/person/{name}", auth(PersonHandler))
+	mux.HandleFunc("GET /dynamic/face/{faceId}/similar", auth(FaceSimilarHandler))
+	mux.HandleFunc("POST /dynamic/face/{faceId}/name", auth(FaceNameHandler))
+	mux.HandleFunc("GET /photo/face/{faceId}", auth(FacePhotoHandler))
+	mux.HandleFunc("GET /dynamic/caps", auth(CapsHandler))
 
 	server := &http.Server{Addr: addr, Handler: mux}
 	err = server.Serve(l)
@@ -122,9 +135,215 @@ func loadPics(args []string) {
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	c := mustGallery(w, r)
-	if err := gridTmpl.Execute(w, map[string]string{"User": c.userName()}); err != nil {
+	data := map[string]string{"User": c.userName()}
+	if canSearch() {
+		data["Search"] = "1"
+	}
+	if err := gridTmpl.Execute(w, data); err != nil {
 		log.Print(err)
 	}
+}
+
+func canSearch() bool {
+	n, err := lib.ClipCount()
+	return err == nil && n > 0 && infer.HasCLIP(lib.ModelsDir())
+}
+
+var searchEng *infer.Engine
+
+func getSearchEng() (*infer.Engine, error) {
+	if searchEng != nil {
+		return searchEng, nil
+	}
+	e, err := infer.Open(lib.ModelsDir(), true, false)
+	if err != nil {
+		return nil, err
+	}
+	searchEng = e
+	return e, nil
+}
+
+func CapsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"search": canSearch()})
+}
+
+func SearchHandler(w http.ResponseWriter, r *http.Request) {
+	c := mustGallery(w, r)
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		c.resetFilter()
+		fmt.Fprint(w, "ok")
+		return
+	}
+	eng, err := getSearchEng()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	vec, err := eng.EmbedText(q)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	hits, err := lib.SimilarClip(vec, piclib.DefaultClipMin)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	ids := make([]int, len(hits))
+	for i, h := range hits {
+		ids[i] = h.ID
+	}
+	c.filterIDs(ids)
+	fmt.Fprint(w, "ok")
+}
+
+func FacesHandler(w http.ResponseWriter, r *http.Request) {
+	c := mustGallery(w, r)
+	id, err := strconv.Atoi(r.PathValue("picId"))
+	if err != nil || !c.visiblePic(id) {
+		http.NotFound(w, r)
+		return
+	}
+	faces, err := lib.FacesByPic(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	type chip struct {
+		ID   int     `json:"id"`
+		Name string  `json:"name"`
+		X    float64 `json:"x"`
+		Y    float64 `json:"y"`
+		W    float64 `json:"w"`
+		H    float64 `json:"h"`
+	}
+	out := make([]chip, 0, len(faces))
+	for _, f := range faces {
+		out = append(out, chip{f.FaceID, f.Name, f.X, f.Y, f.W, f.H})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
+}
+
+func PersonHandler(w http.ResponseWriter, r *http.Request) {
+	c := mustGallery(w, r)
+	ids, err := lib.PicsByPerson(r.PathValue("name"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	c.filterIDs(ids)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func FaceSimilarHandler(w http.ResponseWriter, r *http.Request) {
+	c := mustGallery(w, r)
+	fid, err := strconv.Atoi(r.PathValue("faceId"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	f, err := lib.GetFace(fid)
+	if err != nil || f == nil || !c.visiblePic(f.PicID) {
+		http.NotFound(w, r)
+		return
+	}
+	if f.Name != "" {
+		ids, err := lib.PicsByPerson(f.Name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		c.filterIDs(ids)
+		fmt.Fprint(w, "ok")
+		return
+	}
+	hits, err := lib.SimilarFaces(f.Vec, piclib.DefaultFaceMin)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	ids := make([]int, 0, len(hits))
+	seen := map[int]bool{}
+	for _, h := range hits {
+		if !seen[h.PicID] {
+			seen[h.PicID] = true
+			ids = append(ids, h.PicID)
+		}
+	}
+	c.filterIDs(ids)
+	fmt.Fprint(w, "ok")
+}
+
+func FaceNameHandler(w http.ResponseWriter, r *http.Request) {
+	c := mustGallery(w, r)
+	if !c.canEdit() {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	fid, err := strconv.Atoi(r.PathValue("faceId"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	f, err := lib.GetFace(fid)
+	if err != nil || f == nil || !c.visiblePic(f.PicID) {
+		http.NotFound(w, r)
+		return
+	}
+	name, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := lib.AssignPerson(fid, string(bytes.TrimSpace(name))); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	n, err := lib.PropagatePerson(string(bytes.TrimSpace(name)), piclib.DefaultFaceMin)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprint(w, n)
+}
+
+func FacePhotoHandler(w http.ResponseWriter, r *http.Request) {
+	c := mustGallery(w, r)
+	fid, err := strconv.Atoi(r.PathValue("faceId"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	f, err := lib.GetFace(fid)
+	if err != nil || f == nil || !c.visiblePic(f.PicID) {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := lib.Open(f.PicID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	thumb, err := p.Thumb()
+	if err != nil || len(thumb) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	img, _, err := image.Decode(bytes.NewReader(thumb))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	jpeg, err := piclib.CropNormJPEG(img, f.X, f.Y, f.W, f.H)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Write(jpeg)
 }
 
 func clickpicHandler(w http.ResponseWriter, r *http.Request) {

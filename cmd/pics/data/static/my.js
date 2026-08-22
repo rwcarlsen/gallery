@@ -86,5 +86,18 @@ document.addEventListener('keydown', function (e) {
   }
 })
 
+async function doSearch() {
+  const q = document.getElementById('search-q')
+  if (!q) {
+    return false
+  }
+  await fetch('/dynamic/search?q=' + encodeURIComponent(q.value))
+  currPage = 0
+  await loadTimeNav()
+  await getStats()
+  await pageTo(1)
+  return false
+}
+
 setupWhen()
 updateNav()

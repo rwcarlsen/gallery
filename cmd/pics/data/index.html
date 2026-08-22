@@ -6,6 +6,11 @@
     <button type="button" id="when-btn">When</button>
     <div class="when-menu" id="time-nav"></div>
   </div>
+  {{if .Search}}
+  <form class="search" id="search-form" action="#" onsubmit="return doSearch();">
+    <input id="search-q" type="search" placeholder="Search photos…" autocomplete="off">
+  </form>
+  {{end}}
   <div class="spacer"></div>
   <a href="/dynamic/slideshow">Slideshow</a>
   <span class="stats" id="stats"></span>

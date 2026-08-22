@@ -8,6 +8,7 @@
     <img class="zoom-img" src="/photo/thumb/{{.Id}}" alt="{{.Date}}">
   </a>
   {{end}}
+  <div id="faces" class="faces" data-pic="{{.Id}}" data-edit="{{if .CanEdit}}1{{end}}"></div>
 </main>
 
 <footer class="bar bottom zoom-bar">

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	Version    = "0.2"
+	Version    = "0.3"
 	Libname    = "piclib.sqlite"
 	NotesField = "Notes"
 )
@@ -56,6 +56,30 @@ func Open(path string) (*Lib, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS clip (id INTEGER PRIMARY KEY,model TEXT NOT NULL,dim INTEGER NOT NULL,vec BLOB NOT NULL);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS faces (face_id INTEGER PRIMARY KEY,pic_id INTEGER NOT NULL,x REAL NOT NULL,y REAL NOT NULL,w REAL NOT NULL,h REAL NOT NULL,model TEXT NOT NULL,dim INTEGER NOT NULL,vec BLOB NOT NULL);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS people (person_id INTEGER PRIMARY KEY,name TEXT UNIQUE NOT NULL);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS face_person (face_id INTEGER PRIMARY KEY,person_id INTEGER NOT NULL);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS faces_pic ON faces (pic_id);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS face_person_person ON face_person (person_id);")
+	if err != nil {
+		return nil, err
+	}
 	_, err = db.Exec("CREATE INDEX IF NOT EXISTS files_taken ON files (taken,id,sum,name,added,orient);")
 	if err != nil {
 		return nil, err
@@ -69,6 +93,22 @@ func Open(path string) (*Lib, error) {
 		return nil, err
 	}
 	return &Lib{Path: path, db: db}, nil
+}
+
+func (l *Lib) ModelsDir() string {
+	return filepath.Join(l.Path, "models")
+}
+
+func (l *Lib) PicsByIDs(ids []int) ([]*Pic, error) {
+	out := make([]*Pic, 0, len(ids))
+	for _, id := range ids {
+		p, err := l.Open(id)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
 }
 
 func (l *Lib) Close() error {

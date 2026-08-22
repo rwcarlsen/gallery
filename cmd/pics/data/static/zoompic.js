@@ -41,4 +41,45 @@ window.addEventListener('pagehide', function () {
   fetch('/dynamic/set-page/' + pg, { keepalive: true })
 })
 
+async function loadFaces() {
+  const box = document.getElementById('faces')
+  if (!box) {
+    return
+  }
+  const pic = box.dataset.pic
+  const edit = box.dataset.edit === '1'
+  const faces = await fetch('/dynamic/faces/' + pic).then(r => r.json())
+  box.innerHTML = ''
+  faces.forEach(function (f) {
+    const el = document.createElement('div')
+    el.className = 'chip'
+    const img = document.createElement('img')
+    img.src = '/photo/face/' + f.id
+    img.alt = f.name || 'face'
+    img.addEventListener('click', async function () {
+      await fetch('/dynamic/face/' + f.id + '/similar')
+      window.location.href = '/'
+    })
+    el.appendChild(img)
+    if (edit) {
+      const inp = document.createElement('input')
+      inp.value = f.name
+      inp.placeholder = 'name'
+      inp.addEventListener('keydown', async function (e) {
+        if (e.key === 'Enter') {
+          await fetch('/dynamic/face/' + f.id + '/name', { method: 'POST', body: inp.value })
+          loadFaces()
+        }
+      })
+      el.appendChild(inp)
+    } else if (f.name) {
+      const lab = document.createElement('span')
+      lab.textContent = f.name
+      el.appendChild(lab)
+    }
+    box.appendChild(el)
+  })
+}
+
 getStats()
+loadFaces()
