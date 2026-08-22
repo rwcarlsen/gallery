@@ -1,54 +1,23 @@
-{{template "header"}}
+{{template "header" .}}
 
-<div class="navbar navbar-fixed-top">
-  <div class="navbar-inner">
-    <div class="container">
-
-      <a class="brand active" href="#">Gallery</a>
-      <ul class="nav">
-        <li class="dropdown" id="time-menu">
-          <a class="dropdown-toggle" data-toggle="dropdown" href="#time-menu">
-            When
-            <b class="caret"></b>
-          </a>
-          <ul class="dropdown-menu" id="time-nav"></ul>
-        </li>
-
-        <li class="divider-vertical"></li>
-      </ul>
-
-      <ul class="nav pull-right">
-        <li>
-          <a href="/dynamic/slideshow">Slideshow</a>
-        </li>
-        <li class="dropdown" id="stats-menu">
-          <a class="dropdown-toggle" data-toggle="dropdown" href="#stats-menu">
-            Stats
-            <b class="caret"></b>
-          </a>
-          <ul class="dropdown-menu">
-            <li><a href="#" id="num-pics"></a></li>
-            <li><a href="#" id="num-pages"></a></li>
-          </ul>
-        </li>
-      </ul>
-
-    </div>
+<header class="bar top">
+  <a class="brand" href="/">Gallery</a>
+  <div class="when" id="when">
+    <button type="button" id="when-btn">When</button>
+    <div class="when-menu" id="time-nav"></div>
   </div>
-</div>
+  <div class="spacer"></div>
+  <a href="/dynamic/slideshow">Slideshow</a>
+  <span class="stats" id="stats"></span>
+  {{if .User}}
+  <span class="who">{{.User}}</span>
+  <form method="post" action="/logout"><button type="submit">Logout</button></form>
+  {{end}}
+</header>
 
-<div class="navbar navbar-fixed-bottom">
-  <div class="navbar-inner">
-    <div class="container" id="page-nav"></div>
-  </div>
-</div>
+<main id="pic-gallery"></main>
 
-<div class="container">
-  <br>
-  <div id="pic-gallery"></div>
-  <br>
-  </div>
-</div>
+<footer class="bar bottom" id="page-nav"></footer>
 
 <script src="/static/my.js"></script>
 

@@ -1,114 +1,106 @@
 package main
 
 import (
+	"embed"
 	"fmt"
+	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
-	"path"
 	"strconv"
-	"text/template"
-	"time"
 
-	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"github.com/rwcarlsen/gallery/piclib"
 )
 
+//go:embed data
+var dataFS embed.FS
+
 const picsPerPage = 24
 
-// rots holds mappings from exif orientation tag to degrees clockwise needed
-var rots = map[int]int{
-	1: 0,
-	2: 0,
-	3: 180,
-	4: 180,
-	5: 90,
-	6: 90,
-	7: 270,
-	8: 270,
-}
-
 var (
-	zoomTmpl *template.Template
-	gridTmpl *template.Template
-	utilTmpl *template.Template
+	zoomTmpl  *template.Template
+	gridTmpl  *template.Template
+	utilTmpl  *template.Template
+	loginTmpl *template.Template
+	slidepage []byte
 )
 
 var (
-	allPhotos = []*Photo{}
-	picMap    = map[int]*Photo{}
-	contexts  = make(map[string]*context)
-	store     = sessions.NewCookieStore([]byte("my-secret"))
-	slidepage []byte // slideshow.html
+	basePhotos []*piclib.Pic
+	noedit     bool
+	addr       string
+	all        bool
 )
 
 type Photo struct {
 	*piclib.Pic
-	Index int
+	Index   int
+	Notes   string
+	CanEdit bool
+	User    string
 }
 
 func (p Photo) Date() string {
 	return p.Taken.Format("Jan 2, 2006")
 }
 
-func (p Photo) Style() string {
-	t := fmt.Sprintf("transform:rotate(%vdeg)", rots[p.Orient])
-	//Cross-browser
-	return fmt.Sprintf("-moz-%s; -webkit-%s; -ms-%s; -o-%s; %s;", t, t, t, t, t)
+func parseTemplates() {
+	read := func(name string) string {
+		b, err := dataFS.ReadFile(name)
+		check(err)
+		return string(b)
+	}
+	util := read("data/util.html")
+	utilTmpl = template.Must(template.New("util").Parse(util))
+
+	gridTmpl = template.Must(template.New("index").Parse(read("data/index.html")))
+	template.Must(gridTmpl.Parse(util))
+
+	zoomTmpl = template.Must(template.New("zoompic").Parse(read("data/zoompic.html")))
+	template.Must(zoomTmpl.Parse(util))
+
+	loginTmpl = template.Must(template.New("login").Parse(read("data/login.html")))
+	template.Must(loginTmpl.Parse(util))
 }
-
-func init() {
-	zt, err := Asset("data/zoompic.html")
-	check(err)
-	ut, err := Asset("data/util.html")
-	check(err)
-	it, err := Asset("data/index.html")
-	check(err)
-
-	zoomTmpl = template.Must(template.New("zoompic").Parse(string(append(zt, ut...))))
-	gridTmpl = template.Must(template.New("index").Parse(string(append(it, ut...))))
-	utilTmpl = template.Must(template.New("util").Parse(string(ut)))
-}
-
-var (
-	noedit bool
-	addr   string
-	all    bool
-)
 
 func runserve(l net.Listener, args []string) {
+	parseTemplates()
 	var err error
-	slidepage, err = Asset("data/slideshow.html")
+	slidepage, err = dataFS.ReadFile("data/slideshow.html")
 	check(err)
 
+	initSessions()
 	loadPics(args)
 
-	r := mux.NewRouter()
-	r.HandleFunc("/", HomeHandler)
-	r.HandleFunc("/static/{path:.*}", StaticHandler)
-	r.HandleFunc("/photo/{type}/{id}", PhotoHandler)
-	r.HandleFunc("/dynamic/pg{pg:[0-9]*}", PageHandler)
-	r.HandleFunc("/dynamic/zoom/{index:[0-9]+}", ZoomHandler)
-	r.HandleFunc("/dynamic/page-nav", PageNavHandler)
-	r.HandleFunc("/dynamic/time-nav", TimeNavHandler)
-	r.HandleFunc("/dynamic/set-page/{page:[0-9]+}", SetPageHandler)
-	r.HandleFunc("/dynamic/stat/{stat}", StatHandler)
-	r.HandleFunc("/dynamic/save-notes/{picIndex:[0-9]+}", NotesHandler)
-	r.HandleFunc("/dynamic/slideshow", SlideshowHandler)
-	r.HandleFunc("/dynamic/next-slide", NextSlideHandler)
-	r.HandleFunc("/dynamic/slide-style", SlideStyleHandler)
-	r.HandleFunc("/dynamic/clickpic/{id}", clickpicHandler)
+	static, err := fs.Sub(dataFS, "data/static")
+	check(err)
 
-	http.Handle("/", r)
+	mux := http.NewServeMux()
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
+	mux.HandleFunc("GET /login", loginGet)
+	mux.HandleFunc("POST /login", loginPost)
+	mux.HandleFunc("POST /logout", logoutPost)
+	mux.HandleFunc("GET /{$}", auth(HomeHandler))
+	mux.HandleFunc("GET /photo/{kind}/{id}", auth(PhotoHandler))
+	mux.HandleFunc("GET /dynamic/pg", auth(CurrPageHandler))
+	mux.HandleFunc("GET /dynamic/pg/{pg}", auth(PageHandler))
+	mux.HandleFunc("GET /dynamic/zoom/{index}", auth(ZoomHandler))
+	mux.HandleFunc("GET /dynamic/page-nav", auth(PageNavHandler))
+	mux.HandleFunc("GET /dynamic/time-nav", auth(TimeNavHandler))
+	mux.HandleFunc("GET /dynamic/set-page/{page}", auth(SetPageHandler))
+	mux.HandleFunc("GET /dynamic/stat/{stat}", auth(StatHandler))
+	mux.HandleFunc("POST /dynamic/save-notes/{picIndex}", auth(NotesHandler))
+	mux.HandleFunc("GET /dynamic/slideshow", auth(SlideshowHandler))
+	mux.HandleFunc("GET /dynamic/next-slide", auth(NextSlideHandler))
+	mux.HandleFunc("GET /dynamic/slide-style", auth(SlideStyleHandler))
+	mux.HandleFunc("GET /dynamic/clickpic/{id}", auth(clickpicHandler))
 
-	server := &http.Server{Addr: addr}
+	server := &http.Server{Addr: addr, Handler: mux}
 	err = server.Serve(l)
 	check(err)
 }
-
-var skipext = []string{"", ".avi", ".m4v", ".go"}
 
 func loadPics(args []string) {
 	var pics []*piclib.Pic
@@ -119,190 +111,149 @@ func loadPics(args []string) {
 	} else {
 		pics = idsOrStdin(args)
 	}
-
 	for _, p := range pics {
-		if p.Ext() == ".avi" || p.Ext() == ".m4v" {
+		switch p.Ext() {
+		case ".avi", ".m4v":
 			continue
 		}
-		photo := &Photo{Pic: p}
-		allPhotos = append(allPhotos, photo)
-		picMap[p.Id] = photo
+		basePhotos = append(basePhotos, p)
 	}
 }
 
-///////////////////////////////////////////////////////////
-///// static content handlers /////////////////////////////
-///////////////////////////////////////////////////////////
-
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
-	if err := gridTmpl.Execute(w, nil); err != nil {
+	c := mustGallery(w, r)
+	if err := gridTmpl.Execute(w, map[string]string{"User": c.userName()}); err != nil {
 		log.Print(err)
 	}
 }
 
 func clickpicHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	fmt.Println(vars["id"])
-}
-
-func StaticHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	data, err := Asset(path.Join("data/static", vars["path"]))
+	c := mustGallery(w, r)
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		log.Print(err)
 		return
 	}
-	switch ext := path.Ext(vars["path"]); ext {
-	case ".js":
-		w.Header().Set("Content-Type", "text/javascript")
-	case ".css":
-		w.Header().Set("Content-Type", "text/css")
+	if _, ok := c.picMap[id]; !ok {
+		return
 	}
-	w.Write(data)
+	fmt.Println(id)
 }
 
 func PhotoHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-
-	id, err := strconv.Atoi(vars["id"])
+	c := mustGallery(w, r)
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		log.Print(err)
+		http.NotFound(w, r)
 		return
 	}
-
-	switch vars["type"] {
+	if _, ok := c.picMap[id]; !ok {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.PathValue("kind") {
 	case "orig":
 		err = writeImg(w, id, false)
 	case "thumb":
 		err = writeImg(w, id, true)
 	default:
-		log.Printf("invalid pic type %v", vars["type"])
+		http.NotFound(w, r)
 		return
 	}
-
 	if err != nil {
 		log.Print(err)
 	}
 }
 
 func writeImg(w io.Writer, id int, thumb bool) error {
-	p, ok := picMap[id]
-	if !ok {
-		return fmt.Errorf("%v is not a valid pic id", id)
+	p, err := lib.Open(id)
+	if err != nil {
+		return err
 	}
-
 	if thumb {
 		data, err := p.Thumb()
 		if err != nil {
 			return err
 		}
-		w.Write(data)
-		return nil
+		_, err = w.Write(data)
+		return err
 	}
-
-	r, err := p.Open()
+	rc, err := p.Open()
 	if err != nil {
 		return err
 	}
-	defer r.Close()
-
-	_, err = io.Copy(w, r)
+	defer rc.Close()
+	_, err = io.Copy(w, rc)
 	return err
 }
 
-///////////////////////////////////////////////////////////
-///// dynamic content (context-specific) handlers /////////
-///////////////////////////////////////////////////////////
+func CurrPageHandler(w http.ResponseWriter, r *http.Request) {
+	c := mustGallery(w, r)
+	fmt.Fprint(w, c.CurrPage)
+}
 
 func PageHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars := getContext(w, r)
-	if pg := vars["pg"]; len(pg) == 0 {
-		fmt.Fprint(w, c.CurrPage)
-	} else {
-		if err := c.servePage(w, pg); err != nil {
-			log.Print(err)
-		}
+	c := mustGallery(w, r)
+	if err := c.servePage(w, r.PathValue("pg")); err != nil {
+		log.Print(err)
 	}
 }
 
 func NotesHandler(w http.ResponseWriter, r *http.Request) {
-	if noedit {
+	c := mustGallery(w, r)
+	if !c.canEdit() {
+		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	c, vars := getContext(w, r)
-	if err := c.saveNotes(r, vars["picIndex"]); err != nil {
+	if err := c.saveNotes(r, r.PathValue("picIndex")); err != nil {
 		log.Print(err)
 	}
 }
 
 func NextSlideHandler(w http.ResponseWriter, r *http.Request) {
-	c, _ := getContext(w, r)
+	c := mustGallery(w, r)
 	if err := c.serveSlide(w); err != nil {
 		log.Print(err)
 	}
 }
 
 func SlideStyleHandler(w http.ResponseWriter, r *http.Request) {
-	c, _ := getContext(w, r)
-	c.initRand()
-	p := c.photos[c.random[c.randIndex]]
-	w.Write([]byte(p.Style()))
+	c := mustGallery(w, r)
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(c.slideStyle()))
 }
 
 func SlideshowHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(slidepage)
 }
 
 func ZoomHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars := getContext(w, r)
-	if err := c.serveZoom(w, vars["index"]); err != nil {
-		log.Print(err)
+	c := mustGallery(w, r)
+	if err := c.serveZoom(w, r.PathValue("index")); err != nil {
+		http.NotFound(w, r)
 	}
 }
 
 func PageNavHandler(w http.ResponseWriter, r *http.Request) {
-	c, _ := getContext(w, r)
+	c := mustGallery(w, r)
 	if err := c.servePageNav(w); err != nil {
 		log.Print(err)
 	}
 }
 
 func StatHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars := getContext(w, r)
-	c.serveStat(w, vars["stat"])
+	c := mustGallery(w, r)
+	c.serveStat(w, r.PathValue("stat"))
 }
 
 func SetPageHandler(w http.ResponseWriter, r *http.Request) {
-	c, vars := getContext(w, r)
-	c.CurrPage = vars["page"]
+	c := mustGallery(w, r)
+	c.CurrPage = r.PathValue("page")
 }
 
 func TimeNavHandler(w http.ResponseWriter, r *http.Request) {
-	c, _ := getContext(w, r)
+	c := mustGallery(w, r)
 	if err := c.serveTimeNav(w); err != nil {
 		log.Print(err)
 	}
-}
-
-func getContext(w http.ResponseWriter, r *http.Request) (*context, map[string]string) {
-	s, err := store.Get(r, "dyn-content")
-	if err != nil {
-		panic(err.Error())
-	}
-
-	v, ok := s.Values["context-id"]
-	if !ok {
-		v = time.Now().String()
-		s.Values["context-id"] = v
-		contexts[v.(string)] = newContext(allPhotos)
-	} else if _, ok := contexts[v.(string)]; !ok {
-		v = time.Now().String()
-		s.Values["context-id"] = v
-		contexts[v.(string)] = newContext(allPhotos)
-	}
-	s.Save(r, w)
-	c := contexts[v.(string)]
-
-	vars := mux.Vars(r)
-	return c, vars
 }

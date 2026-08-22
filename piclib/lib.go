@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	Version    = "0.1"
+	Version    = "0.2"
 	Libname    = "piclib.sqlite"
 	NotesField = "Notes"
 )
@@ -40,11 +40,19 @@ func Open(path string) (*Lib, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = db.Exec("PRAGMA journal_mode=WAL;")
+	if err != nil {
+		return nil, err
+	}
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY,sum BLOB,name TEXT,added INTEGER,taken INTEGER,orient INTEGER,thumb BLOB);")
 	if err != nil {
 		return nil, err
 	}
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS meta (id INTEGER,time INTEGER,field TEXT,value TEXT);")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS users (name TEXT PRIMARY KEY,pass_hash TEXT NOT NULL,can_write INTEGER NOT NULL DEFAULT 0,notes_re TEXT NOT NULL DEFAULT '',hide_empty INTEGER NOT NULL DEFAULT 0);")
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +69,13 @@ func Open(path string) (*Lib, error) {
 		return nil, err
 	}
 	return &Lib{Path: path, db: db}, nil
+}
+
+func (l *Lib) Close() error {
+	if l.db == nil {
+		return nil
+	}
+	return l.db.Close()
 }
 
 func (l *Lib) Open(id int) (*Pic, error) {
@@ -182,7 +197,7 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 	}
 
 	// copy file into library
-	_, err = f.Seek(0, os.SEEK_SET)
+	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +222,7 @@ func (l *Lib) AddFile(pic string) (p *Pic, err error) {
 	taken := time.Time{}
 	orient := 0
 
-	_, err = f.Seek(0, os.SEEK_SET)
+	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}

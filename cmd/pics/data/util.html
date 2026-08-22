@@ -1,72 +1,55 @@
 {{define "header"}}
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>RWC Photos</title>
-    <link href="/static/bootstrap/css/bootstrap.css" rel="stylesheet" media="screen">
-    <link href="/static/my.css" rel="stylesheet" media="screen">
-    <link rel="shortcut icon" href="/static/favicon.ico" />
-    <script src="http://code.jquery.com/jquery-latest.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gallery</title>
+    <link href="/static/my.css" rel="stylesheet">
+    <link rel="shortcut icon" href="/static/favicon.ico">
   </head>
   <body>
 {{end}}
 
 {{define "footer"}}
-    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
   </body>
 </html>
 {{end}}
 
 {{define "picgrid"}}
-<ul class="thumb-grid group">
-{{range $index, $photo := .}}
+<ul class="thumb-grid">
+{{range .}}
 <li>
-  <div>
-    <a href="/dynamic/zoom/{{$photo.Index}}">
-      {{if eq $photo.Ext ".mov" ".avi"}}
-      Video
-      {{else}}
-      <img class="img-rounded" src="/photo/thumb/{{$photo.Id}}" oncontextmenu="saveName({{$photo.Id}}); return false;">
-      {{end}}
-    </a>
-    <div class="caption">
-      <p class="pagination-centered">{{$photo.Date}}</p>
-    </div>
-  </div>
+  <a href="/dynamic/zoom/{{.Index}}">
+    {{if eq .Ext ".mov" ".avi"}}
+    <span class="video">Video</span>
+    {{else}}
+    <img src="/photo/thumb/{{.Id}}" alt="{{.Date}}" data-id="{{.Id}}" oncontextmenu="saveName(this.dataset.id); return false;">
+    {{end}}
+  </a>
+  <div class="caption">{{.Date}}</div>
 </li>
 {{end}}
 </ul>
 {{end}}
 
 {{define "pagenav"}}
-<div class="pagination pagination-centered">
-<ul>
-  <li><a href="#" disabled>newer</a></li>
-  <li><a href="#" onclick="pageFirst()">&#060;&#060;</a></li>
-  <li><a href="#" onclick="pagePrev()">&#060;</a></li>
-  {{range $i, $pgNum := .}}
-  <li id="pg{{$pgNum}}" class="pglink">
-    <a class="pga" href="#" onclick="pageTo({{$pgNum}})"><p class="pgp">{{$pgNum}}</p></a>
-  </li>
-  {{end}}
-  <li><a href="#" onclick="pageNext()">&#062;</a></li>
-  <li><a href="#" onclick="pageLast()">&#062;&#062;</a></li>
-  <li><a href="#" disabled>older</a></li>
-</ul>
-</div>
+<nav class="pager">
+  <a href="#" onclick="pageFirst(); return false" title="first">«</a>
+  <a href="#" onclick="pagePrev(); return false" title="newer">‹</a>
+  <span class="page-label">{{.Label}}</span>
+  <a href="#" onclick="pageNext(); return false" title="older">›</a>
+  <a href="#" onclick="pageLast(); return false" title="last">»</a>
+</nav>
 {{end}}
 
 {{define "timenav"}}
-{{range $i, $year := .}}
-<li>
-  <div class="pagination pagination-centered">
-    <ul class="dropdown-wide">
-      <li class="dropdown-page"><a class="dropdown-link" href="#" onclick="pageTo({{$year.StartPage}})">{{$year.Year}}</a></li>
-      {{range $j, $month := $year.Months}}
-      <li class="dropdown-page"><a class="dropdown-link float-left" href="#" onclick="pageTo({{$month.Page}})">{{$month.Name}}</a></li>
-      {{end}}
-    </ul>
-  </div>
-</li>
+{{range .}}
+<div class="year-row">
+  <a class="year" href="#" onclick="pageTo({{.StartPage}}); return false">{{.Year}}</a>
+  {{range .Months}}
+  <a class="month" href="#" onclick="pageTo({{.Page}}); return false">{{.Name}}</a>
+  {{end}}
+</div>
 {{end}}
 {{end}}

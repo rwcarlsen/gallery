@@ -1,12 +1,9 @@
-//go:generate go-bindata ./data/...
-
 package main
 
 import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -18,7 +15,6 @@ import (
 
 	"github.com/kierdavis/dateparser"
 	"github.com/rwcarlsen/gallery/piclib"
-	"github.com/toqueteos/webbrowser"
 )
 
 var libpath = flag.String("lib", piclib.DefaultPath(), "path to picture library")
@@ -35,6 +31,7 @@ var cmds = map[string]CmdFunc{
 	"serve":    serve,
 	"view":     view,
 	"note":     note,
+	"user":     user,
 }
 
 func newFlagSet(cmd, args, desc string) *flag.FlagSet {
@@ -54,7 +51,12 @@ func main() {
 		log.Printf("Usage: pics [opts] <subcommand> [opts] [args]\n")
 		flag.PrintDefaults()
 		log.Printf("Subcommands:\n")
-		for cmd, _ := range cmds {
+		names := make([]string, 0, len(cmds))
+		for cmd := range cmds {
+			names = append(names, cmd)
+		}
+		sort.Strings(names)
+		for _, cmd := range names {
 			log.Printf("  %v", cmd)
 		}
 	}
@@ -69,6 +71,7 @@ func main() {
 	var err error
 	lib, err = piclib.Open(*libpath)
 	check(err)
+	defer lib.Close()
 
 	cmd, ok := cmds[flag.Arg(0)]
 	if !ok {
@@ -85,7 +88,7 @@ func add(cmd string, args []string) {
 
 	files := fs.Args()
 	if len(files) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
+		data, err := io.ReadAll(os.Stdin)
 		check(err)
 		files = strings.Fields(string(data))
 	}
@@ -300,6 +303,8 @@ func list(cmd string, args []string) {
 	fs := newFlagSet(cmd, "", desc)
 	after := fs.String("from", "", "only show photos after date")
 	before := fs.String("to", "", "only show photos before date")
+	noteRE := fs.String("note", "", "regex filter on notes")
+	nameRE := fs.String("name", "", "regex filter on original filename")
 	fs.Parse(args)
 
 	var err error
@@ -323,6 +328,10 @@ func list(cmd string, args []string) {
 	}
 
 	pics, err := lib.ListTime(at, bt)
+	if err != nil {
+		log.Fatal(err)
+	}
+	pics, err = lib.FilterPics(pics, *noteRE, *nameRE)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -378,7 +387,7 @@ func serve(cmd string, args []string) {
 
 	log.Printf("serving on address %v", addr)
 	if *view {
-		err = webbrowser.Open(addr)
+		err = openBrowser(addr)
 		check(err)
 	}
 
@@ -399,7 +408,7 @@ func view(cmd string, args []string) {
 	go runserve(l, fs.Args())
 	log.Printf("serving on address %v", addr)
 
-	err = webbrowser.Open(addr)
+	err = openBrowser(addr)
 	check(err)
 
 	select {}

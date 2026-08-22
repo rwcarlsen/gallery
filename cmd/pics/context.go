@@ -2,52 +2,113 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/rwcarlsen/gallery/piclib"
 )
 
-type context struct {
+var rots = map[int]int{
+	1: 0,
+	2: 0,
+	3: 180,
+	4: 180,
+	5: 90,
+	6: 90,
+	7: 270,
+	8: 270,
+}
+
+type gallery struct {
+	user      *piclib.User
 	photos    []*Photo
+	picMap    map[int]*Photo
 	CurrPage  string
 	random    []int
 	randIndex int
 }
 
-func newContext(pics []*Photo) *context {
-	c := &context{
-		photos:   pics,
+func newGallery(u *piclib.User) *gallery {
+	pics := basePhotos
+	var err error
+	if u != nil {
+		pics, err = lib.VisiblePics(basePhotos, u)
+		check(err)
+	}
+	notes, err := lib.NotesMap()
+	check(err)
+	edit := !noedit && (u == nil || u.CanWrite)
+	name := ""
+	if u != nil {
+		name = u.Name
+	}
+	c := &gallery{
+		user:     u,
+		photos:   make([]*Photo, 0, len(pics)),
+		picMap:   map[int]*Photo{},
 		CurrPage: "1",
+	}
+	for _, p := range pics {
+		ph := &Photo{Pic: p, Notes: notes[p.Id], CanEdit: edit, User: name}
+		c.photos = append(c.photos, ph)
+		c.picMap[p.Id] = ph
 	}
 	return c
 }
 
-func (c *context) saveNotes(r *http.Request, picIndex string) error {
+func (c *gallery) userName() string {
+	if c.user == nil {
+		return ""
+	}
+	return c.user.Name
+}
+
+func (c *gallery) canEdit() bool {
+	if noedit {
+		return false
+	}
+	return c.user == nil || c.user.CanWrite
+}
+
+func (c *gallery) numPages() int {
+	if len(c.photos) == 0 {
+		return 1
+	}
+	return (len(c.photos) + picsPerPage - 1) / picsPerPage
+}
+
+func (c *gallery) saveNotes(r *http.Request, picIndex string) error {
 	i, err := strconv.Atoi(picIndex)
-	if err != nil {
+	if err != nil || i < 0 || i >= len(c.photos) {
 		return fmt.Errorf("invalid save notes request: %v", r.URL)
 	}
-
-	data, err := ioutil.ReadAll(r.Body)
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
 	r.Body.Close()
-
 	p := c.photos[i]
-	return p.SetNotes(string(data))
+	if err := p.SetNotes(string(data)); err != nil {
+		return err
+	}
+	p.Notes = string(data)
+	return nil
 }
 
-func (c *context) initRand() {
-	if c.random == nil || len(c.random) > len(c.photos) {
+func (c *gallery) initRand() {
+	if c.random == nil || len(c.random) != len(c.photos) {
 		c.random = rand.Perm(len(c.photos))
 		c.randIndex = 0
 	}
 }
 
-func (c *context) serveSlide(w http.ResponseWriter) error {
+func (c *gallery) serveSlide(w http.ResponseWriter) error {
+	if len(c.photos) == 0 {
+		return fmt.Errorf("no photos")
+	}
 	c.initRand()
 	p := c.photos[c.random[c.randIndex]]
 	if c.randIndex++; c.randIndex == len(c.photos) {
@@ -56,50 +117,81 @@ func (c *context) serveSlide(w http.ResponseWriter) error {
 	return writeImg(w, p.Id, false)
 }
 
-func (c *context) servePage(w http.ResponseWriter, pg string) error {
+func (c *gallery) slideStyle() string {
+	if len(c.photos) == 0 {
+		return ""
+	}
+	c.initRand()
+	p := c.photos[c.random[c.randIndex]]
+	deg := rots[p.Orient]
+	return fmt.Sprintf("transform:rotate(%ddeg)", deg)
+}
+
+func (c *gallery) servePage(w http.ResponseWriter, pg string) error {
 	pgNum, err := strconv.Atoi(pg)
 	if err != nil {
 		return fmt.Errorf("invalid gallery page view request: %v", pg)
 	}
-
+	if pgNum < 1 {
+		pgNum = 1
+	}
 	start := picsPerPage * (pgNum - 1)
-	end := min(start+picsPerPage, len(c.photos))
+	if start > len(c.photos) {
+		start = len(c.photos)
+	}
+	end := start + picsPerPage
+	if end > len(c.photos) {
+		end = len(c.photos)
+	}
 	list := make([]Photo, end-start)
 	for i, p := range c.photos[start:end] {
 		pp := *p
 		pp.Index = i + start
 		list[i] = pp
 	}
-
 	if err = utilTmpl.ExecuteTemplate(w, "picgrid", list); err != nil {
 		return err
 	}
-	c.CurrPage = pg
+	c.CurrPage = strconv.Itoa(pgNum)
 	return nil
 }
 
-func (c *context) serveZoom(w http.ResponseWriter, index string) error {
-	i, _ := strconv.Atoi(index)
+func (c *gallery) serveZoom(w http.ResponseWriter, index string) error {
+	i, err := strconv.Atoi(index)
+	if err != nil || i < 0 || i >= len(c.photos) {
+		return fmt.Errorf("invalid zoom index %v", index)
+	}
 	p := *c.photos[i]
 	p.Index = i
+	p.CanEdit = c.canEdit()
+	p.User = c.userName()
 	return zoomTmpl.Execute(w, p)
 }
 
-func (c *context) servePageNav(w http.ResponseWriter) error {
-	n := len(c.photos)/picsPerPage + 1
-	pages := make([]int, n)
-	for i := range pages {
-		pages[i] = i + 1
+func (c *gallery) pageLabel(pg int) string {
+	if pg < 1 {
+		pg = 1
 	}
-
-	return utilTmpl.ExecuteTemplate(w, "pagenav", pages)
+	start := picsPerPage * (pg - 1)
+	if start >= len(c.photos) {
+		return "—"
+	}
+	t := c.photos[start].Taken
+	if t.IsZero() || t.Unix() == 0 {
+		return "Unknown date"
+	}
+	return t.Format("2006 · Jan")
 }
 
-func (c *context) serveStat(w http.ResponseWriter, stat string) {
+func (c *gallery) servePageNav(w http.ResponseWriter) error {
+	pg, _ := strconv.Atoi(c.CurrPage)
+	return utilTmpl.ExecuteTemplate(w, "pagenav", struct{ Label string }{c.pageLabel(pg)})
+}
+
+func (c *gallery) serveStat(w http.ResponseWriter, stat string) {
 	switch stat {
 	case "num-pages":
-		n := len(c.photos)/picsPerPage + 1
-		fmt.Fprint(w, n)
+		fmt.Fprint(w, c.numPages())
 	case "pics-per-page":
 		fmt.Fprint(w, picsPerPage)
 	case "num-pics":
@@ -109,87 +201,39 @@ func (c *context) serveStat(w http.ResponseWriter, stat string) {
 	}
 }
 
-func (c *context) findMinYear() int {
-	for i := len(c.photos) - 1; i > 0; i-- {
-		if !c.photos[i].Taken.IsZero() {
-			return c.photos[i].Taken.Year()
+func (c *gallery) serveTimeNav(w http.ResponseWriter) error {
+	type month struct {
+		Name string
+		Page int
+	}
+	type year struct {
+		Year      int
+		StartPage int
+		Months    []*month
+	}
+	var years []*year
+	var cur *year
+	var curMonth time.Month
+	for i, p := range c.photos {
+		if p.Taken.IsZero() || p.Taken.Unix() == 0 {
+			continue
+		}
+		y, m := p.Taken.Year(), p.Taken.Month()
+		pg := i/picsPerPage + 1
+		if cur == nil || cur.Year != y {
+			cur = &year{Year: y, StartPage: pg}
+			years = append(years, cur)
+			curMonth = 0
+		}
+		if curMonth != m {
+			cur.Months = append(cur.Months, &month{Name: m.String()[:3], Page: pg})
+			curMonth = m
 		}
 	}
-	return 2000
-}
-
-func (c *context) serveTimeNav(w http.ResponseWriter) error {
-	if len(c.photos) == 0 {
-		return nil
-	}
-	years := make([]*year, 0)
-	maxYear := c.photos[0].Taken.Year()
-	minYear := c.findMinYear()
-	lastMinMonth := c.photos[len(c.photos)-1].Taken.Month()
-	if maxYear-minYear > 20 {
-		minYear = maxYear - 20
-		lastMinMonth = 12
-	}
-
-	var last, pg int
-	for y := maxYear; y > minYear; y-- {
-		yr := &year{Year: y}
-		for m := time.December; m >= time.January; m-- {
-			pg, last = c.pageOf(last, time.Date(y, m, 1, 0, 0, 0, 0, time.Local))
-			yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
+	for _, y := range years {
+		for i, j := 0, len(y.Months)-1; i < j; i, j = i+1, j-1 {
+			y.Months[i], y.Months[j] = y.Months[j], y.Months[i]
 		}
-		yr.reverseMonths()
-		yr.StartPage = yr.Months[0].Page
-		years = append(years, yr)
 	}
-
-	yr := &year{Year: minYear}
-	for m := time.December; m >= lastMinMonth; m-- {
-		pg, last = c.pageOf(last, time.Date(minYear, m, 1, 0, 0, 0, 0, time.Local))
-		yr.Months = append(yr.Months, &month{Page: pg, Name: m.String()[:3]})
-	}
-	yr.reverseMonths()
-	yr.StartPage = yr.Months[0].Page
-	years = append(years, yr)
-
 	return utilTmpl.ExecuteTemplate(w, "timenav", years)
-}
-
-func (c *context) pageOf(start int, t time.Time) (page, last int) {
-	if len(c.photos) == 0 {
-		return
-	}
-	for i, p := range c.photos[start:] {
-		pg := (i+start)/picsPerPage + 1
-
-		if p.Taken.Before(t) {
-			return pg, i + start
-		}
-	}
-	return len(c.photos)/picsPerPage + 1, len(c.photos)
-}
-
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-type month struct {
-	Name string
-	Page int
-}
-
-type year struct {
-	Year      int
-	StartPage int
-	Months    []*month
-}
-
-func (y *year) reverseMonths() {
-	end := len(y.Months) - 1
-	for i := 0; i < len(y.Months)/2; i++ {
-		y.Months[i], y.Months[end-i] = y.Months[end-i], y.Months[i]
-	}
 }

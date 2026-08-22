@@ -1,122 +1,90 @@
-
-function pageTo(page) {
-  if (page == currPage) {
+async function pageTo(page) {
+  if (page === currPage) {
+    closeWhen()
     return
   }
-  if (page < startPage) {
-    delta = startPage - page
-    startPage -= delta
-    endPage -= delta
-  } else if (page > endPage) {
-    delta = page - endPage
-    startPage += delta
-    endPage += delta
+  if (page < 1) {
+    page = 1
   }
-  slidePageNav()
-
+  if (numPages && page > numPages) {
+    page = numPages
+  }
   currPage = page
-
-  setAttr = function() {
-    $(".pglink").removeClass("active")
-    $("#pg" + currPage.toString()).addClass("active")
-  }
-
-  $("#pic-gallery").load("/dynamic/pg" + currPage.toString(), setAttr)
+  const gal = document.getElementById('pic-gallery')
+  gal.innerHTML = await get('/dynamic/pg/' + page)
+  document.getElementById('page-nav').innerHTML = await get('/dynamic/page-nav')
+  closeWhen()
 }
 
 function saveName(picid) {
-  $.get("/dynamic/clickpic/" + picid.toString())
+  fetch('/dynamic/clickpic/' + picid)
 }
 
-function pageFirst() {
-    pageTo(1);
+function pageFirst() { pageTo(1) }
+function pageLast() { pageTo(numPages) }
+function pagePrev() { if (currPage > 1) pageTo(currPage - 1) }
+function pageNext() { if (currPage < numPages) pageTo(currPage + 1) }
+
+async function get(url) {
+  const r = await fetch(url)
+  return r.text()
 }
 
-function pageLast() {
-    pageTo(numPages);
+async function loadTimeNav() {
+  document.getElementById('time-nav').innerHTML = await get('/dynamic/time-nav')
 }
 
-function pagePrev() {
-  if (currPage > 1) {
-    pageTo(currPage - 1)
+async function getStats() {
+  numPages = parseInt(await get('/dynamic/stat/num-pages'), 10) || 1
+  numPhotos = parseInt(await get('/dynamic/stat/num-pics'), 10) || 0
+  const el = document.getElementById('stats')
+  if (el) {
+    el.textContent = numPhotos + ' photos'
   }
 }
 
-function pageNext() {
-  if (currPage < numPages) {
-    pageTo(currPage + 1)
-  }
-}
-
-function refreshGallery() {
-  pageTo(currPage)
-}
-
-function slidePageNav() {
-  $(".pglink").each(function(i, elem){
-    if (i+1 < startPage || i >= endPage) {
-      $(this).hide()
-    } else {
-      $(this).show()
-    }
-  })
-  getStats()
-}
-
-function loadPageNav() {
-  $("#page-nav").load("/dynamic/page-nav", slidePageNav)
-}
-
-function loadTimeNav() {
-  $("#time-nav").load("/dynamic/time-nav")
-}
-
-function getStats() {
-  $.get("/dynamic/stat/num-pages", function(data){
-    numPages = parseInt(data)
-    $("#num-pages").text(numPages.toString() + " pages")
-  })
-  $.get("/dynamic/stat/num-pics", function(data){
-    numPhotos = parseInt(data)
-    $("#num-pics").text(numPhotos.toString() + " photos")
-  })
-}
-
-function updateNav() {
+async function updateNav() {
   currPage = 0
-  loadPageNav()
-  loadTimeNav()
-  $.get("/dynamic/pg", function(pg) {
-    pageTo(parseInt(pg))
+  await loadTimeNav()
+  await getStats()
+  const pg = parseInt(await get('/dynamic/pg'), 10) || 1
+  await pageTo(pg)
+}
+
+function closeWhen() {
+  const el = document.getElementById('when')
+  if (el) {
+    el.classList.remove('open')
+  }
+}
+
+function setupWhen() {
+  const wrap = document.getElementById('when')
+  const btn = document.getElementById('when-btn')
+  if (!btn) {
+    return
+  }
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation()
+    wrap.classList.toggle('open')
   })
+  document.addEventListener('click', closeWhen)
 }
 
-function keydown(e) {
-  if (!e) {
-    e = window.event;
-  }
-  if (e.which == keys.left) {
-    pagePrev()
-  } else if (e.which == keys.right) {
-    pageNext()
-  }
-}
-
-// configurable
-var maxDisplayPages = 12
-// end configurable
-
-var startPage = 1
-var endPage = maxDisplayPages
+var currPage = 0
 var numPages = 0
 var numPhotos = 0
 
-// key codes
-var keys = new Object()
-keys.left = 37
-keys.right = 39
-keys.enter = 13
+document.addEventListener('keydown', function (e) {
+  if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) {
+    return
+  }
+  if (e.key === 'ArrowLeft') {
+    pagePrev()
+  } else if (e.key === 'ArrowRight') {
+    pageNext()
+  }
+})
 
-$(document).keydown(keydown)
+setupWhen()
 updateNav()
-

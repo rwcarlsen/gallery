@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -22,6 +23,13 @@ func EscapeNotes(s string) string {
 	return string(data[1 : len(data)-1])
 }
 
+func openBrowser(raw string) error {
+	if !strings.Contains(raw, "://") {
+		raw = "http://" + raw
+	}
+	return exec.Command("xdg-open", raw).Start()
+}
+
 func WriteLines(w io.Writer, pics ...*piclib.Pic) error {
 	minwidth := 8
 	tabwidth := 4
@@ -29,12 +37,13 @@ func WriteLines(w io.Writer, pics ...*piclib.Pic) error {
 	tw := tabwriter.NewWriter(w, minwidth, tabwidth, pad, ' ', 0)
 	defer tw.Flush()
 
+	notesMap, err := lib.NotesMap()
+	if err != nil {
+		return err
+	}
+
 	for _, p := range pics {
-		notes, err := p.GetNotes()
-		if err != nil {
-			return err
-		}
-		notes = EscapeNotes(notes)
+		notes := EscapeNotes(notesMap[p.Id])
 
 		// truncate long pic name
 		nm := p.Name

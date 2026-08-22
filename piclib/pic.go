@@ -33,9 +33,9 @@ func (p *Pic) Open() (io.ReadCloser, error) {
 }
 
 func (p *Pic) GetMeta(field string) (string, error) {
-	s := "SELECT value FROM meta WHERE id=? ORDER BY time DESC LIMIT 1;"
+	s := "SELECT value FROM meta WHERE id=? AND field=? ORDER BY time DESC LIMIT 1;"
 	val := ""
-	err := p.lib.db.QueryRow(s, p.id).Scan(&val)
+	err := p.lib.db.QueryRow(s, p.id, field).Scan(&val)
 	if err != nil && err != sql.ErrNoRows {
 		return "", err
 	}
@@ -46,12 +46,12 @@ func (p *Pic) SetMeta(field, val string) error {
 	curr, err := p.GetMeta(field)
 	if err != nil {
 		return err
-	} else if curr == val { // value is already the same
+	} else if curr == val {
 		return nil
 	}
 
 	s := "INSERT INTO meta (id,time,field,value) VALUES (?,?,?,?);"
-	_, err = p.lib.db.Exec(s, p.id, time.Now(), field, val)
+	_, err = p.lib.db.Exec(s, p.id, time.Now().Unix(), field, val)
 	return err
 }
 
