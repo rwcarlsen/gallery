@@ -103,6 +103,7 @@ func runserve(l net.Listener, args []string) {
 	mux.HandleFunc("GET /dynamic/slide-style", auth(SlideStyleHandler))
 	mux.HandleFunc("GET /dynamic/clickpic/{id}", auth(clickpicHandler))
 	mux.HandleFunc("GET /dynamic/search", auth(SearchHandler))
+	mux.HandleFunc("GET /dynamic/meta/{id}", auth(MetaHandler))
 	mux.HandleFunc("GET /dynamic/faces/{picId}", auth(FacesHandler))
 	mux.HandleFunc("GET /dynamic/person/{name}", auth(PersonHandler))
 	mux.HandleFunc("GET /dynamic/face/{faceId}/similar", auth(FaceSimilarHandler))
@@ -197,6 +198,27 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	c.filterIDs(ids)
 	fmt.Fprint(w, "ok")
+}
+
+func MetaHandler(w http.ResponseWriter, r *http.Request) {
+	c := mustGallery(w, r)
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || !c.visiblePic(id) {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := lib.Open(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	tags, err := p.FileMeta()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tags)
 }
 
 func FacesHandler(w http.ResponseWriter, r *http.Request) {

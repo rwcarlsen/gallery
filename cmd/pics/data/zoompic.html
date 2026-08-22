@@ -9,6 +9,7 @@
   </a>
   {{end}}
   <div id="faces" class="faces" data-pic="{{.Id}}" data-edit="{{if .CanEdit}}1{{end}}"></div>
+  <div id="meta" class="meta" hidden></div>
 </main>
 
 <footer class="bar bottom zoom-bar">
@@ -20,6 +21,7 @@
   {{end}}
   <div class="spacer"></div>
   <span class="muted">Taken {{.Date}}</span>
+  <button type="button" id="meta-btn" data-pic="{{.Id}}">Meta</button>
   <a class="btn" href="/photo/orig/{{.Id}}">Original</a>
   <a class="btn" href="/photo/thumb/{{.Id}}">Thumb</a>
   {{if .User}}

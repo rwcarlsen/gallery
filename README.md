@@ -79,6 +79,7 @@ pics list -similar 'red kayak' | pics serve -view
 | `link` | symlink `{Name}-{Id}`; `-tree` → `{dst}/{year}/{Month}/` |
 | `copy` | real copy `{stem}-{Id}{ext}` |
 | `note` | print, append (`-text`), or `-replace` (empty clears) |
+| `meta` | catalog + EXIF tags from the original (`id  key  value`) |
 | `serve` | HTTP on `127.0.0.1:7777`; `-all`, `-view`, `-noedit` |
 | `view` | like serve, ephemeral port, always opens browser |
 | `index` | CLIP + faces; `-clip` / `-faces` / `-force` / `-fetch` |

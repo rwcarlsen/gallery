@@ -32,6 +32,7 @@ var cmds = map[string]CmdFunc{
 	"serve":    serve,
 	"view":     view,
 	"note":     note,
+	"meta":     meta,
 	"user":     user,
 	"index":    index,
 	"person":   person,

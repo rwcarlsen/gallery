@@ -81,5 +81,37 @@ async function loadFaces() {
   })
 }
 
+async function loadMeta() {
+  const el = document.getElementById('meta')
+  const btn = document.getElementById('meta-btn')
+  if (!el || !btn) {
+    return
+  }
+  if (!el.hidden) {
+    el.hidden = true
+    return
+  }
+  const tags = await fetch('/dynamic/meta/' + btn.dataset.pic).then(r => r.json())
+  el.innerHTML = ''
+  const table = document.createElement('table')
+  tags.forEach(function (t) {
+    const tr = document.createElement('tr')
+    const th = document.createElement('th')
+    th.textContent = t.name
+    const td = document.createElement('td')
+    td.textContent = t.value
+    tr.appendChild(th)
+    tr.appendChild(td)
+    table.appendChild(tr)
+  })
+  el.appendChild(table)
+  el.hidden = false
+}
+
+var metaBtn = document.getElementById('meta-btn')
+if (metaBtn) {
+  metaBtn.addEventListener('click', loadMeta)
+}
+
 getStats()
 loadFaces()

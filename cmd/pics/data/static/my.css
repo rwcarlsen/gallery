@@ -169,3 +169,25 @@ button, .btn {
   text-align: center;
 }
 .chip span { font-size: 0.75rem; color: var(--muted); }
+.meta {
+  text-align: left;
+  max-width: 40rem;
+  margin: 1rem auto 0;
+  font-size: 0.85rem;
+  background: var(--bar);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  max-height: 40vh;
+  overflow: auto;
+}
+.meta table { width: 100%; border-collapse: collapse; }
+.meta th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0.15rem 0.6rem 0.15rem 0;
+  white-space: nowrap;
+  vertical-align: top;
+}
+.meta td { padding: 0.15rem 0; word-break: break-word; }
