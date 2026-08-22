@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 
 	"github.com/disintegration/imaging"
-	"github.com/nfnt/resize"
 )
 
 func DefaultPath() string {
@@ -39,7 +38,7 @@ func MakeThumb(r io.Reader, w, h int, orient int) ([]byte, error) {
 		return nil, err
 	}
 
-	m := resize.Resize(uint(w), uint(h), img, resize.Bicubic)
+	m := imaging.Resize(img, w, h, imaging.CatmullRom)
 
 	switch orient {
 	case 3, 4:

@@ -197,15 +197,6 @@ func diskname(name string, sum []byte) string {
 	return fmt.Sprintf("%x%s", sum, filepath.Ext(name))
 }
 
-func (l *Lib) stdpath(name string, r io.Reader) (path string, sum []byte, err error) {
-	sum, err = Sha256(r)
-	if err != nil {
-		return "", nil, err
-	}
-	fname := diskname(name, sum)
-	return filepath.Join(l.Path, fname), sum, nil
-}
-
 func (l *Lib) Exists(sum []byte) (exists bool, err error) {
 	name := ""
 	err = l.db.QueryRow("SELECT name FROM files WHERE sum=?", sum).Scan(&name)
@@ -219,93 +210,76 @@ func (l *Lib) Exists(sum []byte) (exists bool, err error) {
 
 // Add copies the picture into and adds it to the current library
 func (l *Lib) AddFile(pic string) (p *Pic, err error) {
-	// check if file exists
 	f, err := os.Open(pic)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	newname, sum, err := l.stdpath(pic, f)
+
+	sum, err := Sha256(f)
 	if err != nil {
 		return nil, err
 	}
-
-	if exists, err := l.Exists(sum); err == nil && exists {
+	if exists, err := l.Exists(sum); err != nil {
+		return nil, err
+	} else if exists {
 		return nil, DupErr{pic}
-	} else if err != nil {
-		return nil, err
 	}
 
-	// copy file into library
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
-
+	newname := filepath.Join(l.Path, diskname(pic, sum))
 	dst, err := os.Create(newname)
 	if err != nil {
 		return nil, err
 	}
 	defer dst.Close()
-
-	_, err = io.Copy(dst, f)
-	if err != nil {
+	if _, err = io.Copy(dst, f); err != nil {
 		return nil, err
 	}
-	err = dst.Chmod(0444)
-	if err != nil {
+	if err = dst.Chmod(0444); err != nil {
+		return nil, err
+	}
+	if _, err = dst.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
 
-	// get meta data and make thumb
 	added := time.Now()
 	taken := time.Time{}
 	orient := 0
 
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
-	x, err := exif.Decode(f)
+	x, err := exif.Decode(dst)
 	if err == nil {
 		tm, err := x.DateTime()
 		if err == nil {
 			taken = tm
 		}
-
 		tag, err := x.Get(exif.Orientation)
 		if err == nil {
 			v, _ := tag.Int(0)
 			orient = int(v)
 		}
 	}
-
-	f3, err := os.Open(pic)
-	if err != nil {
-		return nil, err
-	}
-	defer f3.Close()
-
-	w, h := l.ThumbW, l.ThumbH
-	if w == 0 && h == 0 {
-		w, h = thumbw, thumbh
-	}
-	thumb, _ := MakeThumb(f3, w, h, orient)
-
-	// store meta data in db and return new Pic
-	sql := "INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?);"
-	_, err = l.db.Exec(sql, sum, filepath.Base(pic), added.Unix(), taken.Unix(), orient, thumb)
-	if err != nil {
+	if _, err = dst.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
 
-	var id int
-	err = l.db.QueryRow("SELECT id FROM files WHERE sum=?;", sum).Scan(&id)
+	tw, th := l.ThumbW, l.ThumbH
+	if tw == 0 && th == 0 {
+		tw, th = thumbw, thumbh
+	}
+	thumb, _ := MakeThumb(dst, tw, th, orient)
+
+	res, err := l.db.Exec("INSERT INTO files (sum, name, added, taken, orient, thumb) VALUES (?,?,?,?,?,?);", sum, filepath.Base(pic), added.Unix(), taken.Unix(), orient, thumb)
 	if err != nil {
 		return nil, err
 	}
-	return l.Open(id)
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	return l.Open(int(id))
 }
 
 type DupErr struct {
