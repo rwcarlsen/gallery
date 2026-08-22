@@ -5,7 +5,7 @@ import (
 )
 
 func (l *Lib) NotesMap() (map[int]string, error) {
-	rows, err := l.db.Query("SELECT id, value FROM meta WHERE field=? ORDER BY time ASC", NotesField)
+	rows, err := l.db.Query("SELECT id, value FROM meta WHERE field=? ORDER BY time ASC, rowid ASC", NotesField)
 	if err != nil {
 		return nil, err
 	}

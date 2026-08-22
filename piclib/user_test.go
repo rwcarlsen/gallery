@@ -107,9 +107,17 @@ func TestUserAuthAndFilter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	n, err := l.UserCount()
+	if err != nil || n != 0 {
+		t.Fatalf("empty lib users=%d err=%v", n, err)
+	}
 	err = l.AddUser(&User{Name: "alice", PassHash: hash, NotesRE: "vac", HideEmpty: true})
 	if err != nil {
 		t.Fatal(err)
+	}
+	n, err = l.UserCount()
+	if err != nil || n != 1 {
+		t.Fatalf("after add users=%d err=%v", n, err)
 	}
 	u, err := l.AuthUser("alice", "pw")
 	if err != nil || u == nil {

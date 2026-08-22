@@ -109,3 +109,86 @@ func TestOrderByIDs(t *testing.T) {
 		t.Fatalf("%v", ids(got))
 	}
 }
+
+func TestReindexWipesNames(t *testing.T) {
+	l := testLib(t)
+	p1 := addPic(t, l, "a.jpg", 1)
+	p2 := addPic(t, l, "b.jpg", 2)
+	f1, err := l.ReplaceFaces(p1.Id, "buffalo-s", []Face{{X: 0.1, Y: 0.1, W: 0.2, H: 0.2, Vec: []float32{1, 0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := l.AssignPerson(f1[0].FaceID, "ada"); err != nil {
+		t.Fatal(err)
+	}
+	_, err = l.ReplaceFaces(p2.Id, "buffalo-s", []Face{{X: 0.2, Y: 0.2, W: 0.2, H: 0.2, Vec: []float32{0.99, 0.01}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := l.AutoAssignPic(p2.Id, 0.9)
+	if err != nil || n != 1 {
+		t.Fatalf("auto n=%d err=%v", n, err)
+	}
+	need, err := l.NeedsFaces(p2.Id, "buffalo-s")
+	if err != nil || need {
+		t.Fatalf("need same=%v err=%v", need, err)
+	}
+	need, err = l.NeedsFaces(p2.Id, "other")
+	if err != nil || !need {
+		t.Fatalf("need other=%v (zero rows, not model mismatch)", need)
+	}
+	_, err = l.ReplaceFaces(p2.Id, "buffalo-s", []Face{{X: 0.2, Y: 0.2, W: 0.2, H: 0.2, Vec: []float32{0.99, 0.01}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	faces, err := l.FacesByPic(p2.Id)
+	if err != nil || len(faces) != 1 || faces[0].Name != "" {
+		t.Fatalf("wiped names: %+v err=%v", faces, err)
+	}
+	n, err = l.AutoAssignPic(p2.Id, 0.9)
+	if err != nil || n != 1 {
+		t.Fatalf("restore n=%d err=%v", n, err)
+	}
+	if err := l.DeletePerson("ada"); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := l.PicsByPerson("ada")
+	if err != nil || len(ids) != 0 {
+		t.Fatalf("after rm %v err=%v", ids, err)
+	}
+	faces, err = l.FacesByPic(p1.Id)
+	if err != nil || len(faces) != 1 || faces[0].Name != "" {
+		t.Fatalf("faces stay unnamed: %+v err=%v", faces, err)
+	}
+}
+
+func TestSimilarFacesIntersect(t *testing.T) {
+	l := testLib(t)
+	p1 := addPic(t, l, "a.jpg", 1)
+	p2 := addPic(t, l, "b.jpg", 2)
+	p3 := addPic(t, l, "c.jpg", 3)
+	a, err := l.ReplaceFaces(p1.Id, "f", []Face{{Vec: []float32{1, 0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = l.ReplaceFaces(p2.Id, "f", []Face{{Vec: []float32{0.95, 0.05}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = l.ReplaceFaces(p3.Id, "f", []Face{{Vec: []float32{0, 1}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := l.AssignPerson(a[0].FaceID, "ada"); err != nil {
+		t.Fatal(err)
+	}
+	hits, err := l.SimilarFaces([]float32{1, 0}, 0.5)
+	if err != nil || len(hits) != 2 || hits[0].PicID != p1.Id || hits[1].PicID != p2.Id {
+		t.Fatalf("%+v err=%v", hits, err)
+	}
+	all := []*Pic{p3, p1, p2}
+	got := IntersectIDs(all, []int{p1.Id})
+	if len(got) != 1 || got[0].Id != p1.Id {
+		t.Fatalf("intersect %v", ids(got))
+	}
+}

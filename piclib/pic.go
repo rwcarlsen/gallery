@@ -33,7 +33,7 @@ func (p *Pic) Open() (io.ReadCloser, error) {
 }
 
 func (p *Pic) GetMeta(field string) (string, error) {
-	s := "SELECT value FROM meta WHERE id=? AND field=? ORDER BY time DESC LIMIT 1;"
+	s := "SELECT value FROM meta WHERE id=? AND field=? ORDER BY time DESC, rowid DESC LIMIT 1;"
 	val := ""
 	err := p.lib.db.QueryRow(s, p.id, field).Scan(&val)
 	if err != nil && err != sql.ErrNoRows {
