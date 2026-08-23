@@ -1,7 +1,9 @@
 package infer
 
 import (
+	"bytes"
 	"fmt"
+	"image"
 
 	"github.com/rwcarlsen/gallery/piclib"
 	"github.com/rwcarlsen/gallery/third_party/ncnn"
@@ -11,12 +13,24 @@ var clipMean = [3]float32{0.48145466, 0.4578275, 0.40821073}
 var clipStd = [3]float32{0.26862954, 0.26130258, 0.27577711}
 
 func (e *Engine) EmbedImage(path string) ([]float32, error) {
-	if e.clipImg == nil {
-		return nil, fmt.Errorf("clip image model not loaded")
-	}
 	img, err := loadRGBA(path)
 	if err != nil {
 		return nil, err
+	}
+	return e.embedRGBA(img)
+}
+
+func (e *Engine) EmbedBytes(b []byte) ([]float32, error) {
+	img, err := decodeRGBA(bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	return e.embedRGBA(img)
+}
+
+func (e *Engine) embedRGBA(img *image.RGBA) ([]float32, error) {
+	if e.clipImg == nil {
+		return nil, fmt.Errorf("clip image model not loaded")
 	}
 	crop := centerCropResize(img, 224)
 	data := chwNormalize(crop, clipMean, clipStd)

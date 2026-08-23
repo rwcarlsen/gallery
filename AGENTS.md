@@ -71,7 +71,7 @@ No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that
 
 2. **CLIP/face search runs after date+regex.** `pics list -similar x -from 2020` only ranks that year.
 
-3. **`NeedsFaces` is “zero rows”, not “wrong model”.** Old-model faces will not re-index unless `-force`. `NeedsClip` *does* check the model name.
+3. **`NeedsFaces` is “zero rows”, not “wrong model”.** Old-model faces will not re-index unless `-force`. `NeedsClip` *does* check the model name. CLIP embeds the in-DB thumb (original if empty); faces use the original. Switching CLIP to thumbs does not bump the model name — already-indexed rows stay until `pics index -clip -force`.
 
 4. **`ReplaceFaces` deletes `face_person` for that pic+model.** Re-index wipes names on that photo; `AutoAssignPic` may restore them.
 

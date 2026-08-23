@@ -7,6 +7,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
 	"math"
 	"os"
 )
@@ -17,12 +18,16 @@ func loadRGBA(path string) (*image.RGBA, error) {
 		return nil, err
 	}
 	defer f.Close()
-	img, _, err := image.Decode(f)
+	return decodeRGBA(f)
+}
+
+func decodeRGBA(r io.Reader) (*image.RGBA, error) {
+	img, _, err := image.Decode(r)
 	if err != nil {
 		return nil, err
 	}
-	if r, ok := img.(*image.RGBA); ok {
-		return r, nil
+	if rgba, ok := img.(*image.RGBA); ok {
+		return rgba, nil
 	}
 	b := img.Bounds()
 	dst := image.NewRGBA(b)

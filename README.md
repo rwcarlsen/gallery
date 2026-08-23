@@ -155,6 +155,8 @@ pics person show ada | pics view
 pics person rm ada                    # unname; face rows stay
 ```
 
+CLIP embeds the in-DB 1000px thumb (falls back to the original if the thumb is empty). Faces still run on the original. Already-indexed CLIP rows stay until `pics index -clip -force`.
+
 Person identity is a centroid + threshold, not a training loop. Re-index (`-force`) wipes names on that photo; auto-assign may restore them.
 
 ### `user`
