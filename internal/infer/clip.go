@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/rwcarlsen/gallery/piclib"
-	ort "github.com/yalue/onnxruntime_go"
+	"github.com/rwcarlsen/gallery/third_party/ncnn"
 )
 
 var clipMean = [3]float32{0.48145466, 0.4578275, 0.40821073}
@@ -20,11 +20,7 @@ func (e *Engine) EmbedImage(path string) ([]float32, error) {
 	}
 	crop := centerCropResize(img, 224)
 	data := chwNormalize(crop, clipMean, clipStd)
-	t, err := ort.NewTensor(ort.NewShape(1, 3, 224, 224), data)
-	if err != nil {
-		return nil, err
-	}
-	return e.runVec(e.clipImg, []ort.Value{t})
+	return runVec(e.clipImg, ncnn.Tensor{Data: data, W: 224, H: 224, C: 3})
 }
 
 func (e *Engine) EmbedText(text string) ([]float32, error) {
@@ -35,84 +31,69 @@ func (e *Engine) EmbedText(text string) ([]float32, error) {
 	if err != nil {
 		return nil, err
 	}
-	idTen, err := intTensor(e.clipTxt, 0, ids)
-	if err != nil {
-		return nil, err
+	data := make([]float32, len(ids))
+	for i, id := range ids {
+		data[i] = float32(id)
 	}
-	defer idTen.Destroy()
-	ins := []ort.Value{idTen}
-	if len(e.clipTxt.inNames) > 1 {
-		mask := make([]int64, ctxLen)
+	ins := map[string]ncnn.Tensor{}
+	names := e.clipTxt.InputNames()
+	if len(names) == 0 {
+		return nil, fmt.Errorf("clip text model has no inputs")
+	}
+	ins[names[0]] = ncnn.Tensor{Data: data, W: len(data), H: 1, C: 1}
+	if len(names) > 1 {
+		mask := make([]float32, len(ids))
 		for i, id := range ids {
 			if id != 0 {
 				mask[i] = 1
 			}
 		}
 		mask[0] = 1
-		mt, err := intTensor(e.clipTxt, 1, mask)
-		if err != nil {
-			return nil, err
-		}
-		defer mt.Destroy()
-		ins = append(ins, mt)
+		ins[names[1]] = ncnn.Tensor{Data: mask, W: len(mask), H: 1, C: 1}
 	}
-	return e.runInputs(e.clipTxt, ins)
-}
-
-func intTensor(s *session, idx int, ids []int64) (ort.Value, error) {
-	if idx < len(s.inTypes) && s.inTypes[idx] == ort.TensorElementDataTypeInt32 {
-		v := make([]int32, len(ids))
-		for i, x := range ids {
-			v[i] = int32(x)
-		}
-		return ort.NewTensor(ort.NewShape(1, int64(len(v))), v)
-	}
-	return ort.NewTensor(ort.NewShape(1, int64(len(ids))), ids)
-}
-
-func (e *Engine) runVec(s *session, ins []ort.Value) ([]float32, error) {
-	defer func() {
-		for _, in := range ins {
-			if in != nil {
-				in.Destroy()
-			}
-		}
-	}()
-	return e.runInputs(s, ins)
-}
-
-func (e *Engine) runInputs(s *session, ins []ort.Value) ([]float32, error) {
-	outs := make([]ort.Value, len(s.outNames))
-	if err := s.dyn.Run(ins, outs); err != nil {
+	outs, err := e.clipTxt.Run(ins)
+	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		for _, o := range outs {
-			if o != nil {
-				o.Destroy()
-			}
-		}
-	}()
-	t, ok := outs[0].(*ort.Tensor[float32])
-	if !ok {
-		return nil, fmt.Errorf("unexpected output type %T", outs[0])
+	return embedFromOuts(outs)
+}
+
+func runVec(n *ncnn.Net, t ncnn.Tensor) ([]float32, error) {
+	names := n.InputNames()
+	if len(names) == 0 {
+		return nil, fmt.Errorf("model has no inputs")
 	}
-	data := append([]float32(nil), t.GetData()...)
-	sh := t.GetShape()
-	vec := pickEmbed(data, sh)
+	outs, err := n.Run(map[string]ncnn.Tensor{names[0]: t})
+	if err != nil {
+		return nil, err
+	}
+	return embedFromOuts(outs)
+}
+
+func embedFromOuts(outs map[string]ncnn.Tensor) ([]float32, error) {
+	if len(outs) == 0 {
+		return nil, fmt.Errorf("no outputs")
+	}
+	t, ok := outs["out0"]
+	if !ok {
+		for _, v := range outs {
+			t = v
+			break
+		}
+	}
+	vec := pickEmbed(t)
 	piclib.L2Normalize(vec)
 	return vec, nil
 }
 
-func pickEmbed(data []float32, shape ort.Shape) []float32 {
-	if len(shape) <= 2 {
-		return data
+func pickEmbed(t ncnn.Tensor) []float32 {
+	data := t.Data
+	if t.H <= 1 && t.C <= 1 {
+		return append([]float32(nil), data...)
 	}
-	// [1, seq, dim] — take last row (EOT-ish)
-	dim := int(shape[len(shape)-1])
+	dim := t.W
 	if dim <= 0 || len(data) < dim {
-		return data
+		return append([]float32(nil), data...)
 	}
-	off := len(data) - dim
-	return data[off:]
+	return append([]float32(nil), data[len(data)-dim:]...)
 }

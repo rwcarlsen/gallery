@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"github.com/rwcarlsen/gallery/piclib"
-	ort "github.com/yalue/onnxruntime_go"
+	"github.com/rwcarlsen/gallery/third_party/ncnn"
 )
 
 const (
@@ -92,36 +92,30 @@ func (e *Engine) detect(img *image.RGBA) ([]detFace, error) {
 			i++
 		}
 	}
-	in, err := ort.NewTensor(ort.NewShape(1, 3, detSize, detSize), data)
+	inNames := e.det.InputNames()
+	if len(inNames) == 0 {
+		return nil, fmt.Errorf("scrfd has no inputs")
+	}
+	outs, err := e.det.Run(map[string]ncnn.Tensor{
+		inNames[0]: {Data: data, W: detSize, H: detSize, C: 3},
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer in.Destroy()
-	outs := make([]ort.Value, len(e.det.outNames))
-	if err := e.det.dyn.Run([]ort.Value{in}, outs); err != nil {
-		return nil, err
-	}
-	defer func() {
-		for _, o := range outs {
-			if o != nil {
-				o.Destroy()
-			}
-		}
-	}()
-	tensors := make([][]float32, len(outs))
-	shapes := make([]ort.Shape, len(outs))
-	for i, o := range outs {
-		t, ok := o.(*ort.Tensor[float32])
+	names := append([]string(nil), e.det.OutputNames()...)
+	sort.Strings(names)
+	tensors := make([][]float32, 0, len(names))
+	for _, name := range names {
+		t, ok := outs[name]
 		if !ok {
-			return nil, fmt.Errorf("scrfd output %d not float32", i)
+			return nil, fmt.Errorf("scrfd missing output %s", name)
 		}
-		tensors[i] = t.GetData()
-		shapes[i] = t.GetShape()
+		tensors = append(tensors, t.Data)
 	}
-	return decodeSCRFD(tensors, shapes, detThresh)
+	return decodeSCRFD(tensors, detThresh)
 }
 
-func decodeSCRFD(outs [][]float32, shapes []ort.Shape, thr float32) ([]detFace, error) {
+func decodeSCRFD(outs [][]float32, thr float32) ([]detFace, error) {
 	n := len(outs)
 	if n == 0 {
 		return nil, fmt.Errorf("no scrfd outputs")
@@ -242,11 +236,7 @@ func (e *Engine) embedFace(img *image.RGBA) ([]float32, error) {
 			i++
 		}
 	}
-	t, err := ort.NewTensor(ort.NewShape(1, 3, recSize, recSize), data)
-	if err != nil {
-		return nil, err
-	}
-	return e.runVec(e.rec, []ort.Value{t})
+	return runVec(e.rec, ncnn.Tensor{Data: data, W: recSize, H: recSize, C: 3})
 }
 
 func warpFace(src *image.RGBA, kps [5][2]float64) *image.RGBA {

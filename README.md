@@ -18,8 +18,7 @@ One binary, `pics`, does everything: ingest, search, notes, people, users, and t
 ## Requirements
 
 - Go 1.25+
-- A C compiler. CGO is required (`mattn/go-sqlite3`). `CGO_ENABLED=0` will not build.
-- ONNX Runtime (`libonnxruntime.so`) only if you run `pics index`. The rest of the CLI and the web UI work without it.
+- A C/C++ compiler. CGO is required (`mattn/go-sqlite3` + vendored ncnn). `CGO_ENABLED=0` will not build.
 - Linux is the intended host. `view` / `serve -view` call `xdg-open`.
 
 ## Build
@@ -49,13 +48,13 @@ See `cmd/pics/README.md` for the embed note. Templates and static files under `c
 
 ### Models (optional)
 
-CLIP search and face naming need ONNX weights. They live in `$PICLIB/models/`, not the repo:
+CLIP search and face naming need ncnn weights. They live in `$PICLIB/models/`, not the repo:
 
 ```bash
 pics index -fetch               # CLIP ViT-B/32 + InsightFace buffalo_s
 ```
 
-`libonnxruntime.so` lookup: `ONNXRUNTIME_LIB`, then `$PICLIB/models/`, then `/usr/lib`.
+`pics index` links ncnn into the binary (compiled from `third_party/ncnn`, like sqlite). No `libonnxruntime.so`. To rebuild the weight files from upstream ONNX, run `scripts/convert-models.sh` (needs [pnnx](https://github.com/pnnx/pnnx/releases)).
 
 ## First use
 
@@ -80,7 +79,7 @@ $PICLIB/
   <sha256>.jpg                  # originals, write-once
   piclib.sqlite                 # catalog (WAL, page_size 8192)
   session.key                   # 32 bytes, HMAC for cookies
-  models/                       # ONNX + BPE, optional
+  models/                       # ncnn + BPE, optional
 ```
 
 Schema is in `piclib/doc.go`. Tables are created `IF NOT EXISTS` on every `Open`. There is no version table and no migration runner — schema changes are additive `CREATE` or a one-shot `ALTER` you write yourself. Notes are an append-only `meta` log; the latest row for a field wins.
@@ -179,7 +178,7 @@ The search box is notes + named people + CLIP (CLIP optional). Zero users ⇒ no
 - **Integrity:** `pics validate -all` re-hashes originals and prints `[ERROR]` on mismatch. Use `-v` to print `[VALID]` too.
 - **Orphans / bad names:** `pics fix -untracked` lists files in `$PICLIB` that are not in the catalog (including `piclib.sqlite`, `session.key`, `models/`). `pics fix -fnames` renames hash-matching orphans back to `{sha256}{ext}` — the only supported rename.
 - **Schema:** additive only. New tables go in the `Open` `CREATE TABLE IF NOT EXISTS` block and in the comment in `piclib/doc.go`.
-- **Tests:** `go test ./piclib`. Needs CGO + sqlite3, not ONNX. There are no tests for `cmd/pics`, HTTP, or `internal/infer`.
+- **Tests:** `go test ./piclib`. Needs CGO + sqlite3, not ncnn models. There are no tests for `cmd/pics`, HTTP, or `internal/infer`.
 - **No delete.** Do not add `pics rm`. Everything hangs off `files.id`.
 
 ## Architecture
@@ -187,7 +186,7 @@ The search box is notes + named people + CLIP (CLIP optional). Zero users ⇒ no
 ```
 $PICLIB  ── piclib.Lib ── pics CLI ── stdin/stdout IDs
                 │              │
-                │         infer.Engine (ONNX, lazy)
+                │         infer.Engine (ncnn, lazy)
                 │              │
                 └──────── HTTP gallery (embed.FS, stdlib)
 ```
@@ -197,7 +196,7 @@ $PICLIB  ── piclib.Lib ── pics CLI ── stdin/stdout IDs
 | `cmd/pics` | flag dispatch, pipe protocol, HTTP, embed |
 | `piclib` | library, SQL, filter, CLIP/face math, users |
 | `internal/infer` | CLIP + SCRFD + ArcFace |
-| `third_party/onnxruntime_go` | local `replace` of the ORT Go wrapper |
+| `third_party/ncnn` | vendored ncnn, compiled by cgo |
 
 CLIP/face search is brute-force cosine in Go. Fine for a personal library. Vectors are little-endian float32, L2-normalized.
 

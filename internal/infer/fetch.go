@@ -1,22 +1,20 @@
 package infer
 
 import (
-	"archive/zip"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 )
+
+const modelRelease = "https://github.com/rwcarlsen/gallery/releases/download/models-ncnn-1"
 
 type remoteFile struct {
 	URL  string
 	Name string
-	Zip  string // if set, extract this name from the zip to Name
 }
 
 var defaults = []remoteFile{
@@ -24,24 +22,14 @@ var defaults = []remoteFile{
 		URL:  "https://github.com/openai/CLIP/raw/main/clip/bpe_simple_vocab_16e6.txt.gz",
 		Name: ClipBPEFile,
 	},
-	{
-		URL:  "https://huggingface.co/Qdrant/clip-ViT-B-32-vision/resolve/main/model.onnx",
-		Name: ClipImageFile,
-	},
-	{
-		URL:  "https://huggingface.co/Qdrant/clip-ViT-B-32-text/resolve/main/model.onnx",
-		Name: ClipTextFile,
-	},
-	{
-		URL:  "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip",
-		Name: SCRFDFile,
-		Zip:  "det_500m.onnx",
-	},
-	{
-		URL:  "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip",
-		Name: ArcFaceFile,
-		Zip:  "w600k_mbf.onnx",
-	},
+	{URL: modelRelease + "/" + ClipImageParam, Name: ClipImageParam},
+	{URL: modelRelease + "/" + ClipImageBin, Name: ClipImageBin},
+	{URL: modelRelease + "/" + ClipTextParam, Name: ClipTextParam},
+	{URL: modelRelease + "/" + ClipTextBin, Name: ClipTextBin},
+	{URL: modelRelease + "/" + SCRFDParam, Name: SCRFDParam},
+	{URL: modelRelease + "/" + SCRFDBin, Name: SCRFDBin},
+	{URL: modelRelease + "/" + ArcFaceParam, Name: ArcFaceParam},
+	{URL: modelRelease + "/" + ArcFaceBin, Name: ArcFaceBin},
 }
 
 func Fetch(dir string, logf func(string, ...any)) error {
@@ -51,28 +39,10 @@ func Fetch(dir string, logf func(string, ...any)) error {
 	if logf == nil {
 		logf = func(string, ...any) {}
 	}
-	seenZip := map[string]string{}
 	for _, f := range defaults {
 		dst := filepath.Join(dir, f.Name)
 		if fileOK(dst) {
 			logf("[skip] %s", f.Name)
-			continue
-		}
-		if f.Zip != "" {
-			zpath, ok := seenZip[f.URL]
-			if !ok {
-				tmp := filepath.Join(dir, ".buffalo_sc.zip")
-				logf("[get] %s", f.URL)
-				if err := download(f.URL, tmp, logf); err != nil {
-					return fmt.Errorf("download buffalo_sc: %w", err)
-				}
-				seenZip[f.URL] = tmp
-				zpath = tmp
-			}
-			if err := unzipOne(zpath, f.Zip, dst); err != nil {
-				return err
-			}
-			logf("[ok] %s", f.Name)
 			continue
 		}
 		logf("[get] %s", f.URL)
@@ -80,9 +50,6 @@ func Fetch(dir string, logf func(string, ...any)) error {
 			return fmt.Errorf("%s: %w", f.Name, err)
 		}
 		logf("[ok] %s", f.Name)
-	}
-	if z, ok := seenZip[defaults[3].URL]; ok {
-		_ = os.Remove(z)
 	}
 	return nil
 }
@@ -109,9 +76,7 @@ func fetchOnce(url, dst, tmp string, logf func(string, ...any)) error {
 	if st, err := os.Stat(tmp); err == nil {
 		have = st.Size()
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
@@ -147,10 +112,7 @@ func fetchOnce(url, dst, tmp string, logf func(string, ...any)) error {
 	if err != nil {
 		return err
 	}
-	idle := 60 * time.Second
-	timer := time.AfterFunc(idle, cancel)
-	defer timer.Stop()
-	_, err = io.Copy(f, &touchReader{r: res.Body, t: timer, d: idle})
+	_, err = io.Copy(f, res.Body)
 	cerr := f.Close()
 	if err != nil {
 		return err
@@ -159,53 +121,4 @@ func fetchOnce(url, dst, tmp string, logf func(string, ...any)) error {
 		return cerr
 	}
 	return os.Rename(tmp, dst)
-}
-
-type touchReader struct {
-	r io.Reader
-	t *time.Timer
-	d time.Duration
-}
-
-func (t *touchReader) Read(p []byte) (int, error) {
-	n, err := t.r.Read(p)
-	if n > 0 {
-		t.t.Reset(t.d)
-	}
-	return n, err
-}
-
-func unzipOne(zipPath, want, dst string) error {
-	r, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	want = path.Base(want)
-	for _, f := range r.File {
-		if f.FileInfo().IsDir() {
-			continue
-		}
-		if path.Base(f.Name) != want && !strings.HasSuffix(f.Name, "/"+want) {
-			continue
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-		out, err := os.Create(dst)
-		if err != nil {
-			rc.Close()
-			return err
-		}
-		_, err = io.Copy(out, rc)
-		rc.Close()
-		cerr := out.Close()
-		if err != nil {
-			os.Remove(dst)
-			return err
-		}
-		return cerr
-	}
-	return fmt.Errorf("%s not found in %s", want, zipPath)
 }

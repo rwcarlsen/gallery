@@ -1,0 +1,1 @@
+#include "layer/lrn.cpp"

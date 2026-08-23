@@ -13,7 +13,7 @@ Branch `go-mod` is the real main. `master` is frozen ~2018.
 | change | put it |
 |---|---|
 | SQL, search math, notes, users | `piclib/` |
-| ONNX, preprocess, model fetch | `internal/infer/` |
+| ncnn, preprocess, model fetch | `internal/infer/` |
 | CLI verb | `cmd/pics/<verb>.go` + register in `cmds` |
 | HTTP | `webpics.go` routes, `context.go` session, `data/` templates + `static/` |
 | tests | `piclib/*_test.go` next to the code |
@@ -23,12 +23,12 @@ Do not add a second binary. Do not add a config format. Do not put originals in 
 ## Invariants
 
 - One binary, many verbs. New capability is a `pics` subcommand unless it cannot be.
-- Flags + env only (`PICLIB`, `HOME`, `ONNXRUNTIME_LIB`).
+- Flags + env only (`PICLIB`, `HOME`).
 - Schema is additive `CREATE TABLE/INDEX IF NOT EXISTS` or a one-shot `ALTER` you write yourself. No version table. `Open` is implicit migrate.
 - Notes are a `meta` log, not an UPDATE. `SetMeta` is a no-op if unchanged.
 - Originals chmod `0444` after ingest. Never rename except `pics fix -fnames`.
 - Prefer composing `list` over adding flags to `serve`.
-- Prefer a SQLite column over a sidecar file, except originals and ONNX weights.
+- Prefer a SQLite column over a sidecar file, except originals and ncnn weights.
 - `check(err)` fatals. Subcommands do not return errors. `add` is the exception and continues.
 - Templates stay tiny. JS is vanilla `fetch` in two files. No frontend framework.
 - `log.SetFlags(0)`. Usage on stderr via `log.Printf`. Every verb gets `newFlagSet` and one sentence of description.
@@ -59,7 +59,7 @@ Do not add a second binary. Do not add a config format. Do not put originals in 
 go test ./piclib
 ```
 
-Needs CGO + sqlite3, not ONNX. Helpers: `testLib` → `t.TempDir()` + `Open`; fake JPEGs (`0xff 0xd8 0xff …`) so `AddFile` does not need real images (thumb errors are ignored).
+Needs CGO + sqlite3, not ncnn models. Helpers: `testLib` → `t.TempDir()` + `Open`; fake JPEGs (`0xff 0xd8 0xff …`) so `AddFile` does not need real images (thumb errors are ignored).
 
 No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that needs models.
 
@@ -85,7 +85,7 @@ No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that
 
 9. **Filenames with spaces break `pics add` from stdin.**
 
-10. **`third_party/onnxruntime_go` `replace` is load-bearing.** Do not upgrade it lightly.
+10. **`third_party/ncnn` is sqlite-style vendored C++.** `go build` compiles it via cgo (first compile is slow). Re-vendor with `scripts/vendor-ncnn.py /path/to/ncnn-src`. Weights are converted with `scripts/convert-models.sh` (needs pnnx). Custom layers `Tensor.to` / `torch.where` / `Gather` live in `third_party/ncnn/custom.cpp` for the CLIP text graph.
 
 11. **`view`/`serve` use `xdg-open`.** Linux-centric.
 

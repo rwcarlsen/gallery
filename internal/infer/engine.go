@@ -3,15 +3,17 @@ package infer
 import (
 	"fmt"
 	"path/filepath"
+
+	"github.com/rwcarlsen/gallery/third_party/ncnn"
 )
 
 type Engine struct {
 	dir     string
 	tok     *Tokenizer
-	clipImg *session
-	clipTxt *session
-	det     *session
-	rec     *session
+	clipImg *ncnn.Net
+	clipTxt *ncnn.Net
+	det     *ncnn.Net
+	rec     *ncnn.Net
 }
 
 func Open(dir string, wantClip, wantFaces bool) (*Engine, error) {
@@ -21,9 +23,6 @@ func Open(dir string, wantClip, wantFaces bool) (*Engine, error) {
 	if wantFaces && !HasFaces(dir) {
 		return nil, fmt.Errorf("face models missing in %s (run pics index -fetch)", dir)
 	}
-	if err := initORT(dir); err != nil {
-		return nil, fmt.Errorf("onnxruntime: %w (set ONNXRUNTIME_LIB or put libonnxruntime.so in %s)", err, dir)
-	}
 	e := &Engine{dir: dir}
 	var err error
 	if wantClip {
@@ -31,28 +30,24 @@ func Open(dir string, wantClip, wantFaces bool) (*Engine, error) {
 		if err != nil {
 			return nil, fmt.Errorf("clip tokenizer: %w", err)
 		}
-		e.clipImg, err = openSession(filepath.Join(dir, ClipImageFile))
+		e.clipImg, err = ncnn.Open(filepath.Join(dir, ClipImageParam), filepath.Join(dir, ClipImageBin))
 		if err != nil {
 			e.Close()
 			return nil, err
 		}
-		e.clipTxt, err = openSession(filepath.Join(dir, ClipTextFile))
+		e.clipTxt, err = ncnn.Open(filepath.Join(dir, ClipTextParam), filepath.Join(dir, ClipTextBin))
 		if err != nil {
 			e.Close()
 			return nil, err
 		}
 	}
 	if wantFaces {
-		if !HasFaces(dir) {
-			e.Close()
-			return nil, fmt.Errorf("face models missing in %s (run pics index -fetch)", dir)
-		}
-		e.det, err = openSession(filepath.Join(dir, SCRFDFile))
+		e.det, err = ncnn.Open(filepath.Join(dir, SCRFDParam), filepath.Join(dir, SCRFDBin))
 		if err != nil {
 			e.Close()
 			return nil, err
 		}
-		e.rec, err = openSession(filepath.Join(dir, ArcFaceFile))
+		e.rec, err = ncnn.Open(filepath.Join(dir, ArcFaceParam), filepath.Join(dir, ArcFaceBin))
 		if err != nil {
 			e.Close()
 			return nil, err
@@ -65,10 +60,10 @@ func (e *Engine) Close() {
 	if e == nil {
 		return
 	}
-	e.clipImg.close()
-	e.clipTxt.close()
-	e.det.close()
-	e.rec.close()
+	e.clipImg.Close()
+	e.clipTxt.Close()
+	e.det.Close()
+	e.rec.Close()
 }
 
 func (e *Engine) CanCLIP() bool  { return e != nil && e.clipImg != nil && e.clipTxt != nil }

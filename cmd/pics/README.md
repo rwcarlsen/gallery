@@ -1,5 +1,7 @@
 Assets under `data/` are embedded with Go's `embed` package.
 
+Needs a C++ compiler (vendored ncnn compiles via cgo, like sqlite).
+
 To get a fully statically compiled pics binary:
 
 ```bash
