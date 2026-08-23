@@ -70,6 +70,17 @@ func (n *Net) Close() {
 	n.n = nil
 }
 
+func (n *Net) SetThreads(k int) {
+	if n == nil || n.n == nil || k < 1 {
+		return
+	}
+	opt := C.ncnn_option_create()
+	C.ncnn_option_set_use_vulkan_compute(opt, 0)
+	C.ncnn_option_set_num_threads(opt, C.int(k))
+	C.ncnn_net_set_option(n.n, opt)
+	C.ncnn_option_destroy(opt)
+}
+
 func (n *Net) InputNames() []string  { return n.inNames }
 func (n *Net) OutputNames() []string { return n.outNames }
 

@@ -68,3 +68,13 @@ func (e *Engine) Close() {
 
 func (e *Engine) CanCLIP() bool  { return e != nil && e.clipImg != nil && e.clipTxt != nil }
 func (e *Engine) CanFaces() bool { return e != nil && e.det != nil && e.rec != nil }
+
+func (e *Engine) SetThreads(k int) {
+	if e == nil {
+		return
+	}
+	e.clipImg.SetThreads(k)
+	e.clipTxt.SetThreads(k)
+	e.det.SetThreads(k)
+	e.rec.SetThreads(k)
+}

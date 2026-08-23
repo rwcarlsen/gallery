@@ -125,7 +125,7 @@ pics list -similar 'red kayak' | pics serve -view
 | `meta` | catalog + EXIF tags from the original (`id  key  value`) |
 | `serve` | HTTP on `127.0.0.1:7777`; `-all`, `-view`, `-noedit` |
 | `view` | like serve, ephemeral port, always opens browser |
-| `index` | CLIP + faces; `-clip` / `-faces` / `-force` / `-fetch DIR` |
+| `index` | CLIP + faces; `-clip` / `-faces` / `-force` / `-fetch DIR` / `-j N` |
 | `person` | `name` / `list` / `show` / `rm` |
 | `user` | `add` / `list` / `set` / `passwd` / `rm` |
 
@@ -155,7 +155,7 @@ pics person show ada | pics view
 pics person rm ada                    # unname; face rows stay
 ```
 
-CLIP embeds the in-DB 1000px thumb (falls back to the original if the thumb is empty). Faces still run on the original. Already-indexed CLIP rows stay until `pics index -clip -force`.
+CLIP embeds the in-DB 1000px thumb (falls back to the original if the thumb is empty). Faces still run on the original. Already-indexed CLIP rows stay until `pics index -clip -force`. Workers default to all CPUs (`-j N`); ncnn threads are split across workers so one image does not own every core.
 
 Person identity is a centroid + threshold, not a training loop. Re-index (`-force`) wipes names on that photo; auto-assign may restore them.
 
