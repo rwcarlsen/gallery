@@ -172,7 +172,7 @@ Password is prompted on a TTY; `-pass` is for scripts. Visibility is a Go regex 
 
 ## Web
 
-`serve`/`view` load a pic-id set (`-all`, args, or stdin). Each browser session then filters that set (auth → search → person/face). 24 thumbs per page. Notes and face chips are editable unless `-noedit`.
+`serve`/`view` load a pic-id set (`-all`, args, or stdin). Each browser session then filters that set (auth → search → person/face). 24 thumbs per page. Notes and face chips are editable unless `-noedit`. Zoom draws a box on each detected face; hover a chip to highlight it. Chips are a square crop of the thumb after mapping the file-space box through the same EXIF rotate/flip as the thumb — no re-index.
 
 The search box is notes + named people + CLIP (CLIP optional). A CLIP embed error is an HTTP 500, not an empty grid. Zoom shows match labels + CLIP score while a filter is active. Zero users ⇒ no login. Sessions are in-memory (restart logs everyone out); `session.key` only verifies the cookie.
 

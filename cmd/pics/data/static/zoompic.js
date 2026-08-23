@@ -50,7 +50,21 @@ async function loadFaces() {
   const edit = box.dataset.edit === '1'
   const faces = await fetch('/dynamic/faces/' + pic).then(r => r.json())
   box.innerHTML = ''
+  const wrap = document.querySelector('.zoom-wrap')
+  if (wrap) {
+    wrap.querySelectorAll('.face-box').forEach(function (el) { el.remove() })
+  }
   faces.forEach(function (f) {
+    var mark
+    if (wrap) {
+      mark = document.createElement('div')
+      mark.className = 'face-box'
+      mark.style.left = (f.x * 100) + '%'
+      mark.style.top = (f.y * 100) + '%'
+      mark.style.width = (f.w * 100) + '%'
+      mark.style.height = (f.h * 100) + '%'
+      wrap.appendChild(mark)
+    }
     const el = document.createElement('div')
     el.className = 'chip'
     const img = document.createElement('img')
@@ -61,10 +75,26 @@ async function loadFaces() {
       window.location.href = '/'
     })
     el.appendChild(img)
+    function on() {
+      el.classList.add('on')
+      if (mark) {
+        mark.classList.add('on')
+      }
+    }
+    function off() {
+      el.classList.remove('on')
+      if (mark) {
+        mark.classList.remove('on')
+      }
+    }
+    el.addEventListener('mouseenter', on)
+    el.addEventListener('mouseleave', off)
     if (edit) {
       const inp = document.createElement('input')
       inp.value = f.name
       inp.placeholder = 'name'
+      inp.addEventListener('focus', on)
+      inp.addEventListener('blur', off)
       inp.addEventListener('keydown', async function (e) {
         if (e.key === 'Enter') {
           await fetch('/dynamic/face/' + f.id + '/name', { method: 'POST', body: inp.value })

@@ -91,9 +91,9 @@ No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that
 
 12. **HTTP uses Go 1.22+ patterns.** Keep that.
 
-13. **Covering indexes on `files` omit `thumb`.** List queries must not pull the blob. Thumbs are JPEG in-DB; face chips quality 85.
+13. **Covering indexes on `files` omit `thumb`.** List queries must not pull the blob. Thumbs are JPEG in-DB; face chips quality 85. Face boxes are file-pixel space (no EXIF). Chips and zoom overlays run `OrientNormBox` so they match the rotated thumb. No re-index.
 
-14. **Magic numbers, do not “tune” without measuring:** CLIP 224 + OpenAI mean/std; SCRFD 640 letterbox, det 0.5, NMS 0.4, min face 16px; ArcFace 112, 5-point align; defaults 0.2 / 0.35; 24 thumbs/page; list names truncated to 44 with `...` prefix.
+14. **Magic numbers, do not “tune” without measuring:** CLIP 224 + OpenAI mean/std; SCRFD 640 letterbox, det 0.5, NMS 0.4, min face 16px; ArcFace 112, 5-point align; defaults 0.2 / 0.35; 24 thumbs/page; list names truncated to 44 with `...` prefix; face chip square side = `max(w,h)` + 15% pad.
 
 15. **Model names stored with rows:** `clip-vit-b32`, `buffalo-s`. Changing the name retriggers CLIP; faces need `-force`.
 
@@ -103,6 +103,6 @@ No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that
 
 - `piclib.Lib` = one directory + `*sql.DB`. `Pic.id` unexported, `Pic.Id` exported for templates.
 - Vectors: little-endian float32, L2-normalized. Cosine = dot product.
-- Face boxes normalized `[0,1]`. Chips pad 15% when cropped.
+- Face boxes normalized `[0,1]` in file-pixel space. Chips/overlays use `OrientNormBox` (same rotate/flip as `MakeThumb`). Chip is a square around the face (`max(w,h)` + 15% pad).
 - Auth: bcrypt, HMAC cookies `gallery-sess=id.hmac`, HttpOnly, SameSite=Lax.
 - Dates stored as unix seconds. Missing EXIF → Unix 0; time-nav skips those.

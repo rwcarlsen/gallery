@@ -278,6 +278,11 @@ func FacesHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	p, err := lib.Open(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
 	faces, err := lib.FacesByPic(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -293,7 +298,8 @@ func FacesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]chip, 0, len(faces))
 	for _, f := range faces {
-		out = append(out, chip{f.FaceID, f.Name, f.X, f.Y, f.W, f.H})
+		x, y, w, h := piclib.OrientNormBox(f.X, f.Y, f.W, f.H, p.Orient)
+		out = append(out, chip{f.FaceID, f.Name, x, y, w, h})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
@@ -424,7 +430,8 @@ func FacePhotoHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	jpeg, err := piclib.CropNormJPEG(img, f.X, f.Y, f.W, f.H)
+	x, y, fw, fh := piclib.OrientNormBox(f.X, f.Y, f.W, f.H, p.Orient)
+	jpeg, err := piclib.CropNormJPEG(img, x, y, fw, fh)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

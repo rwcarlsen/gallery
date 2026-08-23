@@ -163,7 +163,15 @@ button, .btn {
 .pager a { font-size: 1.2rem; color: var(--fg); padding: 0.2rem 0.4rem; }
 .page-label { min-width: 8rem; text-align: center; font-variant-numeric: tabular-nums; }
 .zoom { padding: 1rem 1rem 5.5rem; text-align: center; }
-.zoom-img, .zoom-vid { max-width: 100%; max-height: calc(100vh - 7rem); }
+.zoom-wrap { position: relative; display: inline-block; line-height: 0; }
+.zoom-img, .zoom-vid { display: block; max-width: 100%; max-height: calc(100vh - 7rem); }
+.face-box {
+  position: absolute;
+  border: 2px solid var(--accent);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.face-box.on { border-color: var(--err); box-shadow: 0 0 0 1px #fff; }
 .zoom-bar textarea {
   width: min(28rem, 50vw);
   height: 3.2rem;
@@ -238,6 +246,7 @@ button, .btn {
   cursor: pointer;
   background: #ddd;
 }
+.chip.on img { outline: 2px solid var(--err); }
 .chip input {
   width: 100%;
   font: inherit;

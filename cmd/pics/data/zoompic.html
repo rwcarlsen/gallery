@@ -4,7 +4,7 @@
   {{if eq .Ext ".mov" ".avi"}}
   <video class="zoom-vid" src="/photo/orig/{{.Id}}" controls></video>
   {{else}}
-  <a href="/">
+  <a class="zoom-wrap" href="/">
     <img class="zoom-img" src="/photo/thumb/{{.Id}}" alt="{{.Date}}">
   </a>
   {{end}}

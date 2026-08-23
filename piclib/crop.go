@@ -8,14 +8,44 @@ import (
 	"math"
 )
 
+func OrientNormBox(x, y, w, h float64, orient int) (float64, float64, float64, float64) {
+	switch orient {
+	case 3, 4:
+		x, y = 1-x-w, 1-y-h
+	case 5, 6:
+		x, y, w, h = 1-y-h, x, h, w
+	case 7, 8:
+		x, y, w, h = y, 1-x-w, h, w
+	}
+	switch orient {
+	case 2, 5, 4, 7:
+		x = 1 - x - w
+	}
+	return x, y, w, h
+}
+
 func CropNormJPEG(src image.Image, x, y, w, h float64) ([]byte, error) {
 	b := src.Bounds()
 	pw, ph := float64(b.Dx()), float64(b.Dy())
 	pad := 0.15
-	x1 := clampF((x-pad*w)*pw, 0, pw)
-	y1 := clampF((y-pad*h)*ph, 0, ph)
-	x2 := clampF((x+w+pad*w)*pw, 0, pw)
-	y2 := clampF((y+h+pad*h)*ph, 0, ph)
+	cx := (x + w/2) * pw
+	cy := (y + h/2) * ph
+	side := math.Max(w*pw, h*ph) * (1 + 2*pad)
+	if maxSide := math.Min(pw, ph); side > maxSide {
+		side = maxSide
+	}
+	x1, y1 := cx-side/2, cy-side/2
+	if pw > side {
+		x1 = clampF(x1, 0, pw-side)
+	} else {
+		x1 = 0
+	}
+	if ph > side {
+		y1 = clampF(y1, 0, ph-side)
+	} else {
+		y1 = 0
+	}
+	x2, y2 := x1+side, y1+side
 	if x2-x1 < 2 || y2-y1 < 2 {
 		x1, y1, x2, y2 = 0, 0, pw, ph
 	}
