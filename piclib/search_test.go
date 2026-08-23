@@ -102,6 +102,29 @@ func TestPersonAssignPropagate(t *testing.T) {
 	}
 }
 
+func TestAssignPersonEmptyUnassigns(t *testing.T) {
+	l := testLib(t)
+	p := addPic(t, l, "a.jpg", 1)
+	faces, err := l.ReplaceFaces(p.Id, "f", []Face{{X: 0.1, Y: 0.1, W: 0.2, H: 0.2, Vec: []float32{1, 0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := l.AssignPerson(faces[0].FaceID, "ada"); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.AssignPerson(faces[0].FaceID, "  "); err != nil {
+		t.Fatal(err)
+	}
+	got, err := l.FacesByPic(p.Id)
+	if err != nil || len(got) != 1 || got[0].Name != "" {
+		t.Fatalf("%+v err=%v", got, err)
+	}
+	people, err := l.ListPeople()
+	if err != nil || len(people) != 1 || people[0].Name != "ada" {
+		t.Fatalf("person stays: %v %v", people, err)
+	}
+}
+
 func TestOrderByIDs(t *testing.T) {
 	pics := []*Pic{{Id: 3}, {Id: 1}, {Id: 2}}
 	got := OrderByIDs(pics, []int{2, 3, 9})

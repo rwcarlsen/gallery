@@ -386,16 +386,21 @@ func FaceNameHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	name, err := io.ReadAll(r.Body)
+	raw, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := lib.AssignPerson(fid, string(bytes.TrimSpace(name))); err != nil {
+	name := string(bytes.TrimSpace(raw))
+	if err := lib.AssignPerson(fid, name); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	n, err := lib.PropagatePerson(string(bytes.TrimSpace(name)), piclib.DefaultFaceMin)
+	if name == "" {
+		fmt.Fprint(w, 0)
+		return
+	}
+	n, err := lib.PropagatePerson(name, piclib.DefaultFaceMin)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

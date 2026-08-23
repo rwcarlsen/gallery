@@ -73,7 +73,7 @@ No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that
 
 3. **`NeedsFaces` is “zero rows”, not “wrong model”.** Old-model faces will not re-index unless `-force`. `NeedsClip` *does* check the model name. CLIP embeds the in-DB thumb (original if empty); faces use the original. Switching CLIP to thumbs does not bump the model name — already-indexed rows stay until `pics index -clip -force`. `pics index` fans out across GOMAXPROCS (`-j`); when `j>1`, each ncnn net gets `GOMAXPROCS/j` threads. `-j 1` is the old one-image-all-cores path. SQLite writes are serialized.
 
-4. **`ReplaceFaces` deletes `face_person` for that pic+model.** Re-index wipes names on that photo; `AutoAssignPic` may restore them.
+4. **`ReplaceFaces` deletes `face_person` for that pic+model.** Re-index wipes names on that photo; `AutoAssignPic` may restore them. `AssignPerson` with an empty name deletes that one `face_person` row (chip clear+enter); the people row stays. `FaceNameHandler` does not propagate on empty.
 
 5. **Web search engine is process-global** (`searchEng`). Fine for one `serve`.
 

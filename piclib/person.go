@@ -34,6 +34,11 @@ func (l *Lib) EnsurePerson(name string) (int, error) {
 }
 
 func (l *Lib) AssignPerson(faceID int, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		_, err := l.db.Exec("DELETE FROM face_person WHERE face_id=?", faceID)
+		return err
+	}
 	pid, err := l.EnsurePerson(name)
 	if err != nil {
 		return err
