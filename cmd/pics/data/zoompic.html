@@ -21,6 +21,7 @@
   {{end}}
   <div class="spacer"></div>
   <span class="muted">Taken {{.Date}}</span>
+  {{if .Match}}<span class="muted">{{.Match}}</span>{{end}}
   <button type="button" id="meta-btn" data-pic="{{.Id}}">Meta</button>
   <a class="btn" href="/photo/orig/{{.Id}}">Original</a>
   <a class="btn" href="/photo/thumb/{{.Id}}">Thumb</a>

@@ -174,7 +174,7 @@ Password is prompted on a TTY; `-pass` is for scripts. Visibility is a Go regex 
 
 `serve`/`view` load a pic-id set (`-all`, args, or stdin). Each browser session then filters that set (auth → search → person/face). 24 thumbs per page. Notes and face chips are editable unless `-noedit`.
 
-The search box is notes + named people + CLIP (CLIP optional). Zero users ⇒ no login. Sessions are in-memory (restart logs everyone out); `session.key` only verifies the cookie.
+The search box is notes + named people + CLIP (CLIP optional). Zoom shows match labels + CLIP score while a filter is active. Zero users ⇒ no login. Sessions are in-memory (restart logs everyone out); `session.key` only verifies the cookie.
 
 ## Maintain
 

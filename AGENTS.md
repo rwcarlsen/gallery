@@ -47,7 +47,7 @@ Do not add a second binary. Do not add a config format. Do not put originals in 
 
 **New verb:** `func foo(cmd string, args []string)` + `cmds["foo"] = foo`. Own `flag.FlagSet` via `newFlagSet`. Take IDs from `idsOrStdin` unless the verb is about paths.
 
-**New HTTP route:** Go 1.22+ method+path patterns (`GET /photo/{kind}/{id}`). Session state lives on `gallery` (`visible` = auth-filtered, `photos` = search-filtered). Do not invent a second session store.
+**New HTTP route:** Go 1.22+ method+path patterns (`GET /photo/{kind}/{id}`). Session state lives on `gallery` (`visible` = auth-filtered, `photos` = search-filtered, `why` = per-pic search reasons). Do not invent a second session store.
 
 **New table:** add it to the `Open` `CREATE TABLE IF NOT EXISTS` block and to the schema comment in `piclib/doc.go`.
 

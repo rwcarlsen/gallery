@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rwcarlsen/gallery/piclib"
@@ -22,6 +23,30 @@ var rots = map[int]int{
 	8: 270,
 }
 
+type hitWhy struct {
+	Person bool
+	Notes  bool
+	Clip   float32
+	Face   bool
+}
+
+func (h hitWhy) String() string {
+	var parts []string
+	if h.Person {
+		parts = append(parts, "person")
+	}
+	if h.Notes {
+		parts = append(parts, "notes")
+	}
+	if h.Clip != 0 {
+		parts = append(parts, fmt.Sprintf("clip %.2f", h.Clip))
+	}
+	if h.Face {
+		parts = append(parts, "face")
+	}
+	return strings.Join(parts, " · ")
+}
+
 type gallery struct {
 	user      *piclib.User
 	visible   []*Photo
@@ -29,6 +54,7 @@ type gallery struct {
 	picMap    map[int]*Photo
 	CurrPage  string
 	Filter    string
+	why       map[int]hitWhy
 	random    []int
 	randIndex int
 }
@@ -74,6 +100,7 @@ func (c *gallery) rebuild() {
 func (c *gallery) resetFilter() {
 	c.photos = append([]*Photo{}, c.visible...)
 	c.Filter = ""
+	c.why = nil
 	c.rebuild()
 }
 
@@ -206,6 +233,9 @@ func (c *gallery) serveZoom(w http.ResponseWriter, index string) error {
 	p.Index = i
 	p.CanEdit = c.canEdit()
 	p.User = c.userName()
+	if h, ok := c.why[p.Id]; ok {
+		p.Match = h.String()
+	}
 	return zoomTmpl.Execute(w, p)
 }
 

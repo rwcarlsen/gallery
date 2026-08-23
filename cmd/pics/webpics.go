@@ -48,6 +48,7 @@ type Photo struct {
 	Notes   string
 	CanEdit bool
 	User    string
+	Match   string
 }
 
 func (p Photo) Date() string {
@@ -176,29 +177,32 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "ok")
 		return
 	}
-	ids, err := searchIDs(c, q)
+	ids, why, err := searchIDs(c, q)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	c.filterIDs(ids)
 	c.Filter = q
+	c.why = why
 	fmt.Fprint(w, "ok")
 }
 
-func searchIDs(c *gallery, q string) ([]int, error) {
+func searchIDs(c *gallery, q string) ([]int, map[int]hitWhy, error) {
 	var ids []int
-	seen := map[int]bool{}
-	add := func(id int) {
-		if !seen[id] {
-			seen[id] = true
+	why := map[int]hitWhy{}
+	add := func(id int, fn func(*hitWhy)) {
+		if _, ok := why[id]; !ok {
 			ids = append(ids, id)
 		}
+		h := why[id]
+		fn(&h)
+		why[id] = h
 	}
 
 	people, err := lib.ListPeople()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, p := range people {
 		if !strings.EqualFold(p.Name, q) {
@@ -206,10 +210,10 @@ func searchIDs(c *gallery, q string) ([]int, error) {
 		}
 		pids, err := lib.PicsByPerson(p.Name)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, id := range pids {
-			add(id)
+			add(id, func(h *hitWhy) { h.Person = true })
 		}
 		break
 	}
@@ -220,10 +224,10 @@ func searchIDs(c *gallery, q string) ([]int, error) {
 	}
 	matched, err := lib.FilterPics(pics, "(?i)"+regexp.QuoteMeta(q), "")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, p := range matched {
-		add(p.Id)
+		add(p.Id, func(h *hitWhy) { h.Notes = true })
 	}
 
 	if canSearch() {
@@ -231,14 +235,14 @@ func searchIDs(c *gallery, q string) ([]int, error) {
 		if err == nil {
 			if vec, err := eng.EmbedText(q); err == nil {
 				if hits, err := lib.SimilarClip(vec, piclib.DefaultClipMin); err == nil {
-					for _, h := range hits {
-						add(h.ID)
+					for _, hit := range hits {
+						add(hit.ID, func(h *hitWhy) { h.Clip = hit.Score })
 					}
 				}
 			}
 		}
 	}
-	return ids, nil
+	return ids, why, nil
 }
 
 func MetaHandler(w http.ResponseWriter, r *http.Request) {
@@ -299,6 +303,10 @@ func PersonHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	c.filterIDs(ids)
 	c.Filter = r.PathValue("name")
+	c.why = make(map[int]hitWhy, len(ids))
+	for _, id := range ids {
+		c.why[id] = hitWhy{Person: true}
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -322,6 +330,10 @@ func FaceSimilarHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		c.filterIDs(ids)
 		c.Filter = f.Name
+		c.why = make(map[int]hitWhy, len(ids))
+		for _, id := range ids {
+			c.why[id] = hitWhy{Person: true}
+		}
 		fmt.Fprint(w, "ok")
 		return
 	}
@@ -340,6 +352,10 @@ func FaceSimilarHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	c.filterIDs(ids)
 	c.Filter = "similar face"
+	c.why = make(map[int]hitWhy, len(ids))
+	for _, id := range ids {
+		c.why[id] = hitWhy{Face: true}
+	}
 	fmt.Fprint(w, "ok")
 }
 
