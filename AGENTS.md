@@ -4,6 +4,10 @@ Read `README.md` first — spirit, usage, pipe protocol. This file is how to wor
 
 Branch `go-mod` is the real main. `master` is frozen ~2018.
 
+## Keep the docs current
+
+`README.md` is for humans (build, use, maintain). This file is for agents working in the tree. Update **both** in the same change whenever you add, remove, or alter a command, flag, pipe rule, schema, layout, invariant, build step, or gotcha. Do not let them go stale. If a section in either file would now be wrong, fix it before you finish.
+
 ## Layout
 
 | change | put it |
