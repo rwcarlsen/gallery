@@ -2,6 +2,7 @@ package infer
 
 import (
 	"archive/zip"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,12 +33,12 @@ var defaults = []remoteFile{
 		Name: ClipTextFile,
 	},
 	{
-		URL:  "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip",
+		URL:  "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip",
 		Name: SCRFDFile,
 		Zip:  "det_500m.onnx",
 	},
 	{
-		URL:  "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_s.zip",
+		URL:  "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_sc.zip",
 		Name: ArcFaceFile,
 		Zip:  "w600k_mbf.onnx",
 	},
@@ -60,10 +61,10 @@ func Fetch(dir string, logf func(string, ...any)) error {
 		if f.Zip != "" {
 			zpath, ok := seenZip[f.URL]
 			if !ok {
-				tmp := filepath.Join(dir, ".buffalo_s.zip")
+				tmp := filepath.Join(dir, ".buffalo_sc.zip")
 				logf("[get] %s", f.URL)
-				if err := download(f.URL, tmp); err != nil {
-					return fmt.Errorf("download buffalo_s: %w", err)
+				if err := download(f.URL, tmp, logf); err != nil {
+					return fmt.Errorf("download buffalo_sc: %w", err)
 				}
 				seenZip[f.URL] = tmp
 				zpath = tmp
@@ -75,7 +76,7 @@ func Fetch(dir string, logf func(string, ...any)) error {
 			continue
 		}
 		logf("[get] %s", f.URL)
-		if err := download(f.URL, dst); err != nil {
+		if err := download(f.URL, dst, logf); err != nil {
 			return fmt.Errorf("%s: %w", f.Name, err)
 		}
 		logf("[ok] %s", f.Name)
@@ -86,37 +87,92 @@ func Fetch(dir string, logf func(string, ...any)) error {
 	return nil
 }
 
-func download(url, dst string) error {
+func download(url, dst string, logf func(string, ...any)) error {
 	tmp := dst + ".part"
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	var last error
+	for try := 1; try <= 5; try++ {
+		if try > 1 {
+			time.Sleep(time.Duration(try-1) * 2 * time.Second)
+			logf("[retry] %s (%d/5)", path.Base(url), try)
+		}
+		if err := fetchOnce(url, dst, tmp, logf); err != nil {
+			last = err
+			continue
+		}
+		return nil
+	}
+	return last
+}
+
+func fetchOnce(url, dst, tmp string, logf func(string, ...any)) error {
+	var have int64
+	if st, err := os.Stat(tmp); err == nil {
+		have = st.Size()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("User-Agent", "pics-gallery")
-	client := &http.Client{Timeout: 10 * time.Minute}
-	res, err := client.Do(req)
+	if have > 0 {
+		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", have))
+		logf("[get] resume %d bytes", have)
+	}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.ResponseHeaderTimeout = 30 * time.Second
+	res, err := (&http.Client{Transport: tr}).Do(req)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
-	if res.StatusCode != 200 {
+	switch res.StatusCode {
+	case http.StatusOK:
+		have = 0
+	case http.StatusPartialContent:
+	case http.StatusRequestedRangeNotSatisfiable:
+		os.Remove(tmp)
+		return fmt.Errorf("%s: HTTP %s", url, res.Status)
+	default:
 		return fmt.Errorf("%s: HTTP %s", url, res.Status)
 	}
-	f, err := os.Create(tmp)
+	flag := os.O_WRONLY | os.O_CREATE
+	if have == 0 {
+		flag |= os.O_TRUNC
+	} else {
+		flag |= os.O_APPEND
+	}
+	f, err := os.OpenFile(tmp, flag, 0644)
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(f, res.Body)
+	idle := 60 * time.Second
+	timer := time.AfterFunc(idle, cancel)
+	defer timer.Stop()
+	_, err = io.Copy(f, &touchReader{r: res.Body, t: timer, d: idle})
 	cerr := f.Close()
 	if err != nil {
-		os.Remove(tmp)
 		return err
 	}
 	if cerr != nil {
-		os.Remove(tmp)
 		return cerr
 	}
 	return os.Rename(tmp, dst)
+}
+
+type touchReader struct {
+	r io.Reader
+	t *time.Timer
+	d time.Duration
+}
+
+func (t *touchReader) Read(p []byte) (int, error) {
+	n, err := t.r.Read(p)
+	if n > 0 {
+		t.t.Reset(t.d)
+	}
+	return n, err
 }
 
 func unzipOne(zipPath, want, dst string) error {
