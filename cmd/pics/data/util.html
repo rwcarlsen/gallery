@@ -46,9 +46,9 @@
 {{define "timenav"}}
 {{range .}}
 <div class="year-row">
-  <a class="year" href="#" onclick="pageTo({{.StartPage}}); return false">{{.Year}}</a>
+  <a class="year" href="#" data-page="{{.StartPage}}" onclick="pageTo({{.StartPage}}); return false">{{.Year}}</a>
   {{range .Months}}
-  <a class="month" href="#" onclick="pageTo({{.Page}}); return false">{{.Name}}</a>
+  <a class="month" href="#" data-page="{{.Page}}" data-full="{{.Full}}" onclick="pageTo({{.Page}}); return false">{{.Name}}</a>
   {{end}}
 </div>
 {{end}}

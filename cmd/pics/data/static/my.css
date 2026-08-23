@@ -70,6 +70,64 @@ button, .btn {
 .year-row { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 0.35rem 0.55rem; padding: 0.25rem 0; white-space: nowrap; }
 .year-row .year { font-weight: 650; color: var(--fg); min-width: 3.2rem; }
 .year-row .month { color: var(--muted); font-size: 0.9rem; }
+.when-slider { display: none; touch-action: none; user-select: none; padding: 0.55rem 0 0.15rem; }
+.when-track {
+  position: relative;
+  height: 2.4rem;
+}
+.when-track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  background: var(--line);
+  border-radius: 2px;
+}
+.when-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin: -0.7rem 0 0 -0.7rem;
+  background: var(--accent);
+  border-radius: 50%;
+}
+.when-bubble {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 0.45rem));
+  background: var(--bar);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  font-weight: 650;
+  font-size: 1.15rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 20;
+}
+@media (max-width: 700px) {
+  .when { position: static; }
+  .when-menu {
+    left: 50%;
+    right: auto;
+    width: 100vw;
+    margin: 0 0 0 -50vw;
+    min-width: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    overflow: visible;
+    padding: 0.55rem max(0.7rem, env(safe-area-inset-right)) 0.7rem max(0.7rem, env(safe-area-inset-left));
+  }
+  .when-menu .year-row { display: none; }
+  .when-slider { display: block; }
+}
 #pic-gallery { padding: 4.2rem 1.2rem; }
 .thumb-grid {
   list-style: none;

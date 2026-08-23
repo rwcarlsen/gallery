@@ -243,6 +243,7 @@ func (c *gallery) serveStat(w http.ResponseWriter, stat string) {
 func (c *gallery) serveTimeNav(w http.ResponseWriter) error {
 	type month struct {
 		Name string
+		Full string
 		Page int
 	}
 	type year struct {
@@ -265,7 +266,7 @@ func (c *gallery) serveTimeNav(w http.ResponseWriter) error {
 			curMonth = 0
 		}
 		if curMonth != m {
-			cur.Months = append(cur.Months, &month{Name: m.String()[:3], Page: pg})
+			cur.Months = append(cur.Months, &month{Name: m.String()[:3], Full: m.String(), Page: pg})
 			curMonth = m
 		}
 	}
