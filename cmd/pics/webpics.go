@@ -9,7 +9,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"bytes"
 	"encoding/json"
@@ -137,9 +139,6 @@ func loadPics(args []string) {
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	c := mustGallery(w, r)
 	data := map[string]string{"User": c.userName()}
-	if canSearch() {
-		data["Search"] = "1"
-	}
 	if err := gridTmpl.Execute(w, data); err != nil {
 		log.Print(err)
 	}
@@ -171,33 +170,74 @@ func CapsHandler(w http.ResponseWriter, r *http.Request) {
 
 func SearchHandler(w http.ResponseWriter, r *http.Request) {
 	c := mustGallery(w, r)
-	q := r.URL.Query().Get("q")
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if q == "" {
 		c.resetFilter()
 		fmt.Fprint(w, "ok")
 		return
 	}
-	eng, err := getSearchEng()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-	vec, err := eng.EmbedText(q)
+	ids, err := searchIDs(c, q)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-	hits, err := lib.SimilarClip(vec, piclib.DefaultClipMin)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	ids := make([]int, len(hits))
-	for i, h := range hits {
-		ids[i] = h.ID
 	}
 	c.filterIDs(ids)
 	fmt.Fprint(w, "ok")
+}
+
+func searchIDs(c *gallery, q string) ([]int, error) {
+	var ids []int
+	seen := map[int]bool{}
+	add := func(id int) {
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+
+	people, err := lib.ListPeople()
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range people {
+		if !strings.EqualFold(p.Name, q) {
+			continue
+		}
+		pids, err := lib.PicsByPerson(p.Name)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range pids {
+			add(id)
+		}
+		break
+	}
+
+	pics := make([]*piclib.Pic, len(c.visible))
+	for i, p := range c.visible {
+		pics[i] = p.Pic
+	}
+	matched, err := lib.FilterPics(pics, "(?i)"+regexp.QuoteMeta(q), "")
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range matched {
+		add(p.Id)
+	}
+
+	if canSearch() {
+		eng, err := getSearchEng()
+		if err == nil {
+			if vec, err := eng.EmbedText(q); err == nil {
+				if hits, err := lib.SimilarClip(vec, piclib.DefaultClipMin); err == nil {
+					for _, h := range hits {
+						add(h.ID)
+					}
+				}
+			}
+		}
+	}
+	return ids, nil
 }
 
 func MetaHandler(w http.ResponseWriter, r *http.Request) {
