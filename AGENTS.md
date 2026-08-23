@@ -59,9 +59,9 @@ Do not add a second binary. Do not add a config format. Do not put originals in 
 go test ./piclib
 ```
 
-Needs CGO + sqlite3, not ncnn models. Helpers: `testLib` → `t.TempDir()` + `Open`; fake JPEGs (`0xff 0xd8 0xff …`) so `AddFile` does not need real images (thumb errors are ignored).
+Needs CGO + sqlite3, not ncnn models. Helpers: `testLib` → `t.TempDir()` + `Open`; fake JPEGs (`0xff 0xd8 0xff …`) so `AddFile` does not need real images (thumb errors are ignored). `TestSimilarClip` covers ranking math on fake vectors; it cannot catch a broken text net.
 
-No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that needs models.
+No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that needs models. If `$PICLIB` has CLIP rows, `pics list -similar christmas` vs `airplane` must have different top IDs. Same ranking = missing Embed/Gemm override or stale `serve`. Do not re-index to debug that.
 
 `CGO_ENABLED=0` will not build.
 
@@ -85,7 +85,7 @@ No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that
 
 9. **Filenames with spaces break `pics add` from stdin.**
 
-10. **`third_party/ncnn` is sqlite-style vendored C++.** `go build` compiles it via cgo (first compile is slow). Re-vendor with `scripts/vendor-ncnn.py /path/to/ncnn-src` (keeps `custom.cpp`). Weights are converted with `scripts/convert-models.sh` (needs pnnx); `pics index -fetch DIR` copies the expected names into `$PICLIB/models/`. Custom layers `Tensor.to` / `torch.where` / `Gather` / `Embed` / `Gemm` live in `third_party/ncnn/custom.cpp` for the CLIP text graph. `Embed` is overwritten so token ids written as float32 values (`float32(id)`) are read as `(int)float` — stock ncnn Embed bitcasts the bits and clamps every token to EOT. `Gemm` is overwritten so a 3D `c=1` activation (pnnx `2=1` reshape after attn) is treated as 2D; stock Gemm takes `M=c=1` and broadcasts the SOT row, so every text query yields the same EOT vector. Restart `serve` after a rebuild.
+10. **`third_party/ncnn` is sqlite-style vendored C++.** `go build` compiles it via cgo (first compile is slow). Re-vendor with `scripts/vendor-ncnn.py /path/to/ncnn-src` (keeps `custom.cpp`). Weights are converted with `scripts/convert-models.sh` (needs pnnx); `pics index -fetch DIR` copies the expected names into `$PICLIB/models/`. Custom layers `Tensor.to` / `torch.where` / `Gather` / `Embed` / `Gemm` live in `third_party/ncnn/custom.cpp` for the CLIP text graph. `Embed` is overwritten so token ids written as float32 values (`float32(id)`) are read as `(int)float` — stock ncnn Embed bitcasts the bits and clamps every token to EOT. `Gemm` is overwritten so a 3D `c=1` activation (pnnx `2=1` reshape after attn) is treated as 2D; stock Gemm takes `M=c=1` and broadcasts the SOT row, so every text query yields the same EOT vector. Image-image CLIP stays healthy (fused MHA + CLS). Symptom: every word ranks the same photos. Restart `serve` after a rebuild; do not re-index.
 
 11. **`view`/`serve` use `xdg-open`.** Linux-centric.
 

@@ -55,7 +55,7 @@ scripts/convert-models.sh /tmp/models-ncnn   # CLIP ViT-B/32 + InsightFace buffa
 pics index -fetch /tmp/models-ncnn
 ```
 
-`pics index` links ncnn into the binary (compiled from `third_party/ncnn`, like sqlite). No `libonnxruntime.so`. CLIP text token ids are float32 values; `third_party/ncnn/custom.cpp` overrides Embed and Gemm (and supplies `Tensor.to` / `torch.where` / `Gather`) so the text graph matches. Re-vendor with `scripts/vendor-ncnn.py` — it keeps `custom.cpp`. Restart `serve` after a rebuild. `scripts/convert-models.sh` rebuilds the weight files from upstream ONNX (needs [pnnx](https://github.com/pnnx/pnnx/releases)). `-fetch DIR` copies the expected names into `$PICLIB/models/` (skips files already there).
+`pics index` links ncnn into the binary (compiled from `third_party/ncnn`, like sqlite). No `libonnxruntime.so`. CLIP text token ids are float32 values; `third_party/ncnn/custom.cpp` overrides Embed and Gemm (and supplies `Tensor.to` / `torch.where` / `Gather`) so the text graph matches. Stock Embed bitcasts those floats and every token becomes EOT; stock Gemm treats a 3D `c=1` activation as one row and every query gets the same text vector. Symptom: `christmas` and `airplane` return the same ranking. Stored image vectors are fine — do not re-index; rebuild and restart `serve`. Re-vendor with `scripts/vendor-ncnn.py` — it keeps `custom.cpp`. `scripts/convert-models.sh` rebuilds the weight files from upstream ONNX (needs [pnnx](https://github.com/pnnx/pnnx/releases)). `-fetch DIR` copies the expected names into `$PICLIB/models/` (skips files already there).
 
 ## First use
 
@@ -181,7 +181,7 @@ The search box is notes + named people + CLIP (CLIP optional). A CLIP embed erro
 - **Integrity:** `pics validate -all` re-hashes originals and prints `[ERROR]` on mismatch. Use `-v` to print `[VALID]` too.
 - **Orphans / bad names:** `pics fix -untracked` lists files in `$PICLIB` that are not in the catalog (including `piclib.sqlite`, `session.key`, `models/`). `pics fix -fnames` renames hash-matching orphans back to `{sha256}{ext}` — the only supported rename.
 - **Schema:** additive only. New tables go in the `Open` `CREATE TABLE IF NOT EXISTS` block and in the comment in `piclib/doc.go`.
-- **Tests:** `go test ./piclib`. Needs CGO + sqlite3, not ncnn models. There are no tests for `cmd/pics`, HTTP, or `internal/infer`.
+- **Tests:** `go test ./piclib`. Needs CGO + sqlite3, not ncnn models. There are no tests for `cmd/pics`, HTTP, or `internal/infer`. With models loaded, `pics list -similar christmas` and `pics list -similar airplane` must rank different IDs (same ranking means the Embed/Gemm overrides are not in the running binary).
 - **No delete.** Do not add `pics rm`. Everything hangs off `files.id`.
 
 ## Architecture
