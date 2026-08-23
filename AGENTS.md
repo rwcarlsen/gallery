@@ -85,7 +85,7 @@ No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that
 
 9. **Filenames with spaces break `pics add` from stdin.**
 
-10. **`third_party/ncnn` is sqlite-style vendored C++.** `go build` compiles it via cgo (first compile is slow). Re-vendor with `scripts/vendor-ncnn.py /path/to/ncnn-src`. Weights are converted with `scripts/convert-models.sh` (needs pnnx); `pics index -fetch DIR` copies the expected names into `$PICLIB/models/`. Custom layers `Tensor.to` / `torch.where` / `Gather` live in `third_party/ncnn/custom.cpp` for the CLIP text graph.
+10. **`third_party/ncnn` is sqlite-style vendored C++.** `go build` compiles it via cgo (first compile is slow). Re-vendor with `scripts/vendor-ncnn.py /path/to/ncnn-src` (keeps `custom.cpp`). Weights are converted with `scripts/convert-models.sh` (needs pnnx); `pics index -fetch DIR` copies the expected names into `$PICLIB/models/`. Custom layers `Tensor.to` / `torch.where` / `Gather` / `Embed` / `Gemm` live in `third_party/ncnn/custom.cpp` for the CLIP text graph. `Embed` is overwritten so token ids written as float32 values (`float32(id)`) are read as `(int)float` — stock ncnn Embed bitcasts the bits and clamps every token to EOT. `Gemm` is overwritten so a 3D `c=1` activation (pnnx `2=1` reshape after attn) is treated as 2D; stock Gemm takes `M=c=1` and broadcasts the SOT row, so every text query yields the same EOT vector. Restart `serve` after a rebuild.
 
 11. **`view`/`serve` use `xdg-open`.** Linux-centric.
 

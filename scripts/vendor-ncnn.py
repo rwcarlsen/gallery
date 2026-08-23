@@ -2,6 +2,8 @@
 """Copy a CPU-generic slice of ncnn into third_party/ncnn and emit cgo stubs.
 
 Usage: scripts/vendor-ncnn.py /path/to/ncnn-src
+
+Keeps third_party/ncnn/custom.cpp (CLIP text layers + Embed/Gemm overrides).
 """
 
 import os
@@ -399,10 +401,10 @@ def main():
     cmake = open(os.path.join(srcdir, "CMakeLists.txt")).read()
     layers = parse_layers(cmake)
 
-    # wipe previous vendor contents except go files
+    # wipe previous vendor contents except go files and custom.cpp
     if os.path.isdir(DST):
         for name in os.listdir(DST):
-            if name.endswith(".go"):
+            if name.endswith(".go") or name == "custom.cpp":
                 continue
             p = os.path.join(DST, name)
             if os.path.isdir(p):

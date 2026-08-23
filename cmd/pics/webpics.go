@@ -232,14 +232,19 @@ func searchIDs(c *gallery, q string) ([]int, map[int]hitWhy, error) {
 
 	if canSearch() {
 		eng, err := getSearchEng()
-		if err == nil {
-			if vec, err := eng.EmbedText(q); err == nil {
-				if hits, err := lib.SimilarClip(vec, piclib.DefaultClipMin); err == nil {
-					for _, hit := range hits {
-						add(hit.ID, func(h *hitWhy) { h.Clip = hit.Score })
-					}
-				}
-			}
+		if err != nil {
+			return nil, nil, err
+		}
+		vec, err := eng.EmbedText(q)
+		if err != nil {
+			return nil, nil, err
+		}
+		hits, err := lib.SimilarClip(vec, piclib.DefaultClipMin)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, hit := range hits {
+			add(hit.ID, func(h *hitWhy) { h.Clip = hit.Score })
 		}
 	}
 	return ids, why, nil

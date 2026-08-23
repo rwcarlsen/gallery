@@ -55,7 +55,7 @@ scripts/convert-models.sh /tmp/models-ncnn   # CLIP ViT-B/32 + InsightFace buffa
 pics index -fetch /tmp/models-ncnn
 ```
 
-`pics index` links ncnn into the binary (compiled from `third_party/ncnn`, like sqlite). No `libonnxruntime.so`. `scripts/convert-models.sh` rebuilds the weight files from upstream ONNX (needs [pnnx](https://github.com/pnnx/pnnx/releases)). `-fetch DIR` copies the expected names into `$PICLIB/models/` (skips files already there).
+`pics index` links ncnn into the binary (compiled from `third_party/ncnn`, like sqlite). No `libonnxruntime.so`. CLIP text token ids are float32 values; `third_party/ncnn/custom.cpp` overrides Embed and Gemm (and supplies `Tensor.to` / `torch.where` / `Gather`) so the text graph matches. Re-vendor with `scripts/vendor-ncnn.py` — it keeps `custom.cpp`. Restart `serve` after a rebuild. `scripts/convert-models.sh` rebuilds the weight files from upstream ONNX (needs [pnnx](https://github.com/pnnx/pnnx/releases)). `-fetch DIR` copies the expected names into `$PICLIB/models/` (skips files already there).
 
 ## First use
 
@@ -174,7 +174,7 @@ Password is prompted on a TTY; `-pass` is for scripts. Visibility is a Go regex 
 
 `serve`/`view` load a pic-id set (`-all`, args, or stdin). Each browser session then filters that set (auth → search → person/face). 24 thumbs per page. Notes and face chips are editable unless `-noedit`.
 
-The search box is notes + named people + CLIP (CLIP optional). Zoom shows match labels + CLIP score while a filter is active. Zero users ⇒ no login. Sessions are in-memory (restart logs everyone out); `session.key` only verifies the cookie.
+The search box is notes + named people + CLIP (CLIP optional). A CLIP embed error is an HTTP 500, not an empty grid. Zoom shows match labels + CLIP score while a filter is active. Zero users ⇒ no login. Sessions are in-memory (restart logs everyone out); `session.key` only verifies the cookie.
 
 ## Maintain
 
