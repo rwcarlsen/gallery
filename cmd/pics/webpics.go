@@ -138,7 +138,7 @@ func loadPics(args []string) {
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	c := mustGallery(w, r)
-	data := map[string]string{"User": c.userName()}
+	data := map[string]string{"User": c.userName(), "Filter": c.Filter}
 	if err := gridTmpl.Execute(w, data); err != nil {
 		log.Print(err)
 	}
@@ -182,6 +182,7 @@ func SearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.filterIDs(ids)
+	c.Filter = q
 	fmt.Fprint(w, "ok")
 }
 
@@ -297,6 +298,7 @@ func PersonHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.filterIDs(ids)
+	c.Filter = r.PathValue("name")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -319,6 +321,7 @@ func FaceSimilarHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		c.filterIDs(ids)
+		c.Filter = f.Name
 		fmt.Fprint(w, "ok")
 		return
 	}
@@ -336,6 +339,7 @@ func FaceSimilarHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	c.filterIDs(ids)
+	c.Filter = "similar face"
 	fmt.Fprint(w, "ok")
 }
 

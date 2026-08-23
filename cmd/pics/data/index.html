@@ -6,8 +6,9 @@
     <button type="button" id="when-btn">When</button>
     <div class="when-menu" id="time-nav"></div>
   </div>
-  <form class="search" id="search-form" action="#" onsubmit="return doSearch();">
-    <input id="search-q" type="search" placeholder="Search photos…" autocomplete="off">
+  <form class="search" id="search-form" action="#">
+    <input id="search-q" type="search" placeholder="Search photos…" autocomplete="off" value="{{.Filter}}">
+    <button type="button" id="search-clear" hidden>×</button>
   </form>
   <div class="spacer"></div>
   <a href="/dynamic/slideshow">Slideshow</a>

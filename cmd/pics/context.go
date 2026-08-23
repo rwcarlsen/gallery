@@ -28,6 +28,7 @@ type gallery struct {
 	photos    []*Photo
 	picMap    map[int]*Photo
 	CurrPage  string
+	Filter    string
 	random    []int
 	randIndex int
 }
@@ -72,6 +73,7 @@ func (c *gallery) rebuild() {
 
 func (c *gallery) resetFilter() {
 	c.photos = append([]*Photo{}, c.visible...)
+	c.Filter = ""
 	c.rebuild()
 }
 
@@ -235,6 +237,8 @@ func (c *gallery) serveStat(w http.ResponseWriter, stat string) {
 		fmt.Fprint(w, picsPerPage)
 	case "num-pics":
 		fmt.Fprint(w, len(c.photos))
+	case "num-visible":
+		fmt.Fprint(w, len(c.visible))
 	default:
 		fmt.Fprintf(w, "invalid stat '%v'", stat)
 	}

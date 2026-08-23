@@ -196,7 +196,7 @@ button, .btn {
 .login-card label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
 .login-card input { font: inherit; padding: 0.35rem 0.45rem; }
 .err { color: var(--err); margin: 0; }
-.search { margin: 0; }
+.search { margin: 0; display: flex; align-items: center; gap: 0.2rem; }
 .search input {
   font: inherit;
   border: 1px solid var(--line);
@@ -204,6 +204,17 @@ button, .btn {
   padding: 0.3rem 0.55rem;
   min-width: 14rem;
   background: var(--bg);
+}
+.search.on input {
+  border-color: var(--accent);
+  background: #fff;
+}
+.search #search-clear {
+  background: transparent;
+  color: var(--muted);
+  padding: 0.15rem 0.4rem;
+  font-size: 1.15rem;
+  line-height: 1;
 }
 .faces {
   display: flex;

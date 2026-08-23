@@ -39,10 +39,16 @@ async function loadTimeNav() {
 async function getStats() {
   numPages = parseInt(await get('/dynamic/stat/num-pages'), 10) || 1
   numPhotos = parseInt(await get('/dynamic/stat/num-pics'), 10) || 0
+  numVisible = parseInt(await get('/dynamic/stat/num-visible'), 10) || 0
   const el = document.getElementById('stats')
   if (el) {
-    el.textContent = numPhotos + ' photos'
+    if (numVisible && numPhotos !== numVisible) {
+      el.textContent = numPhotos + ' of ' + numVisible
+    } else {
+      el.textContent = numPhotos + ' photos'
+    }
   }
+  syncSearchUI()
 }
 
 async function updateNav() {
@@ -225,6 +231,7 @@ function setupWhen() {
 var currPage = 0
 var numPages = 0
 var numPhotos = 0
+var numVisible = 0
 
 document.addEventListener('keydown', function (e) {
   if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) {
@@ -237,18 +244,64 @@ document.addEventListener('keydown', function (e) {
   }
 })
 
-async function doSearch() {
-  const q = document.getElementById('search-q')
-  if (!q) {
-    return false
+function syncSearchUI() {
+  const form = document.getElementById('search-form')
+  const input = document.getElementById('search-q')
+  const clear = document.getElementById('search-clear')
+  const on = !!(input && input.value.trim()) || (numVisible > 0 && numPhotos !== numVisible)
+  if (form) {
+    form.classList.toggle('on', on)
   }
-  await fetch('/dynamic/search?q=' + encodeURIComponent(q.value))
-  currPage = 0
-  await loadTimeNav()
-  await getStats()
-  await pageTo(1)
-  return false
+  if (clear) {
+    clear.hidden = !on
+  }
 }
 
+var searching = false
+
+async function doSearch() {
+  const q = document.getElementById('search-q')
+  if (!q || searching) {
+    return
+  }
+  searching = true
+  q.value = q.value.trim()
+  try {
+    await fetch('/dynamic/search?q=' + encodeURIComponent(q.value))
+    currPage = 0
+    await loadTimeNav()
+    await getStats()
+    await pageTo(1)
+  } finally {
+    searching = false
+  }
+}
+
+function setupSearch() {
+  const form = document.getElementById('search-form')
+  const input = document.getElementById('search-q')
+  const clear = document.getElementById('search-clear')
+  if (!form || !input) {
+    return
+  }
+  form.addEventListener('submit', function (e) {
+    e.preventDefault()
+    doSearch()
+  })
+  input.addEventListener('search', function () {
+    if (input.value === '') {
+      doSearch()
+    }
+  })
+  if (clear) {
+    clear.addEventListener('click', function () {
+      input.value = ''
+      doSearch()
+    })
+  }
+  syncSearchUI()
+}
+
+setupSearch()
 setupWhen()
 updateNav()
