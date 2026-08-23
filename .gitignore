@@ -2,6 +2,8 @@
 *.o
 *.a
 *.so
+opencode.jsonc
+env/
 
 *.sw*
 *.notes
