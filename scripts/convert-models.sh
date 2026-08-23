@@ -1,7 +1,8 @@
 #!/bin/sh
-# Convert the CLIP + buffalo ONNX files to ncnn. Needs pnnx on PATH.
+# Convert the CLIP + buffalo ONNX files to ncnn and fetch BPE. Needs pnnx on PATH.
 #   pnnx: https://github.com/pnnx/pnnx/releases
 # Usage: scripts/convert-models.sh [outdir]
+# Then: pics index -fetch [outdir]
 set -e
 OUT=${1:-"$PWD/models-ncnn"}
 WORKDIR=${TMPDIR:-/tmp}/pics-convert-$$
@@ -29,6 +30,8 @@ unzip -o "$WORKDIR/buffalo_sc.zip" -d "$WORKDIR"
 	pnnx w600k_mbf.onnx inputshape=[1,3,112,112]
 )
 
+curl -L --retry 3 -o "$OUT/clip-bpe.txt.gz" \
+	https://github.com/openai/CLIP/raw/main/clip/bpe_simple_vocab_16e6.txt.gz
 cp "$WORKDIR/clip_image.ncnn.param" "$OUT/clip-image.param"
 cp "$WORKDIR/clip_image.ncnn.bin" "$OUT/clip-image.bin"
 cp "$WORKDIR/clip_text.ncnn.param" "$OUT/clip-text.param"

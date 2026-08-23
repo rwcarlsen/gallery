@@ -51,10 +51,11 @@ See `cmd/pics/README.md` for the embed note. Templates and static files under `c
 CLIP search and face naming need ncnn weights. They live in `$PICLIB/models/`, not the repo:
 
 ```bash
-pics index -fetch               # CLIP ViT-B/32 + InsightFace buffalo_s
+scripts/convert-models.sh /tmp/models-ncnn   # CLIP ViT-B/32 + InsightFace buffalo_s; needs pnnx
+pics index -fetch /tmp/models-ncnn
 ```
 
-`pics index` links ncnn into the binary (compiled from `third_party/ncnn`, like sqlite). No `libonnxruntime.so`. To rebuild the weight files from upstream ONNX, run `scripts/convert-models.sh` (needs [pnnx](https://github.com/pnnx/pnnx/releases)).
+`pics index` links ncnn into the binary (compiled from `third_party/ncnn`, like sqlite). No `libonnxruntime.so`. `scripts/convert-models.sh` rebuilds the weight files from upstream ONNX (needs [pnnx](https://github.com/pnnx/pnnx/releases)). `-fetch DIR` copies the expected names into `$PICLIB/models/` (skips files already there).
 
 ## First use
 
@@ -68,7 +69,7 @@ pics serve -all -view           # browse at 127.0.0.1:7777
 Later, if you want text search and named people:
 
 ```bash
-pics index -fetch && pics index
+pics index -fetch /tmp/models-ncnn
 pics list -similar 'red kayak' | pics view
 ```
 
@@ -124,7 +125,7 @@ pics list -similar 'red kayak' | pics serve -view
 | `meta` | catalog + EXIF tags from the original (`id  key  value`) |
 | `serve` | HTTP on `127.0.0.1:7777`; `-all`, `-view`, `-noedit` |
 | `view` | like serve, ephemeral port, always opens browser |
-| `index` | CLIP + faces; `-clip` / `-faces` / `-force` / `-fetch` |
+| `index` | CLIP + faces; `-clip` / `-faces` / `-force` / `-fetch DIR` |
 | `person` | `name` / `list` / `show` / `rm` |
 | `user` | `add` / `list` / `set` / `passwd` / `rm` |
 
@@ -147,7 +148,7 @@ CLIP/face **reorder** the date+regex set. They do not search the whole library i
 ### `index` / `person`
 
 ```bash
-pics index -fetch && pics index
+pics index -fetch /tmp/models-ncnn
 pics list -from 2024 | pics index -faces
 pics person name ada 101 102          # assign + propagate lookalikes
 pics person show ada | pics view

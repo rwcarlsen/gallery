@@ -85,7 +85,7 @@ No tests for `cmd/pics`, HTTP, or `internal/infer`. Do not add a test stack that
 
 9. **Filenames with spaces break `pics add` from stdin.**
 
-10. **`third_party/ncnn` is sqlite-style vendored C++.** `go build` compiles it via cgo (first compile is slow). Re-vendor with `scripts/vendor-ncnn.py /path/to/ncnn-src`. Weights are converted with `scripts/convert-models.sh` (needs pnnx). Custom layers `Tensor.to` / `torch.where` / `Gather` live in `third_party/ncnn/custom.cpp` for the CLIP text graph.
+10. **`third_party/ncnn` is sqlite-style vendored C++.** `go build` compiles it via cgo (first compile is slow). Re-vendor with `scripts/vendor-ncnn.py /path/to/ncnn-src`. Weights are converted with `scripts/convert-models.sh` (needs pnnx); `pics index -fetch DIR` copies the expected names into `$PICLIB/models/`. Custom layers `Tensor.to` / `torch.where` / `Gather` live in `third_party/ncnn/custom.cpp` for the CLIP text graph.
 
 11. **`view`/`serve` use `xdg-open`.** Linux-centric.
 

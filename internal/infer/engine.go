@@ -18,10 +18,10 @@ type Engine struct {
 
 func Open(dir string, wantClip, wantFaces bool) (*Engine, error) {
 	if wantClip && !HasCLIP(dir) {
-		return nil, fmt.Errorf("clip models missing in %s (run pics index -fetch)", dir)
+		return nil, fmt.Errorf("clip models missing in %s (run pics index -fetch DIR)", dir)
 	}
 	if wantFaces && !HasFaces(dir) {
-		return nil, fmt.Errorf("face models missing in %s (run pics index -fetch)", dir)
+		return nil, fmt.Errorf("face models missing in %s (run pics index -fetch DIR)", dir)
 	}
 	e := &Engine{dir: dir}
 	var err error
