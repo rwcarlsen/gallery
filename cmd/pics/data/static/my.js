@@ -64,21 +64,15 @@ function closeWhen() {
   }
 }
 
-function whenStops() {
+function rowStops(row) {
+  const year = row.querySelector('.year')
   const stops = []
-  document.querySelectorAll('#time-nav .year-row').forEach(function (row) {
-    const year = row.querySelector('.year')
-    if (!year) {
-      return
-    }
-    row.querySelectorAll('.month').forEach(function (a) {
-      stops.push({
-        page: parseInt(a.dataset.page, 10),
-        label: (a.dataset.full || a.textContent) + ' ' + year.textContent
-      })
+  row.querySelectorAll('.month').forEach(function (a) {
+    stops.push({
+      page: parseInt(a.dataset.page, 10),
+      label: (a.dataset.full || a.textContent) + ' ' + (year ? year.textContent : '')
     })
   })
-  stops.sort(function (a, b) { return b.page - a.page })
   return stops
 }
 
@@ -100,41 +94,45 @@ function placeWhenThumb(thumb, idx, n) {
   thumb.style.left = (t * 100) + '%'
 }
 
-function syncWhenSlider() {
-  const thumb = document.querySelector('.when-thumb')
-  if (!thumb) {
-    return
+function whenBubble() {
+  const wrap = document.getElementById('when')
+  if (!wrap) {
+    return null
   }
-  const stops = whenStops()
-  if (!stops.length) {
-    return
+  let bubble = wrap.querySelector('.when-bubble')
+  if (!bubble) {
+    bubble = document.createElement('div')
+    bubble.className = 'when-bubble'
+    bubble.hidden = true
+    wrap.appendChild(bubble)
   }
-  placeWhenThumb(thumb, nearestStop(stops, currPage), stops.length)
+  return bubble
 }
 
-function buildWhenSlider() {
-  const menu = document.getElementById('time-nav')
-  if (!menu) {
-    return
-  }
-  const stops = whenStops()
+function syncWhenSlider() {
+  document.querySelectorAll('#time-nav .year-row').forEach(function (row) {
+    const thumb = row.querySelector('.when-thumb')
+    if (!thumb) {
+      return
+    }
+    const stops = rowStops(row)
+    if (!stops.length) {
+      return
+    }
+    placeWhenThumb(thumb, nearestStop(stops, currPage), stops.length)
+  })
+}
+
+function bindWhenSlider(row, stops, bubble) {
   const slider = document.createElement('div')
   slider.className = 'when-slider'
-  const bubble = document.createElement('div')
-  bubble.className = 'when-bubble'
-  bubble.hidden = true
   const track = document.createElement('div')
   track.className = 'when-track'
   const thumb = document.createElement('div')
   thumb.className = 'when-thumb'
   track.appendChild(thumb)
-  slider.appendChild(bubble)
   slider.appendChild(track)
-  menu.prepend(slider)
-  if (!stops.length) {
-    slider.hidden = true
-    return
-  }
+  row.appendChild(slider)
   let idx = nearestStop(stops, currPage)
   placeWhenThumb(thumb, idx, stops.length)
 
@@ -152,6 +150,9 @@ function buildWhenSlider() {
     }
     idx = Math.round(t * (stops.length - 1))
     placeWhenThumb(thumb, idx, stops.length)
+    if (!bubble) {
+      return
+    }
     bubble.textContent = stops[idx].label
     bubble.hidden = false
     bubble.style.left = clientX + 'px'
@@ -177,14 +178,31 @@ function buildWhenSlider() {
     }
     e.preventDefault()
     e.stopPropagation()
-    bubble.hidden = true
+    if (bubble) {
+      bubble.hidden = true
+    }
     pageTo(stops[idx].page)
   })
   slider.addEventListener('pointercancel', function () {
-    bubble.hidden = true
+    if (bubble) {
+      bubble.hidden = true
+    }
   })
   slider.addEventListener('click', function (e) {
     e.stopPropagation()
+  })
+}
+
+function buildWhenSlider() {
+  const bubble = whenBubble()
+  if (bubble) {
+    bubble.hidden = true
+  }
+  document.querySelectorAll('#time-nav .year-row').forEach(function (row) {
+    const stops = rowStops(row)
+    if (stops.length) {
+      bindWhenSlider(row, stops, bubble)
+    }
   })
 }
 

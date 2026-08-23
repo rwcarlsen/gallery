@@ -122,11 +122,18 @@ button, .btn {
     border-radius: 0;
     border-left: 0;
     border-right: 0;
-    overflow: visible;
-    padding: 0.55rem max(0.7rem, env(safe-area-inset-right)) 0.7rem max(0.7rem, env(safe-area-inset-left));
+    max-height: 50vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0.45rem max(0.7rem, env(safe-area-inset-right)) 0.55rem max(0.7rem, env(safe-area-inset-left));
   }
-  .when-menu .year-row { display: none; }
-  .when-slider { display: block; }
+  .when-menu .year-row {
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.1rem 0;
+  }
+  .when-menu .year-row .month { display: none; }
+  .when-slider { display: block; flex: 1; min-width: 0; padding: 0; }
 }
 #pic-gallery { padding: 4.2rem 1.2rem; }
 .thumb-grid {
